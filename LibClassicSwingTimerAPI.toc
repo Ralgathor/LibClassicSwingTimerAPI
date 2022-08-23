@@ -1,0 +1,9 @@
+## Interface: 90207
+## Version: 1.0.0
+## Title: Swing Timer API
+## Notes: My first addon
+## Author: Ralgathor
+
+LibStub\LibStub.lua
+CallbackHandler-1.0\CallbackHandler-1.0.lua
+SwingTimerAPI.lua
