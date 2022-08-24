@@ -5,6 +5,7 @@ if not Lib then return end
 local frame = _G["SwingTimerFrame"] or CreateFrame("Frame", "SwingTimerFrame");
 
 Lib.reset_swing_spells = {
+
     [16589] = true, -- Noggenfogger Elixir
     [2645] = true, -- Ghost Wolf
     [51533] = true, -- Feral Spirit
