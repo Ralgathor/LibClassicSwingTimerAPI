@@ -40,7 +40,15 @@ Fired if a weapon swing is clipped by a spell cast.
 
 | Property | Description |  
 | ----------- | ----------- |
-| hand | string - The hand that is clip "mainhand" or "offhand" |
+| hand | string - The hand that is clipped "mainhand" or "offhand" |
+
+### SWING_TIMER_PAUSE
+
+Fired if a weapon swing is paused by a spell cast.
+
+| Property | Description |  
+| ----------- | ----------- |
+| hand | string - The hand that is paused "mainhand" or "offhand" |
 
 ### SWING_TIMER_DELTA
 
