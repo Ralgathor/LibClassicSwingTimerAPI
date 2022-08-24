@@ -1,11 +1,10 @@
 local MAJOR, MINOR = "LibClassicSwingTimerAPI", 1
-local Lib = LibStub:NewLibrary(MAJOR, MINOR)
-if not Lib then return end
+local lib = LibStub:NewLibrary(MAJOR, MINOR)
+if not lib then return end
 
 local frame = _G["SwingTimerFrame"] or CreateFrame("Frame", "SwingTimerFrame");
 
-Lib.reset_swing_spells = {
-
+lib.reset_swing_spells = {
     [16589] = true, -- Noggenfogger Elixir
     [2645] = true, -- Ghost Wolf
     [51533] = true, -- Feral Spirit
@@ -16,13 +15,13 @@ Lib.reset_swing_spells = {
     [75] = true, -- Auto Shot
 }
 
-Lib.prevent_swing_speed_update = {
+lib.prevent_swing_speed_update = {
     [768] = true, -- Cat Form
     [5487] = true, -- Bear Form
     [9634] = true, -- Dire Bear Form
 }
 
-Lib.next_melee_spells = {
+lib.next_melee_spells = {
     [47450] = true, -- Heroic Strike (rank 13)
     [47449] = true, -- Heroic Strike (rank 12)
     [30324] = true, -- Heroic Strike (rank 11)
@@ -67,7 +66,7 @@ Lib.next_melee_spells = {
     [48480] = true, -- Maul (rank 10)
 }
 
-Lib.noreset_swing_spells = {
+lib.noreset_swing_spells = {
     [23063] = true, -- Dense Dynamite
     [4054] = true, -- Rough Dynamite
     [4064] = true, -- Rough Copper Bomb
@@ -110,11 +109,11 @@ Lib.noreset_swing_spells = {
     --35474 Drums of Panic DO reset the swing timer, do not add
 }
 
-Lib.prevent_reset_swing_auras = {
+lib.prevent_reset_swing_auras = {
     [53817] = true, -- Maelstrom Weapon
 }
 
-Lib.pause_swing_spells = {
+lib.pause_swing_spells = {
     [1464] = true, -- Slam (rank 1)
     [8820] = true, -- Slam (rank 2)
     [11604] = true, -- Slam (rank 3)
@@ -125,9 +124,9 @@ Lib.pause_swing_spells = {
     [47475] = true, -- Slam (rank 8)
 }
 
-Lib.callbacks = Lib.callbacks or LibStub("CallbackHandler-1.0"):New(Lib)
+lib.callbacks = lib.callbacks or LibStub("CallbackHandler-1.0"):New(lib)
 
-function Lib:ADDON_LOADED(event, addOnName)
+function lib:ADDON_LOADED(event, addOnName)
     if addOnName ~= "LibClassicSwingTimerAPI" then return end
 
     self.unit = "player"
@@ -167,13 +166,13 @@ function Lib:ADDON_LOADED(event, addOnName)
     self.skipNextAttackSpeedUpdateCount = 0
 end
 
-function Lib:CalculateDelta()
+function lib:CalculateDelta()
     if self.offSpeed > 0 and self.mainExpirationTime ~= nil and self.offExpirationTime ~= nil then
         self.callbacks:Fire("SWING_TIMER_DELTA", self.mainExpirationTime - self.offExpirationTime)
     end
 end
 
-function Lib:SwingStart(hand, startTime, isReset)
+function lib:SwingStart(hand, startTime, isReset)
     if hand == "mainhand" then
         if self.mainTimer and isReset then
             self.mainTimer:Cancel()
@@ -225,7 +224,7 @@ function Lib:SwingStart(hand, startTime, isReset)
     end
 end
 
-function Lib:SwingEnd(hand)
+function lib:SwingEnd(hand)
     self.callbacks:Fire("SWING_TIMER_STOP", hand)
     if self.casting and self.isAttacking and hand ~= "ranged" then
         local now = GetTime()
@@ -234,7 +233,7 @@ function Lib:SwingEnd(hand)
     end
 end
 
-function Lib:COMBAT_LOG_EVENT_UNFILTERED(event, ts, subEvent, _, sourceGUID, sourceName, sourceFlags, sourceRaidFlags, destGUID, destName, destFlags, destRaidFlags, amount, overkill, school, resisted, blocked, absorbed, critical, glancing, crushing, isOffHand)
+function lib:COMBAT_LOG_EVENT_UNFILTERED(event, ts, subEvent, _, sourceGUID, sourceName, sourceFlags, sourceRaidFlags, destGUID, destName, destFlags, destRaidFlags, amount, overkill, school, resisted, blocked, absorbed, critical, glancing, crushing, isOffHand)
     local now = GetTime()
     if subEvent == "SPELL_EXTRA_ATTACKS" then
         self.skipNextAttack = ts
@@ -283,7 +282,7 @@ function Lib:COMBAT_LOG_EVENT_UNFILTERED(event, ts, subEvent, _, sourceGUID, sou
     end
 end
 
-function Lib:UNIT_ATTACK_SPEED()
+function lib:UNIT_ATTACK_SPEED()
     local now = GetTime()
     if self.skipNextAttackSpeedUpdate and tonumber(self.skipNextAttackSpeedUpdate) and (now - self.skipNextAttackSpeedUpdate) < 0.04 and tonumber(self.skipNextAttackSpeedUpdateCount) then
         self.skipNextAttackSpeedUpdateCount = self.skipNextAttackSpeedUpdateCount - 1
@@ -322,7 +321,7 @@ function Lib:UNIT_ATTACK_SPEED()
     end
 end
 
-function Lib:UNIT_SPELLCAST_INTERRUPTED_OR_FAILED(event, unit, guid, spell)
+function lib:UNIT_SPELLCAST_INTERRUPTED_OR_FAILED(event, unit, guid, spell)
     self.casting = false
     if spell and self.pause_swing_spells[spell] and self.pauseSwingTime then
         self.pauseSwingTime = nil
@@ -342,14 +341,14 @@ function Lib:UNIT_SPELLCAST_INTERRUPTED_OR_FAILED(event, unit, guid, spell)
         end
     end
 end
-function Lib:UNIT_SPELLCAST_INTERRUPTED(event, unit, guid, spell)
+function lib:UNIT_SPELLCAST_INTERRUPTED(event, unit, guid, spell)
     self:UNIT_SPELLCAST_INTERRUPTED_OR_FAILED(event, unit, guid, spell)
 end 
-function Lib:UNIT_SPELLCAST_FAILED(event, unit, guid, spell)
+function lib:UNIT_SPELLCAST_FAILED(event, unit, guid, spell)
     self:UNIT_SPELLCAST_INTERRUPTED_OR_FAILED(event, unit, guid, spell)
 end
 
-function Lib:UNIT_SPELLCAST_SUCCEEDED(event, unit, guid, spell)
+function lib:UNIT_SPELLCAST_SUCCEEDED(event, unit, guid, spell)
     local now = GetTime()
     if spell ~= nil and self.next_melee_spells[spell] then
         self:SwingStart("mainhand", now, false)
@@ -384,7 +383,7 @@ function Lib:UNIT_SPELLCAST_SUCCEEDED(event, unit, guid, spell)
     end
 end
 
-function Lib:UNIT_SPELLCAST_START(event, unit, guid, spell)
+function lib:UNIT_SPELLCAST_START(event, unit, guid, spell)
     if spell then
         local now = GetTime()
         local name, rank, icon, castTime, minRange, maxRange, spellId = GetSpellInfo(spell)
@@ -415,7 +414,7 @@ function Lib:UNIT_SPELLCAST_START(event, unit, guid, spell)
     end
 end
 
-function Lib:PLAYER_EQUIPMENT_CHANGED(event, equipmentSlot, hasCurrent)
+function lib:PLAYER_EQUIPMENT_CHANGED(event, equipmentSlot, hasCurrent)
     if equipmentSlot == 16 or equipmentSlot == 17 or equipmentSlot == 18 then
         local now = GetTime()        
         self:SwingStart("mainhand", now, true)
@@ -424,7 +423,7 @@ function Lib:PLAYER_EQUIPMENT_CHANGED(event, equipmentSlot, hasCurrent)
     end
 end
 
-function Lib:PLAYER_ENTER_COMBAT()
+function lib:PLAYER_ENTER_COMBAT()
     local now = GetTime()
     self.isAttacking = true
     if now > (self.offExpirationTime - (self.offSpeed/2)) then
@@ -435,7 +434,7 @@ function Lib:PLAYER_ENTER_COMBAT()
     end
 end
 
-function Lib:PLAYER_LEAVE_COMBAT()
+function lib:PLAYER_LEAVE_COMBAT()
     self.isAttacking = false
     self.firstMainSwing = false
     self.firstOffSwing = false
@@ -445,17 +444,17 @@ frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED");
 frame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED");
 frame:RegisterEvent("PLAYER_ENTER_COMBAT");
 frame:RegisterEvent("PLAYER_LEAVE_COMBAT");
-frame:RegisterUnitEvent("UNIT_ATTACK_SPEED",Lib.unit);
-frame:RegisterUnitEvent("UNIT_SPELLCAST_START",Lib.unit);
-frame:RegisterUnitEvent("UNIT_SPELLCAST_INTERRUPTED",Lib.unit)
-frame:RegisterUnitEvent("UNIT_SPELLCAST_FAILED",Lib.unit);
-frame:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED",Lib.unit);
+frame:RegisterUnitEvent("UNIT_ATTACK_SPEED",lib.unit);
+frame:RegisterUnitEvent("UNIT_SPELLCAST_START",lib.unit);
+frame:RegisterUnitEvent("UNIT_SPELLCAST_INTERRUPTED",lib.unit)
+frame:RegisterUnitEvent("UNIT_SPELLCAST_FAILED",lib.unit);
+frame:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED",lib.unit);
 frame:RegisterEvent("ADDON_LOADED");
 
 frame:SetScript("OnEvent", function(self, event, ...)
     if event == "COMBAT_LOG_EVENT_UNFILTERED" then
-        Lib[event](Lib, event, CombatLogGetCurrentEventInfo())
+        lib[event](lib, event, CombatLogGetCurrentEventInfo())
     else
-        Lib[event](Lib, event, ...)
+        lib[event](lib, event, ...)
     end
 end);
