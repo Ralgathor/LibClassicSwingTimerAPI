@@ -236,13 +236,13 @@ function SwingTimerAPI:COMBAT_LOG_EVENT_UNFILTERED(event, ts, subEvent, _, sourc
             self.mainTimer:Cancel()
         end
         local swing_timer_reduced_40p = self.mainExpirationTime - (0.4 * self.mainSpeed)
-        local min_swing_time = self.mainExpirationTime - (0.2 * self.mainSpeed)             
+        local min_swing_time = 0.2 * self.mainSpeed       
         if swing_timer_reduced_40p < min_swing_time then
             self.mainExpirationTime = min_swing_time
         else
             self.mainExpirationTime = swing_timer_reduced_40p
         end
-        SwingTimerAPI.callbacks:Fire("SWING_TIMER_UPDATE", self.mainSpeed, self.mainExpirationTime, hand)
+        SwingTimerAPI.callbacks:Fire("SWING_TIMER_UPDATE", self.mainSpeed, self.mainExpirationTime, "mainhand")
         if self.mainSpeed > 0 and self.mainExpirationTime - GetTime() > 0 then
             self.mainTimer = C_Timer.NewTimer(self.mainExpirationTime - GetTime(), function() self:SwingEnd("mainhand") end)
         end
