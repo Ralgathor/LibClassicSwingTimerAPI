@@ -35,6 +35,9 @@ SwingTimerAPI.preventSwingReset = false
 SwingTimerAPI.skipNextAttack = nil
 SwingTimerAPI.skipNextAttackCount = 0
 
+SwingTimerAPI.skipNextAttackSpeedUpdate = nil
+SwingTimerAPI.skipNextAttackSpeedUpdateCount = 0
+
 SwingTimerAPI.reset_swing_spells = {
     [16589] = true, -- Noggenfogger Elixir
     [2645] = true, -- Ghost Wolf
@@ -42,7 +45,14 @@ SwingTimerAPI.reset_swing_spells = {
     [2764] = true, -- Throw
     [3018] = true, -- Shoots,
     [5384] = true, -- Feign Death
+    [5019] = true, -- Shoot
     [75] = true, -- Auto Shot
+}
+
+SwingTimerAPI.prevent_swing_speed_update = {
+    [768] = true, -- Cat Form
+    [5487] = true, -- Bear Form
+    [9634] = true, -- Dire Bear Form
 }
 
 SwingTimerAPI.next_melee_spells = {
@@ -246,17 +256,27 @@ function SwingTimerAPI:COMBAT_LOG_EVENT_UNFILTERED(event, ts, subEvent, _, sourc
         if self.mainSpeed > 0 and self.mainExpirationTime - GetTime() > 0 then
             self.mainTimer = C_Timer.NewTimer(self.mainExpirationTime - GetTime(), function() self:SwingEnd("mainhand") end)
         end
+    elseif (subEvent == "SPELL_AURA_APPLIED" or subEvent == "SPELL_AURA_REMOVED") and sourceGUID == self.unitGUID then
+        local spell = amount
+        if spell and self.prevent_swing_speed_update[spell] then
+            self.skipNextAttackSpeedUpdate = now
+            self.skipNextAttackSpeedUpdateCount = 2
+        end
     end
 end
 
 function SwingTimerAPI:UNIT_ATTACK_SPEED()
+    local now = GetTime()
+    if self.skipNextAttackSpeedUpdate and tonumber(self.skipNextAttackSpeedUpdate) and (now - self.skipNextAttackSpeedUpdate) < 0.04 and tonumber(self.skipNextAttackSpeedUpdateCount) then
+        self.skipNextAttackSpeedUpdateCount = self.skipNextAttackSpeedUpdateCount - 1
+        return
+    end
     if self.mainTimer then
         self.mainTimer:Cancel()
     end
     if self.offTimer then
         self.offTimer:Cancel()
     end
-    local now = GetTime()
     local mainSpeedNew, offSpeedNew = UnitAttackSpeed(self.unit)
     offSpeedNew = offSpeedNew or 0
     if mainSpeedNew > 0 and self.mainSpeed > 0 and mainSpeedNew ~= self.mainSpeed then
@@ -308,7 +328,7 @@ function SwingTimerAPI:UNIT_SPELLCAST_SUCCEEDED(event, unit, guid, spell)
         elseif spell == 3018 or spell == 2764 then
             self.rangedAttackSpeedMultiplier = 1
         end
-        self:SwingStart("ranged", now, (spell ~= 75 and spell ~= 3018 and spell ~= 2764))
+        self:SwingStart("ranged", now, (spell ~= 75 and spell ~= 3018 and spell ~= 2764 and spell ~= 5019))
     end
     if self.casting then
         self.casting = false
