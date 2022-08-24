@@ -1,8 +1,8 @@
 # LibClassicSwingTimerAPI
 
-This lib give an overview of the Swing Timer state.
+This lib add events to describe state of the swing timer.
 
-There is no relevant WOW API to have a real state of the Swing Timer so take in mind it can some time not be 100% accurate like all Swing Timer addons implementation!
+There is no relevant WOW API to have a real state of the swing timer so take in mind it can some time not be 100% accurate!
 
 ## API EVENTS
 
@@ -42,7 +42,7 @@ Fired if a weapon swing is clipped by a spell cast.
 | ----------- | ----------- |
 | hand | string - The hand that is clipped "mainhand" or "offhand" |
 
-### SWING_TIMER_PAUSE
+### SWING_TIMER_PAUSED
 
 Fired if a weapon swing is paused by a spell cast.
 
