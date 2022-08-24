@@ -134,23 +134,10 @@ SwingTimerAPI.noreset_swing_spells = {
 }
 
 SwingTimerAPI.prevent_reset_swing_auras = {
-    53817, -- Maelstrom Weapon
+    [53817] = true, -- Maelstrom Weapon
 }
 
 SwingTimerAPI.callbacks = SwingTimerAPI.callbacks or LibStub("CallbackHandler-1.0"):New(SwingTimerAPI)
-
-local WA_GetUnitAura = function(unit, spell, filter)
-    if filter and not filter:upper():find("FUL") then
-        filter = filter.."|HELPFUL"
-    end
-    for i = 1, 255 do
-        local name, _, _, _, _, _, _, _, _, spellId = UnitAura(unit, i, filter)
-        if not name then return end
-        if spell == spellId or spell == name then
-        return UnitAura(unit, i, filter)
-        end
-    end
-end
 
 function SwingTimerAPI:CalculateDelta()
     if self.offSpeed > 0 and self.mainExpirationTime ~= nil and self.offExpirationTime ~= nil then
@@ -335,11 +322,11 @@ function SwingTimerAPI:UNIT_SPELLCAST_START(event, unit, guid, spell)
         local endOfCast = now + (castTime/1000)
         self.casting = true
         self.preventSwingReset = self.noreset_swing_spells[spell]
-        for _, auraid in ipairs(self.prevent_reset_swing_auras) do
-            local aura = WA_GetUnitAura(self.unit,53817)
-            if aura then
-                self.preventSwingReset = true
-            end
+        for i = 1, 255 do
+            if self.preventSwingReset then return end
+            local _, _, _, _, _, _, _, _, _, spellId = UnitAura(unit, i, filter)
+            if not spellId then return end
+            self.preventSwingReset = self.prevent_reset_swing_auras[spellId]
         end
     end
 end
