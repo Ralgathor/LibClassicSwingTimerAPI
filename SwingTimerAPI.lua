@@ -1,44 +1,12 @@
+local MAJOR, MINOR = "LibClassicSwingTimer", 1
+local lib = LibStub:NewLibrary(MAJOR, MINOR)
+if not lib then return end
+
 local swingTimerFrame = _G["SwingTimerFrame"] or CreateFrame("Frame", "SwingTimerFrame");
 
-SwingTimerAPI = SwingTimerAPI or {}
+SwingTimerLib = SwingTimerLib or {}
 
-SwingTimerAPI.unit = "player"
-SwingTimerAPI.unitGUID = UnitGUID(SwingTimerAPI.unit)
-
-local mainSpeed, offSpeed = UnitAttackSpeed(SwingTimerAPI.unit)
-local now = GetTime()
-
-SwingTimerAPI.mainSpeed = mainSpeed
-SwingTimerAPI.offSpeed = offSpeed or 0
-
-SwingTimerAPI.lastMainSwing = now
-SwingTimerAPI.mainExpirationTime = SwingTimerAPI.lastMainSwing + SwingTimerAPI.mainSpeed
-SwingTimerAPI.firstMainSwing = false
-
-SwingTimerAPI.lastOffSwing = now
-SwingTimerAPI.offExpirationTime = SwingTimerAPI.lastMainSwing + SwingTimerAPI.mainSpeed
-SwingTimerAPI.firstOffSwing = false
-
-SwingTimerAPI.lastRangedSwing = now
-SwingTimerAPI.rangedSpeed = UnitRangedDamage(SwingTimerAPI.unit) or 0
-SwingTimerAPI.rangedAttackSpeedMultiplier = 1
-SwingTimerAPI.rangedExpirationTime = SwingTimerAPI.lastRangedSwing + SwingTimerAPI.rangedSpeed
-
-SwingTimerAPI.mainTimer = nil
-SwingTimerAPI.offTimer = nil
-SwingTimerAPI.rangedTimer = nil
-SwingTimerAPI.calculaDeltaTimer = nil
-
-SwingTimerAPI.casting = false
-SwingTimerAPI.isAttacking = false
-SwingTimerAPI.preventSwingReset = false
-SwingTimerAPI.skipNextAttack = nil
-SwingTimerAPI.skipNextAttackCount = 0
-
-SwingTimerAPI.skipNextAttackSpeedUpdate = nil
-SwingTimerAPI.skipNextAttackSpeedUpdateCount = 0
-
-SwingTimerAPI.reset_swing_spells = {
+SwingTimerLib.reset_swing_spells = {
     [16589] = true, -- Noggenfogger Elixir
     [2645] = true, -- Ghost Wolf
     [51533] = true, -- Feral Spirit
@@ -49,13 +17,13 @@ SwingTimerAPI.reset_swing_spells = {
     [75] = true, -- Auto Shot
 }
 
-SwingTimerAPI.prevent_swing_speed_update = {
+SwingTimerLib.prevent_swing_speed_update = {
     [768] = true, -- Cat Form
     [5487] = true, -- Bear Form
     [9634] = true, -- Dire Bear Form
 }
 
-SwingTimerAPI.next_melee_spells = {
+SwingTimerLib.next_melee_spells = {
     [47450] = true, -- Heroic Strike (rank 13)
     [47449] = true, -- Heroic Strike (rank 12)
     [30324] = true, -- Heroic Strike (rank 11)
@@ -100,7 +68,7 @@ SwingTimerAPI.next_melee_spells = {
     [48480] = true, -- Maul (rank 10)
 }
 
-SwingTimerAPI.noreset_swing_spells = {
+SwingTimerLib.noreset_swing_spells = {
     [23063] = true, -- Dense Dynamite
     [4054] = true, -- Rough Dynamite
     [4064] = true, -- Rough Copper Bomb
@@ -143,11 +111,11 @@ SwingTimerAPI.noreset_swing_spells = {
     --35474 Drums of Panic DO reset the swing timer, do not add
 }
 
-SwingTimerAPI.prevent_reset_swing_auras = {
+SwingTimerLib.prevent_reset_swing_auras = {
     [53817] = true, -- Maelstrom Weapon
 }
 
-SwingTimerAPI.pause_swing_spells = {
+SwingTimerLib.pause_swing_spells = {
     [1464] = true, -- Slam (rank 1)
     [8820] = true, -- Slam (rank 2)
     [11604] = true, -- Slam (rank 3)
@@ -158,15 +126,55 @@ SwingTimerAPI.pause_swing_spells = {
     [47475] = true, -- Slam (rank 8)
 }
 
-SwingTimerAPI.callbacks = SwingTimerAPI.callbacks or LibStub("CallbackHandler-1.0"):New(SwingTimerAPI)
+SwingTimerLib.callbacks = SwingTimerLib.callbacks or LibStub("CallbackHandler-1.0"):New(SwingTimerLib)
 
-function SwingTimerAPI:CalculateDelta()
+function SwingTimerLib:ADDON_LOADED(event, addOnName)
+    if addOnName ~= "LibClassicSwingTimerAPI" then return end
+
+    self.unit = "player"
+    self.unitGUID = UnitGUID(self.unit)
+
+    local mainSpeed, offSpeed = UnitAttackSpeed(self.unit)
+    local now = GetTime()
+
+    self.mainSpeed = mainSpeed
+    self.offSpeed = offSpeed or 0
+
+    self.lastMainSwing = now
+    self.mainExpirationTime = self.lastMainSwing + self.mainSpeed
+    self.firstMainSwing = false
+
+    self.lastOffSwing = now
+    self.offExpirationTime = self.lastMainSwing + self.mainSpeed
+    self.firstOffSwing = false
+
+    self.lastRangedSwing = now
+    self.rangedSpeed = UnitRangedDamage(self.unit) or 0
+    self.rangedAttackSpeedMultiplier = 1
+    self.rangedExpirationTime = self.lastRangedSwing + self.rangedSpeed
+
+    self.mainTimer = nil
+    self.offTimer = nil
+    self.rangedTimer = nil
+    self.calculaDeltaTimer = nil
+
+    self.casting = false
+    self.isAttacking = false
+    self.preventSwingReset = false
+    self.skipNextAttack = nil
+    self.skipNextAttackCount = 0
+
+    self.skipNextAttackSpeedUpdate = nil
+    self.skipNextAttackSpeedUpdateCount = 0
+end
+
+function SwingTimerLib:CalculateDelta()
     if self.offSpeed > 0 and self.mainExpirationTime ~= nil and self.offExpirationTime ~= nil then
         self.callbacks:Fire("SWING_TIMER_DELTA", self.mainExpirationTime - self.offExpirationTime)
     end
 end
 
-function SwingTimerAPI:SwingStart(hand, startTime, isReset)
+function SwingTimerLib:SwingStart(hand, startTime, isReset)
     if hand == "mainhand" then
         if self.mainTimer and isReset then
             self.mainTimer:Cancel()
@@ -218,7 +226,7 @@ function SwingTimerAPI:SwingStart(hand, startTime, isReset)
     end
 end
 
-function SwingTimerAPI:SwingEnd(hand)
+function SwingTimerLib:SwingEnd(hand)
     self.callbacks:Fire("SWING_TIMER_STOP", hand)
     if self.casting and self.isAttacking and hand ~= "ranged" then
         local now = GetTime()
@@ -227,7 +235,7 @@ function SwingTimerAPI:SwingEnd(hand)
     end
 end
 
-function SwingTimerAPI:COMBAT_LOG_EVENT_UNFILTERED(event, ts, subEvent, _, sourceGUID, sourceName, sourceFlags, sourceRaidFlags, destGUID, destName, destFlags, destRaidFlags, amount, overkill, school, resisted, blocked, absorbed, critical, glancing, crushing, isOffHand)
+function SwingTimerLib:COMBAT_LOG_EVENT_UNFILTERED(event, ts, subEvent, _, sourceGUID, sourceName, sourceFlags, sourceRaidFlags, destGUID, destName, destFlags, destRaidFlags, amount, overkill, school, resisted, blocked, absorbed, critical, glancing, crushing, isOffHand)
     local now = GetTime()
     if subEvent == "SPELL_EXTRA_ATTACKS" then
         self.skipNextAttack = ts
@@ -276,7 +284,7 @@ function SwingTimerAPI:COMBAT_LOG_EVENT_UNFILTERED(event, ts, subEvent, _, sourc
     end
 end
 
-function SwingTimerAPI:UNIT_ATTACK_SPEED()
+function SwingTimerLib:UNIT_ATTACK_SPEED()
     local now = GetTime()
     if self.skipNextAttackSpeedUpdate and tonumber(self.skipNextAttackSpeedUpdate) and (now - self.skipNextAttackSpeedUpdate) < 0.04 and tonumber(self.skipNextAttackSpeedUpdateCount) then
         self.skipNextAttackSpeedUpdateCount = self.skipNextAttackSpeedUpdateCount - 1
@@ -315,7 +323,7 @@ function SwingTimerAPI:UNIT_ATTACK_SPEED()
     end
 end
 
-function SwingTimerAPI:UNIT_SPELLCAST_INTERRUPTED_OR_FAILED(event, unit, guid, spell)
+function SwingTimerLib:UNIT_SPELLCAST_INTERRUPTED_OR_FAILED(event, unit, guid, spell)
     self.casting = false
     if spell and self.pause_swing_spells[spell] and self.pauseSwingTime then
         self.pauseSwingTime = nil
@@ -335,14 +343,14 @@ function SwingTimerAPI:UNIT_SPELLCAST_INTERRUPTED_OR_FAILED(event, unit, guid, s
         end
     end
 end
-function SwingTimerAPI:UNIT_SPELLCAST_INTERRUPTED(event, unit, guid, spell)
+function SwingTimerLib:UNIT_SPELLCAST_INTERRUPTED(event, unit, guid, spell)
     self:UNIT_SPELLCAST_INTERRUPTED_OR_FAILED(event, unit, guid, spell)
 end 
-function SwingTimerAPI:UNIT_SPELLCAST_FAILED(event, unit, guid, spell)
+function SwingTimerLib:UNIT_SPELLCAST_FAILED(event, unit, guid, spell)
     self:UNIT_SPELLCAST_INTERRUPTED_OR_FAILED(event, unit, guid, spell)
 end
 
-function SwingTimerAPI:UNIT_SPELLCAST_SUCCEEDED(event, unit, guid, spell)
+function SwingTimerLib:UNIT_SPELLCAST_SUCCEEDED(event, unit, guid, spell)
     local now = GetTime()
     if spell ~= nil and self.next_melee_spells[spell] then
         self:SwingStart("mainhand", now, false)
@@ -377,7 +385,7 @@ function SwingTimerAPI:UNIT_SPELLCAST_SUCCEEDED(event, unit, guid, spell)
     end
 end
 
-function SwingTimerAPI:UNIT_SPELLCAST_START(event, unit, guid, spell)
+function SwingTimerLib:UNIT_SPELLCAST_START(event, unit, guid, spell)
     if spell then
         local now = GetTime()
         local name, rank, icon, castTime, minRange, maxRange, spellId = GetSpellInfo(spell)
@@ -408,7 +416,7 @@ function SwingTimerAPI:UNIT_SPELLCAST_START(event, unit, guid, spell)
     end
 end
 
-function SwingTimerAPI:PLAYER_EQUIPMENT_CHANGED(event, equipmentSlot, hasCurrent)
+function SwingTimerLib:PLAYER_EQUIPMENT_CHANGED(event, equipmentSlot, hasCurrent)
     if equipmentSlot == 16 or equipmentSlot == 17 or equipmentSlot == 18 then
         local now = GetTime()        
         self:SwingStart("mainhand", now, true)
@@ -417,7 +425,7 @@ function SwingTimerAPI:PLAYER_EQUIPMENT_CHANGED(event, equipmentSlot, hasCurrent
     end
 end
 
-function SwingTimerAPI:PLAYER_ENTER_COMBAT()
+function SwingTimerLib:PLAYER_ENTER_COMBAT()
     local now = GetTime()
     self.isAttacking = true
     if now > (self.offExpirationTime - (self.offSpeed/2)) then
@@ -428,7 +436,7 @@ function SwingTimerAPI:PLAYER_ENTER_COMBAT()
     end
 end
 
-function SwingTimerAPI:PLAYER_LEAVE_COMBAT()
+function SwingTimerLib:PLAYER_LEAVE_COMBAT()
     self.isAttacking = false
     self.firstMainSwing = false
     self.firstOffSwing = false
@@ -438,16 +446,17 @@ swingTimerFrame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED");
 swingTimerFrame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED");
 swingTimerFrame:RegisterEvent("PLAYER_ENTER_COMBAT");
 swingTimerFrame:RegisterEvent("PLAYER_LEAVE_COMBAT");
-swingTimerFrame:RegisterUnitEvent("UNIT_ATTACK_SPEED",SwingTimerAPI.unit);
-swingTimerFrame:RegisterUnitEvent("UNIT_SPELLCAST_START",SwingTimerAPI.unit);
-swingTimerFrame:RegisterUnitEvent("UNIT_SPELLCAST_INTERRUPTED",SwingTimerAPI.unit)
-swingTimerFrame:RegisterUnitEvent("UNIT_SPELLCAST_FAILED",SwingTimerAPI.unit);
-swingTimerFrame:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED",SwingTimerAPI.unit);
+swingTimerFrame:RegisterUnitEvent("UNIT_ATTACK_SPEED",SwingTimerLib.unit);
+swingTimerFrame:RegisterUnitEvent("UNIT_SPELLCAST_START",SwingTimerLib.unit);
+swingTimerFrame:RegisterUnitEvent("UNIT_SPELLCAST_INTERRUPTED",SwingTimerLib.unit)
+swingTimerFrame:RegisterUnitEvent("UNIT_SPELLCAST_FAILED",SwingTimerLib.unit);
+swingTimerFrame:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED",SwingTimerLib.unit);
+swingTimerFrame:RegisterEvent("ADDON_LOADED");
 
 swingTimerFrame:SetScript("OnEvent", function(self, event, ...)
-        if event == "COMBAT_LOG_EVENT_UNFILTERED" then
-            SwingTimerAPI[event](SwingTimerAPI, event, CombatLogGetCurrentEventInfo())
-        else
-            SwingTimerAPI[event](SwingTimerAPI, event, ...)
-        end
+    if event == "COMBAT_LOG_EVENT_UNFILTERED" then
+        SwingTimerLib[event](SwingTimerLib, event, CombatLogGetCurrentEventInfo())
+    else
+        SwingTimerLib[event](SwingTimerLib, event, ...)
+    end
 end);
