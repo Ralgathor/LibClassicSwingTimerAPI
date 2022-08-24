@@ -147,6 +147,17 @@ SwingTimerAPI.prevent_reset_swing_auras = {
     [53817] = true, -- Maelstrom Weapon
 }
 
+SwingTimerAPI.pause_swing_spells = {
+    [1464] = true, -- Slam (rank 1)
+    [8820] = true, -- Slam (rank 2)
+    [11604] = true, -- Slam (rank 3)
+    [11605] = true, -- Slam (rank 4)
+    [25241] = true, -- Slam (rank 5)
+    [25242] = true, -- Slam (rank 6)
+    [47474] = true, -- Slam (rank 7)
+    [47475] = true, -- Slam (rank 8)
+}
+
 SwingTimerAPI.callbacks = SwingTimerAPI.callbacks or LibStub("CallbackHandler-1.0"):New(SwingTimerAPI)
 
 function SwingTimerAPI:CalculateDelta()
@@ -304,14 +315,31 @@ function SwingTimerAPI:UNIT_ATTACK_SPEED()
     end
 end
 
-function SwingTimerAPI:UNIT_SPELLCAST_INTERRUPTED_OR_FAILED()
+function SwingTimerAPI:UNIT_SPELLCAST_INTERRUPTED_OR_FAILED(event, unit, guid, spell)
     self.casting = false
+    if spell and self.pause_swing_spells[spell] and self.pauseSwingTime then
+        self.pauseSwingTime = nil
+        if self.mainSpeed > 0 then
+            if self.mainExpirationTime < GetTime() and self.isAttacking then
+                self.mainExpirationTime = self.mainExpirationTime + self.mainSpeed
+            end
+            self.callbacks:Fire("SWING_TIMER_UPDATE", self.mainSpeed, self.mainExpirationTime, "mainhand")
+            self.mainTimer = C_Timer.NewTimer(self.mainExpirationTime - GetTime(), function() self:SwingEnd("mainhand") end)
+        end
+        if self.offSpeed > 0 then
+            if self.offExpirationTime < GetTime() and self.isAttacking then
+                self.offExpirationTime = self.offExpirationTime + self.offSpeed
+            end
+            self.callbacks:Fire("SWING_TIMER_UPDATE", self.offSpeed, self.offExpirationTime, "offhand")
+            self.offTimer = C_Timer.NewTimer(self.offExpirationTime - GetTime(), function() self:SwingEnd("offhand") end)
+        end
+    end
 end
-function SwingTimerAPI:UNIT_SPELLCAST_INTERRUPTED()
-    self:UNIT_SPELLCAST_INTERRUPTED_OR_FAILED()
+function SwingTimerAPI:UNIT_SPELLCAST_INTERRUPTED(event, unit, guid, spell)
+    self:UNIT_SPELLCAST_INTERRUPTED_OR_FAILED(event, unit, guid, spell)
 end 
-function SwingTimerAPI:UNIT_SPELLCAST_FAILED()
-    self:UNIT_SPELLCAST_INTERRUPTED_OR_FAILED()
+function SwingTimerAPI:UNIT_SPELLCAST_FAILED(event, unit, guid, spell)
+    self:UNIT_SPELLCAST_INTERRUPTED_OR_FAILED(event, unit, guid, spell)
 end
 
 function SwingTimerAPI:UNIT_SPELLCAST_SUCCEEDED(event, unit, guid, spell)
@@ -330,6 +358,20 @@ function SwingTimerAPI:UNIT_SPELLCAST_SUCCEEDED(event, unit, guid, spell)
         end
         self:SwingStart("ranged", now, (spell ~= 75 and spell ~= 3018 and spell ~= 2764 and spell ~= 5019))
     end
+    if spell and self.pause_swing_spells[spell] and self.pauseSwingTime then
+        local offset = now - self.pauseSwingTime
+        self.pauseSwingTime = nil
+        if self.mainSpeed > 0 then
+            self.mainExpirationTime = self.mainExpirationTime + offset
+            self.callbacks:Fire("SWING_TIMER_UPDATE", self.mainSpeed, self.mainExpirationTime, "mainhand")
+            self.mainTimer = C_Timer.NewTimer(self.mainExpirationTime - now, function() self:SwingEnd("mainhand") end)
+        end
+        if self.offSpeed > 0 then
+            self.offExpirationTime = self.offExpirationTime + offset
+            self.callbacks:Fire("SWING_TIMER_UPDATE", self.offSpeed, self.offExpirationTime, "offhand")
+            self.offTimer = C_Timer.NewTimer(self.offExpirationTime - now, function() self:SwingEnd("offhand") end)
+        end
+    end
     if self.casting then
         self.casting = false
     end
@@ -342,6 +384,21 @@ function SwingTimerAPI:UNIT_SPELLCAST_START(event, unit, guid, spell)
         local endOfCast = now + (castTime/1000)
         self.casting = true
         self.preventSwingReset = self.noreset_swing_spells[spell]
+        if spell and self.pause_swing_spells[spell] then
+            self.pauseSwingTime = now
+            if self.mainSpeed > 0 then 
+                self.callbacks:Fire("SWING_TIMER_PAUSE", "mainhand") 
+                if self.mainTimer then
+                    self.mainTimer:Cancel()
+                end
+            end
+            if self.offSpeed > 0 then 
+                self.callbacks:Fire("SWING_TIMER_PAUSE", "offhand")     
+                if self.offTimer then
+                    self.offTimer:Cancel()
+                end
+            end
+        end
         for i = 1, 255 do
             if self.preventSwingReset then return end
             local _, _, _, _, _, _, _, _, _, spellId = UnitAura(unit, i, filter)
