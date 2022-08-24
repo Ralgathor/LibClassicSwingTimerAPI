@@ -16,6 +16,7 @@ lib.reset_swing_spells = {
     [5384] = true, -- Feign Death
     [5019] = true, -- Shoot
     [75] = true, -- Auto Shot
+	[20066] = true, -- Repentance
 }
 
 lib.prevent_swing_speed_update = {
