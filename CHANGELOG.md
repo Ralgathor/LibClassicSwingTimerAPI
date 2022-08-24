@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add logic to ignore some Attack speed update. Prevent to update swing timer on UNIT_ATTACK_SPEED when Druid shapeshift.
 - Add spell id for swing spell reset for Warlok, Mage and Priest Shoot ability.
 - Add swing timer pause logic (Warrior Slam mechanic).
+- Add LibStub version managment.
+
+### Changed
+- Init the Lib variable after ADDON_LOADED event.
 
 ### Fixed
 - Fix Aura prevent swing reset check logic. Prevent looping multiple time in unit buff and correctly check spellId on prevent_reset_swing_auras Object.
