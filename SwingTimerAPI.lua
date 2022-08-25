@@ -399,7 +399,7 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(event, unit, guid, spell)
             self.offTimer = C_Timer.NewTimer(self.offExpirationTime - now, function() self:SwingEnd("offhand") end)
         end
     end
-    if self.casting then
+    if self.casting and spell ~= 6603 then
         self.casting = false
     end
 end
