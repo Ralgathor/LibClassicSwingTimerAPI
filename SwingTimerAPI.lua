@@ -1,11 +1,18 @@
+local isClassic = WOW_PROJECT_ID == WOW_PROJECT_CLASSIC
 local MAJOR, MINOR = "LibClassicSwingTimerAPI", 1
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
+
+local LibCC = isClassic and LibStub("LibClassicCasterino", true)
 
 local frame = CreateFrame("Frame");
 local C_Timer, tonumber = C_Timer, tonumber
 local GetSpellInfo, GetTime, CombatLogGetCurrentEventInfo = GetSpellInfo, GetTime, CombatLogGetCurrentEventInfo
 local UnitAttackSpeed, UnitAura, UnitGUID, UnitRangedDamage = UnitAttackSpeed, UnitAura, UnitGUID, UnitRangedDamage
+local UnitCastingInfo, UnitChannelInfo = UnitCastingInfo, UnitChannelInfo
+if isClassic then
+    UnitCastingInfo, UnitChannelInfo = CastingInfo, ChannelInfo
+end
 
 lib.reset_swing_spells = {
     [16589] = true, -- Noggenfogger Elixir
@@ -165,6 +172,7 @@ function lib:ADDON_LOADED(event, addOnName)
     self.calculaDeltaTimer = nil
 
     self.casting = false
+    self.channeling = false
     self.isAttacking = false
     self.preventSwingReset = false
     self.skipNextAttack = nil
@@ -234,7 +242,7 @@ end
 
 function lib:SwingEnd(hand)
     self:Fire("SWING_TIMER_STOP", hand)
-    if self.casting and self.isAttacking and hand ~= "ranged" then
+    if (self.casting or self.channeling) and self.isAttacking and hand ~= "ranged" then
         local now = GetTime()
         self:SwingStart(hand, now, true)
         self:Fire("SWING_TIMER_CLIPPED", hand)
@@ -300,7 +308,7 @@ function lib:COMBAT_LOG_EVENT_UNFILTERED(event, ts, subEvent, _, sourceGUID, sou
     end
 end
 
-function lib:UNIT_ATTACK_SPEED()
+function lib:UNIT_ATTACK_SPEED(event, unit)
     local now = GetTime()
     if self.skipNextAttackSpeedUpdate and tonumber(self.skipNextAttackSpeedUpdate) and (now - self.skipNextAttackSpeedUpdate) < 0.04 and tonumber(self.skipNextAttackSpeedUpdateCount) then
         self.skipNextAttackSpeedUpdateCount = self.skipNextAttackSpeedUpdateCount - 1
@@ -367,6 +375,7 @@ function lib:UNIT_SPELLCAST_FAILED(event, unit, guid, spell)
 end
 
 function lib:UNIT_SPELLCAST_SUCCEEDED(event, unit, guid, spell)
+    print(event, unit, guid, spell)
     local now = GetTime()
     if spell ~= nil and self.next_melee_spells[spell] then
         self:SwingStart("mainhand", now, false)
@@ -396,7 +405,7 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(event, unit, guid, spell)
             self.offTimer = C_Timer.NewTimer(self.offExpirationTime - now, function() self:SwingEnd("offhand") end)
         end
     end
-    if self.casting then
+    if self.casting and spell ~= 6603 then
         self.casting = false
     end
 end
@@ -430,6 +439,17 @@ function lib:UNIT_SPELLCAST_START(event, unit, guid, spell)
             self.preventSwingReset = self.prevent_reset_swing_auras[spellId]
         end
     end
+end
+
+function lib:UNIT_SPELLCAST_CHANNEL_START(event, unit, castGUID, spellID)
+    print(event, unit, castGUID, spellID)
+    self.casting = true
+    self.channeling = true
+end
+
+function lib:UNIT_SPELLCAST_CHANNEL_STOP(event, unit, castGUID, spellID)
+    print(event, unit, castGUID, spellID)
+    self.channeling = false
 end
 
 function lib:PLAYER_EQUIPMENT_CHANGED(event, equipmentSlot, hasCurrent)
@@ -468,6 +488,23 @@ frame:RegisterUnitEvent("UNIT_SPELLCAST_INTERRUPTED",lib.unit)
 frame:RegisterUnitEvent("UNIT_SPELLCAST_FAILED",lib.unit);
 frame:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED",lib.unit);
 frame:RegisterEvent("ADDON_LOADED");
+
+if LibCC then
+    local LibEventHandler = function(event, ...)
+        return lib[event](lib, event, ...)
+    end
+    LibCC.RegisterCallback(lib,"UNIT_SPELLCAST_CHANNEL_START", CastbarEventHandler)
+    LibCC.RegisterCallback(lib,"UNIT_SPELLCAST_CHANNEL_STOP", CastbarEventHandler) -- only for player
+    UnitCastingInfo = function(unit)
+        return LibCC:UnitCastingInfo(unit)
+    end
+    UnitChannelInfo = function(unit)
+        return LibCC:UnitChannelInfo(unit)
+    end
+else
+    frame:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_START",lib.unit)
+    frame:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_STOP",lib.unit);
+end
 
 frame:SetScript("OnEvent", function(self, event, ...)
     if event == "COMBAT_LOG_EVENT_UNFILTERED" then
