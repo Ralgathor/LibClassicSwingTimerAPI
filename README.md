@@ -39,14 +39,6 @@ Fired when a weapon or ranged swing start.
 | expirationTime | number - end of swing relative to GetTime() |
 | hand | string - the hand that start to swing ("mainhand", "offhand" or "ranged") |
 
-### SWING_TIMER_STOP
-
-Fired when a weapon or ranged swing end.
-
-| Property | Description |  
-| ----------- | ----------- |
-| hand | string - the hand that end a swing ("mainhand", "offhand" or "ranged") |
-
 ### SWING_TIMER_UPDATE
 
 Fired when weapon speed change
@@ -73,6 +65,14 @@ Fired if a weapon swing is paused by a spell cast.
 | ----------- | ----------- |
 | hand | string - The hand that is paused "mainhand" or "offhand" |
 
+### SWING_TIMER_STOP
+
+Fired when a weapon or ranged swing end.
+
+| Property | Description |  
+| ----------- | ----------- |
+| hand | string - the hand that end a swing ("mainhand", "offhand" or "ranged") |
+
 ### SWING_TIMER_DELTA
 
 Fired when delta calculation between MH and OH update
@@ -80,3 +80,24 @@ Fired when delta calculation between MH and OH update
 | Property | Description |  
 | ----------- | ----------- |
 | swingDelta | number - Delta in seconds between MH and OH. |
+
+## API METHODS
+
+### SwingTimerInfo(hand)
+
+Returns the hand current swing state.
+
+```
+speed, expirationTime, lastSwing = SwingTimerInfo(hand)
+```
+
+- Arguments
+    - hand
+        - string - The hand to get information for ("mainhand", "offhand" or "ranged")
+- Returns
+    - speed
+        - number - weapon speed
+    - expirationTime
+        - number - end of swing relative to GetTime()
+    - lastSwing
+        - number - last swing relative to GetTime()
