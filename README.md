@@ -1,8 +1,31 @@
 # LibClassicSwingTimerAPI
 
-This lib add events to describe state of the swing timer.
+There is no relevant WOW API to have a real state of the swing timer. This lib fire custom EVENTS that can be use in other ADDON to show swing timer bar.
 
-There is no relevant WOW API to have a real state of the swing timer so take in mind it can some time not be 100% accurate!
+## Usage example:
+
+```
+local SwingTimerLib = LibStub("LibClassicSwingTimerAPI", true)
+if not SwingTimerLib then return end
+
+local f = CreateFrame("Frame", nil)
+
+local SwingTimerInfo = function(hand)
+    return SwingTimerLib:SwingTimerInfo(hand)
+end
+
+local SwingTimerEventHandler = function(event, ...)
+    return f[event](f, event, ...)
+end
+
+SwingTimerLib.RegisterCallback(f, "SWING_TIMER_START", SwingTimerEventHandler)
+SwingTimerLib.RegisterCallback(f, "SWING_TIMER_UPDATE", SwingTimerEventHandler)
+SwingTimerLib.RegisterCallback(f, "SWING_TIMER_CLIPPED", SwingTimerEventHandler)
+SwingTimerLib.RegisterCallback(f, "SWING_TIMER_PAUSED", SwingTimerEventHandler)
+SwingTimerLib.RegisterCallback(f, "SWING_TIMER_STOP", SwingTimerEventHandler)
+SwingTimerLib.RegisterCallback(f, "SWING_TIMER_DELTA", SwingTimerEventHandler)
+
+```
 
 ## API EVENTS
 
@@ -16,13 +39,13 @@ Fired when a weapon or ranged swing start.
 | expirationTime | number - end of swing relative to GetTime() |
 | hand | string - the hand that start to swing ("mainhand", "offhand" or "ranged") |
 
-### SWING_TIMER_END
+### SWING_TIMER_STOP
 
 Fired when a weapon or ranged swing end.
 
 | Property | Description |  
 | ----------- | ----------- |
-| hand | string - the hand that start to swing ("mainhand", "offhand" or "ranged") |
+| hand | string - the hand that end a swing ("mainhand", "offhand" or "ranged") |
 
 ### SWING_TIMER_UPDATE
 
