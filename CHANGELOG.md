@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix Parry haste calculation.
 - Fix target unit event handle as player unit event. Add unit value test that insure to only handle player events.
 - Fix auto attack spell cast reseting casting flag.
+- Fix ranged speed value. Remove multiplier logic as UnitRangedDamage API method now return the correct ranged speed value.
 
 ## [1.0.0] - 2022-08-23
 

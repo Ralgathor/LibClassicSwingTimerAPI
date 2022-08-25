@@ -156,7 +156,6 @@ function lib:ADDON_LOADED(event, addOnName)
 
     self.lastRangedSwing = now
     self.rangedSpeed = UnitRangedDamage(self.unit) or 0
-    self.rangedAttackSpeedMultiplier = 1
     self.rangedExpirationTime = self.lastRangedSwing + self.rangedSpeed
 
     self.mainTimer = nil
@@ -221,7 +220,7 @@ function lib:SwingStart(hand, startTime, isReset)
         end
         self.rangedSpeed = UnitRangedDamage(self.unit) or 0
         if self.rangedSpeed ~= nil and self.rangedSpeed > 0 then
-            self.rangedSpeed = self.rangedSpeed*self.rangedAttackSpeedMultiplier
+            self.rangedSpeed = self.rangedSpeed
             self.lastRangedSwing = startTime
             self.rangedExpirationTime = self.lastRangedSwing + self.rangedSpeed
             self:Fire("SWING_TIMER_START", self.rangedSpeed, self.rangedExpirationTime, hand)
@@ -378,11 +377,6 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(event, unit, guid, spell)
     if (spell and self.reset_swing_spells[spell]) or ( self.casting and not self.preventSwingReset) then
         self:SwingStart("mainhand", now, true)
         self:SwingStart("offhand", now, true)
-        if spell == 75 then
-            self.rangedAttackSpeedMultiplier = 0.85
-        elseif spell == 3018 or spell == 2764 then
-            self.rangedAttackSpeedMultiplier = 1
-        end
         self:SwingStart("ranged", now, (spell ~= 75 and spell ~= 3018 and spell ~= 2764 and spell ~= 5019))
     end
     if spell and self.pause_swing_spells[spell] and self.pauseSwingTime then
