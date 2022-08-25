@@ -261,7 +261,7 @@ end
 
 function lib:COMBAT_LOG_EVENT_UNFILTERED(event, ts, subEvent, _, sourceGUID, sourceName, sourceFlags, sourceRaidFlags, destGUID, destName, destFlags, destRaidFlags, amount, overkill, school, resisted, blocked, absorbed, critical, glancing, crushing, isOffHand)
     local now = GetTime()
-    if subEvent == "SPELL_EXTRA_ATTACKS" then
+    if subEvent == "SPELL_EXTRA_ATTACKS" and sourceGUID == self.unitGUID then
         self.skipNextAttack = ts
         self.skipNextAttackCount = resisted
     elseif ((subEvent == "SWING_DAMAGE" or subEvent == "SWING_MISSED") and sourceGUID == self.unitGUID) then
@@ -309,6 +309,7 @@ function lib:COMBAT_LOG_EVENT_UNFILTERED(event, ts, subEvent, _, sourceGUID, sou
 end
 
 function lib:UNIT_ATTACK_SPEED(event, unit)
+    if unit and unit ~= self.unit then return end
     local now = GetTime()
     if self.skipNextAttackSpeedUpdate and tonumber(self.skipNextAttackSpeedUpdate) and (now - self.skipNextAttackSpeedUpdate) < 0.04 and tonumber(self.skipNextAttackSpeedUpdateCount) then
         self.skipNextAttackSpeedUpdateCount = self.skipNextAttackSpeedUpdateCount - 1
@@ -348,6 +349,7 @@ function lib:UNIT_ATTACK_SPEED(event, unit)
 end
 
 function lib:UNIT_SPELLCAST_INTERRUPTED_OR_FAILED(event, unit, guid, spell)
+    if unit and unit ~= self.unit then return end
     self.casting = false
     if spell and self.pause_swing_spells[spell] and self.pauseSwingTime then
         self.pauseSwingTime = nil
@@ -376,6 +378,7 @@ end
 
 function lib:UNIT_SPELLCAST_SUCCEEDED(event, unit, guid, spell)
     print(event, unit, guid, spell)
+    if unit and unit ~= self.unit then return end
     local now = GetTime()
     if spell ~= nil and self.next_melee_spells[spell] then
         self:SwingStart("mainhand", now, false)
@@ -411,6 +414,7 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(event, unit, guid, spell)
 end
 
 function lib:UNIT_SPELLCAST_START(event, unit, guid, spell)
+    if unit and unit ~= self.unit then return end
     if spell then
         local now = GetTime()
         local name, rank, icon, castTime, minRange, maxRange, spellId = GetSpellInfo(spell)
@@ -442,12 +446,14 @@ function lib:UNIT_SPELLCAST_START(event, unit, guid, spell)
 end
 
 function lib:UNIT_SPELLCAST_CHANNEL_START(event, unit, castGUID, spellID)
+    if unit and unit ~= self.unit then return end
     print(event, unit, castGUID, spellID)
     self.casting = true
     self.channeling = true
 end
 
 function lib:UNIT_SPELLCAST_CHANNEL_STOP(event, unit, castGUID, spellID)
+    if unit and unit ~= self.unit then return end
     print(event, unit, castGUID, spellID)
     self.channeling = false
 end
