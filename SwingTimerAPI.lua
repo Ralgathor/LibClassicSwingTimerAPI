@@ -117,6 +117,16 @@ lib.noreset_swing_spells = {
     [25242] = true, -- Slam (rank 6)
     [47474] = true, -- Slam (rank 7)
     [47475] = true, -- Slam (rank 8)
+    [48467] = true, -- Hurricane (rank 5)
+    [27012] = true, -- Hurricane (rank 4)
+    [17402] = true, -- Hurricane (rank 3)
+    [17401] = true, -- Hurricane (rank 2)
+    [16914] = true, -- Hurricane (rank 1)
+    [12051] = true, -- Evocation
+    [58434] = true, -- Volley (rank 6)
+    [1510] = true, -- Volley (rank 6)
+
+    
     --35474 Drums of Panic DO reset the swing timer, do not add
 }
 
@@ -242,6 +252,7 @@ end
 
 function lib:SwingEnd(hand)
     self:Fire("SWING_TIMER_STOP", hand)
+    print(self.casting, self.channeling,self.isAttacking)
     if (self.casting or self.channeling) and self.isAttacking and hand ~= "ranged" then
         local now = GetTime()
         self:SwingStart(hand, now, true)
@@ -388,7 +399,7 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(event, unit, guid, spell)
         self:SwingStart("mainhand", now, true)
         self:SwingStart("offhand", now, true)
         if spell == 75 then
-            self.rangedAttackSpeedMultiplier = 0.85
+            self.rangedAttackSpeedMultiplier = 1
         elseif spell == 3018 or spell == 2764 then
             self.rangedAttackSpeedMultiplier = 1
         end
@@ -445,17 +456,21 @@ function lib:UNIT_SPELLCAST_START(event, unit, guid, spell)
     end
 end
 
-function lib:UNIT_SPELLCAST_CHANNEL_START(event, unit, castGUID, spellID)
+function lib:UNIT_SPELLCAST_CHANNEL_START(event, unit, castGUID, spell)
     if unit and unit ~= self.unit then return end
-    print(event, unit, castGUID, spellID)
+    print(event, unit, castGUID, spell)
     self.casting = true
     self.channeling = true
+    self.preventSwingReset = self.noreset_swing_spells[spell]
 end
 
-function lib:UNIT_SPELLCAST_CHANNEL_STOP(event, unit, castGUID, spellID)
+function lib:UNIT_SPELLCAST_CHANNEL_STOP(event, unit, castGUID, spell)
     if unit and unit ~= self.unit then return end
-    print(event, unit, castGUID, spellID)
+    print(event, unit, castGUID, spell)
     self.channeling = false
+    if self.rangedExpirationTime < GetTime() then
+        self:SwingStart("ranged", GetTime(), true)
+    end
 end
 
 function lib:PLAYER_EQUIPMENT_CHANGED(event, equipmentSlot, hasCurrent)
