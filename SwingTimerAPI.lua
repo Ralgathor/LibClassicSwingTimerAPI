@@ -1,18 +1,11 @@
-local isClassic = WOW_PROJECT_ID == WOW_PROJECT_CLASSIC
 local MAJOR, MINOR = "LibClassicSwingTimerAPI", 1
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
-
-local LibCC = isClassic and LibStub("LibClassicCasterino", true)
 
 local frame = CreateFrame("Frame");
 local C_Timer, tonumber = C_Timer, tonumber
 local GetSpellInfo, GetTime, CombatLogGetCurrentEventInfo = GetSpellInfo, GetTime, CombatLogGetCurrentEventInfo
 local UnitAttackSpeed, UnitAura, UnitGUID, UnitRangedDamage = UnitAttackSpeed, UnitAura, UnitGUID, UnitRangedDamage
-local UnitCastingInfo, UnitChannelInfo = UnitCastingInfo, UnitChannelInfo
-if isClassic then
-    UnitCastingInfo, UnitChannelInfo = CastingInfo, ChannelInfo
-end
 
 lib.reset_swing_spells = {
     [16589] = true, -- Noggenfogger Elixir
@@ -124,9 +117,11 @@ lib.noreset_swing_spells = {
     [16914] = true, -- Hurricane (rank 1)
     [12051] = true, -- Evocation
     [58434] = true, -- Volley (rank 6)
-    [1510] = true, -- Volley (rank 6)
-
-    
+    [58431] = true, -- Volley (rank 5)
+    [27022] = true, -- Volley (rank 4)
+    [14295] = true, -- Volley (rank 3)
+    [14294] = true, -- Volley (rank 2)
+    [1510] = true, -- Volley (rank 1)
     --35474 Drums of Panic DO reset the swing timer, do not add
 }
 
@@ -251,7 +246,6 @@ end
 
 function lib:SwingEnd(hand)
     self:Fire("SWING_TIMER_STOP", hand)
-    print(self.casting, self.channeling,self.isAttacking)
     if (self.casting or self.channeling) and self.isAttacking and hand ~= "ranged" then
         local now = GetTime()
         self:SwingStart(hand, now, true)
@@ -387,7 +381,6 @@ function lib:UNIT_SPELLCAST_FAILED(event, unit, guid, spell)
 end
 
 function lib:UNIT_SPELLCAST_SUCCEEDED(event, unit, guid, spell)
-    print(event, unit, guid, spell)
     if unit and unit ~= self.unit then return end
     local now = GetTime()
     if spell ~= nil and self.next_melee_spells[spell] then
@@ -452,7 +445,6 @@ end
 
 function lib:UNIT_SPELLCAST_CHANNEL_START(event, unit, castGUID, spell)
     if unit and unit ~= self.unit then return end
-    print(event, unit, castGUID, spell)
     self.casting = true
     self.channeling = true
     self.preventSwingReset = self.noreset_swing_spells[spell]
@@ -460,10 +452,9 @@ end
 
 function lib:UNIT_SPELLCAST_CHANNEL_STOP(event, unit, castGUID, spell)
     if unit and unit ~= self.unit then return end
-    print(event, unit, castGUID, spell)
     self.channeling = false
-    if self.rangedExpirationTime < GetTime() then
-        self:SwingStart("ranged", GetTime(), true)
+    for _, spellid in ipairs({58434,58431,27022,14295,14294,1510,}) do -- For hunter make Volley reset ranged swing when channel stop
+        if spell == spellid then self:SwingStart("ranged", GetTime(), true) return end
     end
 end
 
@@ -502,24 +493,9 @@ frame:RegisterUnitEvent("UNIT_SPELLCAST_START",lib.unit);
 frame:RegisterUnitEvent("UNIT_SPELLCAST_INTERRUPTED",lib.unit)
 frame:RegisterUnitEvent("UNIT_SPELLCAST_FAILED",lib.unit);
 frame:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED",lib.unit);
+frame:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_START",lib.unit);
+frame:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_STOP",lib.unit);
 frame:RegisterEvent("ADDON_LOADED");
-
-if LibCC then
-    local LibEventHandler = function(event, ...)
-        return lib[event](lib, event, ...)
-    end
-    LibCC.RegisterCallback(lib,"UNIT_SPELLCAST_CHANNEL_START", CastbarEventHandler)
-    LibCC.RegisterCallback(lib,"UNIT_SPELLCAST_CHANNEL_STOP", CastbarEventHandler) -- only for player
-    UnitCastingInfo = function(unit)
-        return LibCC:UnitCastingInfo(unit)
-    end
-    UnitChannelInfo = function(unit)
-        return LibCC:UnitChannelInfo(unit)
-    end
-else
-    frame:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_START",lib.unit)
-    frame:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_STOP",lib.unit);
-end
 
 frame:SetScript("OnEvent", function(self, event, ...)
     if event == "COMBAT_LOG_EVENT_UNFILTERED" then
