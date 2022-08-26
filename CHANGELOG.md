@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added swing timer pause logic (Warrior Slam mechanic).
 - Added LibStub version managment.
 - Added channelled spell interaction logic.
+- Added auto shot timer reset on Hunter Volley damage.
 
 ### Changed
 - Init the Lib variable after ADDON_LOADED event.
