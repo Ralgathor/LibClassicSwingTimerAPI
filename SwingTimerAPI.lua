@@ -311,7 +311,7 @@ function lib:COMBAT_LOG_EVENT_UNFILTERED(event, ts, subEvent, _, sourceGUID, sou
         end
     elseif (subEvent == "SPELL_DAMAGE" or subEvent == "SPELL_MISSED") and sourceGUID == self.unitGUID then
         local spell = amount
-        for _, spellid in ipairs({58433,58432,42234,42245,42244,42243,}) do -- For hunter make Volley reset ranged swing when channel stop
+        for _, spellid in ipairs({58433,58432,42234,42245,42244,42243,}) do -- For hunter make Volley reset ranged swing for each Volley tick
             if spell == spellid then self:SwingStart("ranged", GetTime(), true) return end
         end
     end
