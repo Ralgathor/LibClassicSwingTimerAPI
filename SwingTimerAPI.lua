@@ -309,6 +309,11 @@ function lib:COMBAT_LOG_EVENT_UNFILTERED(event, ts, subEvent, _, sourceGUID, sou
             self.skipNextAttackSpeedUpdate = now
             self.skipNextAttackSpeedUpdateCount = 2
         end
+    elseif (subEvent == "SPELL_DAMAGE" or subEvent == "SPELL_MISSED") and sourceGUID == self.unitGUID then
+        local spell = amount
+        for _, spellid in ipairs({58433,58432,42234,42245,42244,42243,}) do -- For hunter make Volley reset ranged swing when channel stop
+            if spell == spellid then self:SwingStart("ranged", GetTime(), true) return end
+        end
     end
 end
 
@@ -453,9 +458,6 @@ end
 function lib:UNIT_SPELLCAST_CHANNEL_STOP(event, unit, castGUID, spell)
     if unit and unit ~= self.unit then return end
     self.channeling = false
-    for _, spellid in ipairs({58434,58431,27022,14295,14294,1510,}) do -- For hunter make Volley reset ranged swing when channel stop
-        if spell == spellid then self:SwingStart("ranged", GetTime(), true) return end
-    end
 end
 
 function lib:PLAYER_EQUIPMENT_CHANGED(event, equipmentSlot, hasCurrent)
