@@ -110,6 +110,18 @@ lib.noreset_swing_spells = {
     [25242] = true, -- Slam (rank 6)
     [47474] = true, -- Slam (rank 7)
     [47475] = true, -- Slam (rank 8)
+    [48467] = true, -- Hurricane (rank 5)
+    [27012] = true, -- Hurricane (rank 4)
+    [17402] = true, -- Hurricane (rank 3)
+    [17401] = true, -- Hurricane (rank 2)
+    [16914] = true, -- Hurricane (rank 1)
+    [12051] = true, -- Evocation
+    [58434] = true, -- Volley (rank 6)
+    [58431] = true, -- Volley (rank 5)
+    [27022] = true, -- Volley (rank 4)
+    [14295] = true, -- Volley (rank 3)
+    [14294] = true, -- Volley (rank 2)
+    [1510] = true, -- Volley (rank 1)
     --35474 Drums of Panic DO reset the swing timer, do not add
 }
 
@@ -164,6 +176,7 @@ function lib:ADDON_LOADED(event, addOnName)
     self.calculaDeltaTimer = nil
 
     self.casting = false
+    self.channeling = false
     self.isAttacking = false
     self.preventSwingReset = false
     self.skipNextAttack = nil
@@ -233,7 +246,7 @@ end
 
 function lib:SwingEnd(hand)
     self:Fire("SWING_TIMER_STOP", hand)
-    if self.casting and self.isAttacking and hand ~= "ranged" then
+    if (self.casting or self.channeling) and self.isAttacking and hand ~= "ranged" then
         local now = GetTime()
         self:SwingStart(hand, now, true)
         self:Fire("SWING_TIMER_CLIPPED", hand)
@@ -430,6 +443,21 @@ function lib:UNIT_SPELLCAST_START(event, unit, guid, spell)
     end
 end
 
+function lib:UNIT_SPELLCAST_CHANNEL_START(event, unit, castGUID, spell)
+    if unit and unit ~= self.unit then return end
+    self.casting = true
+    self.channeling = true
+    self.preventSwingReset = self.noreset_swing_spells[spell]
+end
+
+function lib:UNIT_SPELLCAST_CHANNEL_STOP(event, unit, castGUID, spell)
+    if unit and unit ~= self.unit then return end
+    self.channeling = false
+    for _, spellid in ipairs({58434,58431,27022,14295,14294,1510,}) do -- For hunter make Volley reset ranged swing when channel stop
+        if spell == spellid then self:SwingStart("ranged", GetTime(), true) return end
+    end
+end
+
 function lib:PLAYER_EQUIPMENT_CHANGED(event, equipmentSlot, hasCurrent)
     if equipmentSlot == 16 or equipmentSlot == 17 or equipmentSlot == 18 then
         local now = GetTime()        
@@ -465,6 +493,8 @@ frame:RegisterUnitEvent("UNIT_SPELLCAST_START",lib.unit);
 frame:RegisterUnitEvent("UNIT_SPELLCAST_INTERRUPTED",lib.unit)
 frame:RegisterUnitEvent("UNIT_SPELLCAST_FAILED",lib.unit);
 frame:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED",lib.unit);
+frame:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_START",lib.unit);
+frame:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_STOP",lib.unit);
 frame:RegisterEvent("ADDON_LOADED");
 
 frame:SetScript("OnEvent", function(self, event, ...)

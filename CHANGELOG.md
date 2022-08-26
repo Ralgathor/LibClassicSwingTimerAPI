@@ -7,10 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Add logic to ignore some Attack speed update. Prevent to update swing timer on UNIT_ATTACK_SPEED when Druid shapeshift.
-- Add spell id for swing spell reset for Warlok, Mage and Priest Shoot ability.
-- Add swing timer pause logic (Warrior Slam mechanic).
-- Add LibStub version managment.
+- Added logic to ignore some Attack speed update. Prevent to update swing timer on UNIT_ATTACK_SPEED when Druid shapeshift.
+- Added spell id for swing spell reset for Warlok, Mage and Priest Shoot ability.
+- Added swing timer pause logic (Warrior Slam mechanic).
+- Added LibStub version managment.
+- Added channelled spell interaction logic.
 
 ### Changed
 - Init the Lib variable after ADDON_LOADED event.
