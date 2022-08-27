@@ -140,6 +140,15 @@ local pause_swing_spells = {
     [47475] = true, -- Slam (rank 8)
 }
 
+local reset_ranged_swing = {
+    [58433] = true, -- Volley
+    [58432] = true, -- Volley
+    [42234] = true, -- Volley
+    [42245] = true, -- Volley
+    [42244] = true, -- Volley
+    [42243] = true  -- Volley
+}
+
 lib.callbacks = lib.callbacks or LibStub("CallbackHandler-1.0"):New(lib)
 
 function lib:Fire(event, ...)
@@ -310,8 +319,8 @@ function lib:COMBAT_LOG_EVENT_UNFILTERED(_, ts, subEvent, _, sourceGUID, _, _, _
         end
     elseif (subEvent == "SPELL_DAMAGE" or subEvent == "SPELL_MISSED") and sourceGUID == self.unitGUID then
         local spell = amount
-        for _, spellid in ipairs({58433,58432,42234,42245,42244,42243,}) do -- For hunter make Volley reset ranged swing for each Volley tick
-            if spell == spellid then self:SwingStart("ranged", GetTime(), true) return end
+        if reset_ranged_swing[spell] then
+            self:SwingStart("ranged", GetTime(), true)
         end
     end
 end
