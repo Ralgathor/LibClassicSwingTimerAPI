@@ -439,10 +439,11 @@ function lib:UNIT_SPELLCAST_START(event, unit, guid, spell)
             end
         end
         for i = 1, 255 do
-            if self.preventSwingReset then return end
             local _, _, _, _, _, _, _, _, _, spellId = UnitAura(unit, i, filter)
             if not spellId then return end
-            self.preventSwingReset = prevent_reset_swing_auras[spellId]
+            if prevent_reset_swing_auras[spellId] then
+                self.preventSwingReset = true
+            end
         end
     end
 end
