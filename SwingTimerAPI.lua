@@ -269,7 +269,7 @@ function lib:COMBAT_LOG_EVENT_UNFILTERED(event, ts, subEvent, _, sourceGUID, sou
         self.skipNextAttackCount = resisted
     elseif ((subEvent == "SWING_DAMAGE" or subEvent == "SWING_MISSED") and sourceGUID == self.unitGUID) then
         local isOffHand = isOffHand
-        if subEvent == "SWING_MISSED" then 
+        if subEvent == "SWING_MISSED" then
             isOffHand = overkill
         end
         if self.skipNextAttack ~= nil and tonumber(self.skipNextAttack) and (ts - self.skipNextAttack) < 0.04 and tonumber(self.skipNextAttackCount) and not isOffHand then
@@ -292,7 +292,7 @@ function lib:COMBAT_LOG_EVENT_UNFILTERED(event, ts, subEvent, _, sourceGUID, sou
             self.mainTimer:Cancel()
         end
         local swing_timer_reduced_40p = self.mainExpirationTime - (0.4 * self.mainSpeed)
-        local min_swing_time = 0.2 * self.mainSpeed       
+        local min_swing_time = 0.2 * self.mainSpeed
         if swing_timer_reduced_40p < min_swing_time then
             self.mainExpirationTime = min_swing_time
         else
@@ -379,7 +379,7 @@ function lib:UNIT_SPELLCAST_INTERRUPTED_OR_FAILED(event, unit, guid, spell)
 end
 function lib:UNIT_SPELLCAST_INTERRUPTED(event, unit, guid, spell)
     self:UNIT_SPELLCAST_INTERRUPTED_OR_FAILED(event, unit, guid, spell)
-end 
+end
 function lib:UNIT_SPELLCAST_FAILED(event, unit, guid, spell)
     self:UNIT_SPELLCAST_INTERRUPTED_OR_FAILED(event, unit, guid, spell)
 end
@@ -425,14 +425,14 @@ function lib:UNIT_SPELLCAST_START(event, unit, guid, spell)
         self.preventSwingReset = self.noreset_swing_spells[spell]
         if spell and self.pause_swing_spells[spell] then
             self.pauseSwingTime = now
-            if self.mainSpeed > 0 then 
-                self:Fire("SWING_TIMER_PAUSED", "mainhand") 
+            if self.mainSpeed > 0 then
+                self:Fire("SWING_TIMER_PAUSED", "mainhand")
                 if self.mainTimer then
                     self.mainTimer:Cancel()
                 end
             end
             if self.offSpeed > 0 then 
-                self:Fire("SWING_TIMER_PAUSED", "offhand")     
+                self:Fire("SWING_TIMER_PAUSED", "offhand")
                 if self.offTimer then
                     self.offTimer:Cancel()
                 end
@@ -461,7 +461,7 @@ end
 
 function lib:PLAYER_EQUIPMENT_CHANGED(event, equipmentSlot, hasCurrent)
     if equipmentSlot == 16 or equipmentSlot == 17 or equipmentSlot == 18 then
-        local now = GetTime()        
+        local now = GetTime()
         self:SwingStart("mainhand", now, true)
         self:SwingStart("offhand", now, true)
         self:SwingStart("ranged", now, true)
