@@ -317,7 +317,6 @@ function lib:COMBAT_LOG_EVENT_UNFILTERED(event, ts, subEvent, _, sourceGUID, sou
 end
 
 function lib:UNIT_ATTACK_SPEED(event, unit)
-    if unit and unit ~= "player" then return end
     local now = GetTime()
     if self.skipNextAttackSpeedUpdate and tonumber(self.skipNextAttackSpeedUpdate) and (now - self.skipNextAttackSpeedUpdate) < 0.04 and tonumber(self.skipNextAttackSpeedUpdateCount) then
         self.skipNextAttackSpeedUpdateCount = self.skipNextAttackSpeedUpdateCount - 1
@@ -357,7 +356,6 @@ function lib:UNIT_ATTACK_SPEED(event, unit)
 end
 
 function lib:UNIT_SPELLCAST_INTERRUPTED_OR_FAILED(event, unit, guid, spell)
-    if unit and unit ~= "player" then return end
     self.casting = false
     if spell and pause_swing_spells[spell] and self.pauseSwingTime then
         self.pauseSwingTime = nil
@@ -385,7 +383,6 @@ function lib:UNIT_SPELLCAST_FAILED(event, unit, guid, spell)
 end
 
 function lib:UNIT_SPELLCAST_SUCCEEDED(event, unit, guid, spell)
-    if unit and unit ~= "player" then return end
     local now = GetTime()
     if spell ~= nil and next_melee_spells[spell] then
         self:SwingStart("mainhand", now, false)
@@ -416,7 +413,6 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(event, unit, guid, spell)
 end
 
 function lib:UNIT_SPELLCAST_START(event, unit, guid, spell)
-    if unit and unit ~= "player" then return end
     if spell then
         local now = GetTime()
         local name, rank, icon, castTime, minRange, maxRange, spellId = GetSpellInfo(spell)
@@ -449,14 +445,12 @@ function lib:UNIT_SPELLCAST_START(event, unit, guid, spell)
 end
 
 function lib:UNIT_SPELLCAST_CHANNEL_START(event, unit, castGUID, spell)
-    if unit and unit ~= "player" then return end
     self.casting = true
     self.channeling = true
     self.preventSwingReset = noreset_swing_spells[spell]
 end
 
 function lib:UNIT_SPELLCAST_CHANNEL_STOP(event, unit, castGUID, spell)
-    if unit and unit ~= "player" then return end
     self.channeling = false
 end
 
