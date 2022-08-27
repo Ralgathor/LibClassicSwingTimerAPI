@@ -420,7 +420,7 @@ function lib:UNIT_SPELLCAST_START(event, unit, guid, spell)
     if spell then
         local now = GetTime()
         local name, rank, icon, castTime, minRange, maxRange, spellId = GetSpellInfo(spell)
-        local endOfCast = now + (castTime/1000)
+        local endOfCast = now + (castTime/1000) -- endOfCast is not use anywhere
         self.casting = true
         self.preventSwingReset = noreset_swing_spells[spell]
         if spell and pause_swing_spells[spell] then
