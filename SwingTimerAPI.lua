@@ -400,7 +400,7 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, _, _, spell)
     if (spell and reset_swing_spells[spell]) or ( self.casting and not self.preventSwingReset) then
         self:SwingStart("mainhand", now, true)
         self:SwingStart("offhand", now, true)
-        self:SwingStart("ranged", now, (spell ~= 75 and spell ~= 3018 and spell ~= 2764 and spell ~= 5019))
+        self:SwingStart("ranged", now, (spell ~= 75 and spell ~= 3018 and spell ~= 2764 and spell ~= 5019)) -- this needs to be refactored
     end
     if spell and pause_swing_spells[spell] and self.pauseSwingTime then
         local offset = now - self.pauseSwingTime
