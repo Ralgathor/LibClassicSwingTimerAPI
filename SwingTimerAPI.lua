@@ -313,7 +313,7 @@ function lib:COMBAT_LOG_EVENT_UNFILTERED(_, ts, subEvent, _, sourceGUID, _, _, _
         end
     elseif (subEvent == "SPELL_AURA_APPLIED" or subEvent == "SPELL_AURA_REMOVED") and sourceGUID == self.unitGUID then
         local spell = amount
-        if spell and self.prevent_swing_speed_update[spell] then
+        if spell and prevent_swing_speed_update[spell] then
             self.skipNextAttackSpeedUpdate = now
             self.skipNextAttackSpeedUpdateCount = 2
         end
@@ -400,7 +400,7 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, _, _, spell)
     if (spell and reset_swing_spells[spell]) or ( self.casting and not self.preventSwingReset) then
         self:SwingStart("mainhand", now, true)
         self:SwingStart("offhand", now, true)
-        self:SwingStart("ranged", now, (spell ~= 75 and spell ~= 3018 and spell ~= 2764 and spell ~= 5019)) -- this needs to be refactored
+        self:SwingStart("ranged", now, (spell ~= 75 and spell ~= 3018 and spell ~= 2764 and spell ~= 5019)) -- this needs to be refactored and explain what this spellids are
     end
     if spell and pause_swing_spells[spell] and self.pauseSwingTime then
         local offset = now - self.pauseSwingTime
@@ -416,7 +416,7 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, _, _, spell)
             self.offTimer = C_Timer.NewTimer(self.offExpirationTime - now, function() self:SwingEnd("offhand") end)
         end
     end
-    if self.casting and spell ~= 6603 then
+    if self.casting and spell ~= 6603 then -- this needs at least a comment explaining what is 6603
         self.casting = false
     end
 end
