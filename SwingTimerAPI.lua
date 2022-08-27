@@ -149,10 +149,9 @@ end
 function lib:ADDON_LOADED(event, addOnName)
     if addOnName ~= "LibClassicSwingTimerAPI" then return end
 
-    self.unit = "player"
-    self.unitGUID = UnitGUID(self.unit)
+    self.unitGUID = UnitGUID("player")
 
-    local mainSpeed, offSpeed = UnitAttackSpeed(self.unit)
+    local mainSpeed, offSpeed = UnitAttackSpeed("player")
     local now = GetTime()
 
     self.mainSpeed = mainSpeed
@@ -167,7 +166,7 @@ function lib:ADDON_LOADED(event, addOnName)
     self.firstOffSwing = false
 
     self.lastRangedSwing = now
-    self.rangedSpeed = UnitRangedDamage(self.unit) or 0
+    self.rangedSpeed = UnitRangedDamage("player") or 0
     self.rangedExpirationTime = self.lastRangedSwing + self.rangedSpeed
 
     self.mainTimer = nil
@@ -198,7 +197,7 @@ function lib:SwingStart(hand, startTime, isReset)
             self.mainTimer:Cancel()
         end
         self.lastMainSwing = startTime
-        local mainSpeed, _ = UnitAttackSpeed(self.unit)
+        local mainSpeed, _ = UnitAttackSpeed("player")
         self.mainSpeed = mainSpeed
         self.mainExpirationTime = self.lastMainSwing + self.mainSpeed
         self:Fire("SWING_TIMER_START", self.mainSpeed, self.mainExpirationTime, hand)
@@ -210,7 +209,7 @@ function lib:SwingStart(hand, startTime, isReset)
             self.offTimer:Cancel()
         end
         self.lastOffSwing = startTime
-        local _, offSpeed = UnitAttackSpeed(self.unit)
+        local _, offSpeed = UnitAttackSpeed("player")
         self.offSpeed = offSpeed or 0
         self.offExpirationTime = self.lastOffSwing + self.offSpeed
         if self.calculaDeltaTimer then
@@ -231,7 +230,7 @@ function lib:SwingStart(hand, startTime, isReset)
         if self.rangedTimer and isReset then
             self.rangedTimer:Cancel()
         end
-        self.rangedSpeed = UnitRangedDamage(self.unit) or 0
+        self.rangedSpeed = UnitRangedDamage("player") or 0
         if self.rangedSpeed ~= nil and self.rangedSpeed > 0 then
             self.rangedSpeed = self.rangedSpeed
             self.lastRangedSwing = startTime
@@ -318,7 +317,7 @@ function lib:COMBAT_LOG_EVENT_UNFILTERED(event, ts, subEvent, _, sourceGUID, sou
 end
 
 function lib:UNIT_ATTACK_SPEED(event, unit)
-    if unit and unit ~= self.unit then return end
+    if unit and unit ~= "player" then return end
     local now = GetTime()
     if self.skipNextAttackSpeedUpdate and tonumber(self.skipNextAttackSpeedUpdate) and (now - self.skipNextAttackSpeedUpdate) < 0.04 and tonumber(self.skipNextAttackSpeedUpdateCount) then
         self.skipNextAttackSpeedUpdateCount = self.skipNextAttackSpeedUpdateCount - 1
@@ -330,7 +329,7 @@ function lib:UNIT_ATTACK_SPEED(event, unit)
     if self.offTimer then
         self.offTimer:Cancel()
     end
-    local mainSpeedNew, offSpeedNew = UnitAttackSpeed(self.unit)
+    local mainSpeedNew, offSpeedNew = UnitAttackSpeed("player")
     offSpeedNew = offSpeedNew or 0
     if mainSpeedNew > 0 and self.mainSpeed > 0 and mainSpeedNew ~= self.mainSpeed then
         local multiplier = mainSpeedNew / self.mainSpeed
@@ -358,7 +357,7 @@ function lib:UNIT_ATTACK_SPEED(event, unit)
 end
 
 function lib:UNIT_SPELLCAST_INTERRUPTED_OR_FAILED(event, unit, guid, spell)
-    if unit and unit ~= self.unit then return end
+    if unit and unit ~= "player" then return end
     self.casting = false
     if spell and self.pause_swing_spells[spell] and self.pauseSwingTime then
         self.pauseSwingTime = nil
@@ -386,7 +385,7 @@ function lib:UNIT_SPELLCAST_FAILED(event, unit, guid, spell)
 end
 
 function lib:UNIT_SPELLCAST_SUCCEEDED(event, unit, guid, spell)
-    if unit and unit ~= self.unit then return end
+    if unit and unit ~= "player" then return end
     local now = GetTime()
     if spell ~= nil and self.next_melee_spells[spell] then
         self:SwingStart("mainhand", now, false)
@@ -417,7 +416,7 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(event, unit, guid, spell)
 end
 
 function lib:UNIT_SPELLCAST_START(event, unit, guid, spell)
-    if unit and unit ~= self.unit then return end
+    if unit and unit ~= "player" then return end
     if spell then
         local now = GetTime()
         local name, rank, icon, castTime, minRange, maxRange, spellId = GetSpellInfo(spell)
@@ -449,14 +448,14 @@ function lib:UNIT_SPELLCAST_START(event, unit, guid, spell)
 end
 
 function lib:UNIT_SPELLCAST_CHANNEL_START(event, unit, castGUID, spell)
-    if unit and unit ~= self.unit then return end
+    if unit and unit ~= "player" then return end
     self.casting = true
     self.channeling = true
     self.preventSwingReset = self.noreset_swing_spells[spell]
 end
 
 function lib:UNIT_SPELLCAST_CHANNEL_STOP(event, unit, castGUID, spell)
-    if unit and unit ~= self.unit then return end
+    if unit and unit ~= "player" then return end
     self.channeling = false
 end
 
@@ -490,13 +489,13 @@ frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED");
 frame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED");
 frame:RegisterEvent("PLAYER_ENTER_COMBAT");
 frame:RegisterEvent("PLAYER_LEAVE_COMBAT");
-frame:RegisterUnitEvent("UNIT_ATTACK_SPEED",lib.unit);
-frame:RegisterUnitEvent("UNIT_SPELLCAST_START",lib.unit);
-frame:RegisterUnitEvent("UNIT_SPELLCAST_INTERRUPTED",lib.unit)
-frame:RegisterUnitEvent("UNIT_SPELLCAST_FAILED",lib.unit);
-frame:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED",lib.unit);
-frame:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_START",lib.unit);
-frame:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_STOP",lib.unit);
+frame:RegisterUnitEvent("UNIT_ATTACK_SPEED","player");
+frame:RegisterUnitEvent("UNIT_SPELLCAST_START","player");
+frame:RegisterUnitEvent("UNIT_SPELLCAST_INTERRUPTED","player")
+frame:RegisterUnitEvent("UNIT_SPELLCAST_FAILED","player");
+frame:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED","player");
+frame:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_START","player");
+frame:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_STOP","player");
 frame:RegisterEvent("ADDON_LOADED");
 
 frame:SetScript("OnEvent", function(self, event, ...)
