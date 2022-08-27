@@ -1,5 +1,5 @@
 ## Interface: 90207
-## Version: 1.0.0
+## Version: 1.1.0
 ## Title: Swing Timer API
 ## Notes: My first addon
 ## Author: Ralgathor

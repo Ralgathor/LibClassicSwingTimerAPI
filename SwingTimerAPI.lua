@@ -1,4 +1,4 @@
-local MAJOR, MINOR = "LibClassicSwingTimerAPI", 1
+local MAJOR, MINOR = "LibClassicSwingTimerAPI", 2
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 
