@@ -384,11 +384,11 @@ function lib:UNIT_SPELLCAST_INTERRUPTED_OR_FAILED(_, _, _, spell)
         end
     end
 end
-function lib:UNIT_SPELLCAST_INTERRUPTED(event, unit, guid, spell)
-    self:UNIT_SPELLCAST_INTERRUPTED_OR_FAILED(event, unit, guid, spell)
+function lib:UNIT_SPELLCAST_INTERRUPTED(...)
+    self:UNIT_SPELLCAST_INTERRUPTED_OR_FAILED(...)
 end
-function lib:UNIT_SPELLCAST_FAILED(event, unit, guid, spell)
-    self:UNIT_SPELLCAST_INTERRUPTED_OR_FAILED(event, unit, guid, spell)
+function lib:UNIT_SPELLCAST_FAILED(...)
+    self:UNIT_SPELLCAST_INTERRUPTED_OR_FAILED(...)
 end
 
 function lib:UNIT_SPELLCAST_SUCCEEDED(_, _, _, spell)
