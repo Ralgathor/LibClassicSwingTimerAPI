@@ -146,7 +146,7 @@ function lib:Fire(event, ...)
     self.callbacks:Fire(event, ...)
 end
 
-function lib:ADDON_LOADED(event, addOnName)
+function lib:ADDON_LOADED(_, addOnName)
     if addOnName ~= "LibClassicSwingTimerAPI" then return end
 
     self.unitGUID = UnitGUID("player")
@@ -262,7 +262,7 @@ function lib:SwingTimerInfo(hand)
     end
 end
 
-function lib:COMBAT_LOG_EVENT_UNFILTERED(event, ts, subEvent, _, sourceGUID, sourceName, sourceFlags, sourceRaidFlags, destGUID, destName, destFlags, destRaidFlags, amount, overkill, school, resisted, blocked, absorbed, critical, glancing, crushing, isOffHand)
+function lib:COMBAT_LOG_EVENT_UNFILTERED(_, ts, subEvent, _, sourceGUID, _, _, _, destGUID, _, _, _, amount, overkill, _, resisted, _, _, _, _, _, isOffHand)
     local now = GetTime()
     if subEvent == "SPELL_EXTRA_ATTACKS" and sourceGUID == self.unitGUID then
         self.skipNextAttack = ts
@@ -316,7 +316,7 @@ function lib:COMBAT_LOG_EVENT_UNFILTERED(event, ts, subEvent, _, sourceGUID, sou
     end
 end
 
-function lib:UNIT_ATTACK_SPEED(event, unit)
+function lib:UNIT_ATTACK_SPEED()
     local now = GetTime()
     if self.skipNextAttackSpeedUpdate and tonumber(self.skipNextAttackSpeedUpdate) and (now - self.skipNextAttackSpeedUpdate) < 0.04 and tonumber(self.skipNextAttackSpeedUpdateCount) then
         self.skipNextAttackSpeedUpdateCount = self.skipNextAttackSpeedUpdateCount - 1
@@ -355,7 +355,7 @@ function lib:UNIT_ATTACK_SPEED(event, unit)
     end
 end
 
-function lib:UNIT_SPELLCAST_INTERRUPTED_OR_FAILED(event, unit, guid, spell)
+function lib:UNIT_SPELLCAST_INTERRUPTED_OR_FAILED(_, _, _, spell)
     self.casting = false
     if spell and pause_swing_spells[spell] and self.pauseSwingTime then
         self.pauseSwingTime = nil
@@ -382,7 +382,7 @@ function lib:UNIT_SPELLCAST_FAILED(event, unit, guid, spell)
     self:UNIT_SPELLCAST_INTERRUPTED_OR_FAILED(event, unit, guid, spell)
 end
 
-function lib:UNIT_SPELLCAST_SUCCEEDED(event, unit, guid, spell)
+function lib:UNIT_SPELLCAST_SUCCEEDED(_, _, _, spell)
     local now = GetTime()
     if spell ~= nil and next_melee_spells[spell] then
         self:SwingStart("mainhand", now, false)
@@ -412,7 +412,7 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(event, unit, guid, spell)
     end
 end
 
-function lib:UNIT_SPELLCAST_START(event, unit, guid, spell)
+function lib:UNIT_SPELLCAST_START(_, unit, _, spell)
     if spell then
         local now = GetTime()
         local name, rank, icon, castTime, minRange, maxRange, spellId = GetSpellInfo(spell)
@@ -444,17 +444,17 @@ function lib:UNIT_SPELLCAST_START(event, unit, guid, spell)
     end
 end
 
-function lib:UNIT_SPELLCAST_CHANNEL_START(event, unit, castGUID, spell)
+function lib:UNIT_SPELLCAST_CHANNEL_START(_, _, _, spell)
     self.casting = true
     self.channeling = true
     self.preventSwingReset = noreset_swing_spells[spell]
 end
 
-function lib:UNIT_SPELLCAST_CHANNEL_STOP(event, unit, castGUID, spell)
+function lib:UNIT_SPELLCAST_CHANNEL_STOP()
     self.channeling = false
 end
 
-function lib:PLAYER_EQUIPMENT_CHANGED(event, equipmentSlot, hasCurrent)
+function lib:PLAYER_EQUIPMENT_CHANGED(_, equipmentSlot)
     if equipmentSlot == 16 or equipmentSlot == 17 or equipmentSlot == 18 then
         local now = GetTime()
         self:SwingStart("mainhand", now, true)
@@ -493,7 +493,7 @@ frame:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_START","player");
 frame:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_STOP","player");
 frame:RegisterEvent("ADDON_LOADED");
 
-frame:SetScript("OnEvent", function(self, event, ...)
+frame:SetScript("OnEvent", function(_, event, ...)
     if event == "COMBAT_LOG_EVENT_UNFILTERED" then
         lib[event](lib, event, CombatLogGetCurrentEventInfo())
     else
