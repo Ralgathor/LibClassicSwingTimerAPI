@@ -7,7 +7,7 @@ local C_Timer, tonumber = C_Timer, tonumber
 local GetSpellInfo, GetTime, CombatLogGetCurrentEventInfo = GetSpellInfo, GetTime, CombatLogGetCurrentEventInfo
 local UnitAttackSpeed, UnitAura, UnitGUID, UnitRangedDamage = UnitAttackSpeed, UnitAura, UnitGUID, UnitRangedDamage
 
-lib.reset_swing_spells = {
+local reset_swing_spells = {
     [16589] = true, -- Noggenfogger Elixir
     [2645] = true, -- Ghost Wolf
     [51533] = true, -- Feral Spirit
@@ -19,13 +19,13 @@ lib.reset_swing_spells = {
 	[20066] = true, -- Repentance
 }
 
-lib.prevent_swing_speed_update = {
+local prevent_swing_speed_update = {
     [768] = true, -- Cat Form
     [5487] = true, -- Bear Form
     [9634] = true, -- Dire Bear Form
 }
 
-lib.next_melee_spells = {
+local next_melee_spells = {
     [47450] = true, -- Heroic Strike (rank 13)
     [47449] = true, -- Heroic Strike (rank 12)
     [30324] = true, -- Heroic Strike (rank 11)
@@ -70,7 +70,7 @@ lib.next_melee_spells = {
     [48480] = true, -- Maul (rank 10)
 }
 
-lib.noreset_swing_spells = {
+local noreset_swing_spells = {
     [23063] = true, -- Dense Dynamite
     [4054] = true, -- Rough Dynamite
     [4064] = true, -- Rough Copper Bomb
@@ -125,11 +125,11 @@ lib.noreset_swing_spells = {
     --35474 Drums of Panic DO reset the swing timer, do not add
 }
 
-lib.prevent_reset_swing_auras = {
+local prevent_reset_swing_auras = {
     [53817] = true, -- Maelstrom Weapon
 }
 
-lib.pause_swing_spells = {
+local pause_swing_spells = {
     [1464] = true, -- Slam (rank 1)
     [8820] = true, -- Slam (rank 2)
     [11604] = true, -- Slam (rank 3)
@@ -359,7 +359,7 @@ end
 function lib:UNIT_SPELLCAST_INTERRUPTED_OR_FAILED(event, unit, guid, spell)
     if unit and unit ~= "player" then return end
     self.casting = false
-    if spell and self.pause_swing_spells[spell] and self.pauseSwingTime then
+    if spell and pause_swing_spells[spell] and self.pauseSwingTime then
         self.pauseSwingTime = nil
         if self.mainSpeed > 0 then
             if self.mainExpirationTime < GetTime() and self.isAttacking then
@@ -387,16 +387,16 @@ end
 function lib:UNIT_SPELLCAST_SUCCEEDED(event, unit, guid, spell)
     if unit and unit ~= "player" then return end
     local now = GetTime()
-    if spell ~= nil and self.next_melee_spells[spell] then
+    if spell ~= nil and next_melee_spells[spell] then
         self:SwingStart("mainhand", now, false)
         self:SwingStart("ranged", now, true)
     end
-    if (spell and self.reset_swing_spells[spell]) or ( self.casting and not self.preventSwingReset) then
+    if (spell and reset_swing_spells[spell]) or ( self.casting and not self.preventSwingReset) then
         self:SwingStart("mainhand", now, true)
         self:SwingStart("offhand", now, true)
         self:SwingStart("ranged", now, (spell ~= 75 and spell ~= 3018 and spell ~= 2764 and spell ~= 5019))
     end
-    if spell and self.pause_swing_spells[spell] and self.pauseSwingTime then
+    if spell and pause_swing_spells[spell] and self.pauseSwingTime then
         local offset = now - self.pauseSwingTime
         self.pauseSwingTime = nil
         if self.mainSpeed > 0 then
@@ -422,8 +422,8 @@ function lib:UNIT_SPELLCAST_START(event, unit, guid, spell)
         local name, rank, icon, castTime, minRange, maxRange, spellId = GetSpellInfo(spell)
         local endOfCast = now + (castTime/1000)
         self.casting = true
-        self.preventSwingReset = self.noreset_swing_spells[spell]
-        if spell and self.pause_swing_spells[spell] then
+        self.preventSwingReset = noreset_swing_spells[spell]
+        if spell and pause_swing_spells[spell] then
             self.pauseSwingTime = now
             if self.mainSpeed > 0 then
                 self:Fire("SWING_TIMER_PAUSED", "mainhand")
@@ -442,7 +442,7 @@ function lib:UNIT_SPELLCAST_START(event, unit, guid, spell)
             if self.preventSwingReset then return end
             local _, _, _, _, _, _, _, _, _, spellId = UnitAura(unit, i, filter)
             if not spellId then return end
-            self.preventSwingReset = self.prevent_reset_swing_auras[spellId]
+            self.preventSwingReset = prevent_reset_swing_auras[spellId]
         end
     end
 end
@@ -451,7 +451,7 @@ function lib:UNIT_SPELLCAST_CHANNEL_START(event, unit, castGUID, spell)
     if unit and unit ~= "player" then return end
     self.casting = true
     self.channeling = true
-    self.preventSwingReset = self.noreset_swing_spells[spell]
+    self.preventSwingReset = noreset_swing_spells[spell]
 end
 
 function lib:UNIT_SPELLCAST_CHANNEL_STOP(event, unit, castGUID, spell)
