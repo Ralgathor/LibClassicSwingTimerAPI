@@ -147,7 +147,7 @@ function lib:Fire(event, ...)
 end
 
 function lib:ADDON_LOADED(_, addOnName)
-    if addOnName ~= "LibClassicSwingTimerAPI" then return end
+    if addOnName ~= MAJOR then return end
 
     self.unitGUID = UnitGUID("player")
 
