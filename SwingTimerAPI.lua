@@ -284,10 +284,10 @@ function lib:SwingTimerInfo(hand)
 end
 
 function lib:COMBAT_LOG_EVENT_UNFILTERED(_, ts, subEvent, _, sourceGUID, _, _, _, destGUID, _, _, _, amount, overkill, _, resisted, _, _, _, _, _, isOffHand)
-    local now = GetTime()
-    if subEvent == "SPELL_EXTRA_ATTACKS" and sourceGUID == self.unitGUID then
-        self.skipNextAttack = ts
-        self.skipNextAttackCount = resisted
+	local now = GetTime()
+	if subEvent == "SPELL_EXTRA_ATTACKS" and sourceGUID == self.unitGUID then
+		self.skipNextAttack = ts
+		self.skipNextAttackCount = resisted
 	elseif (subEvent == "SWING_DAMAGE" or subEvent == "SWING_MISSED") and sourceGUID == self.unitGUID then
 		local isOffHand = isOffHand
 		if subEvent == "SWING_MISSED" then
@@ -336,6 +336,9 @@ function lib:COMBAT_LOG_EVENT_UNFILTERED(_, ts, subEvent, _, sourceGUID, _, _, _
 		if spell and prevent_swing_speed_update[spell] then
 			self.skipNextAttackSpeedUpdate = now
 			self.skipNextAttackSpeedUpdateCount = 2
+		end
+		if spell and prevent_reset_swing_auras[spell] then
+			self.preventSwingReset = subEvent == "SPELL_AURA_APPLIED"
 		end
 	elseif (subEvent == "SPELL_DAMAGE" or subEvent == "SPELL_MISSED") and sourceGUID == self.unitGUID then
 		local spell = amount
@@ -464,7 +467,7 @@ function lib:UNIT_SPELLCAST_START(_, unit, _, spell)
 		local name, rank, icon, castTime, minRange, maxRange, spellId = GetSpellInfo(spell)
 		local endOfCast = now + (castTime / 1000) -- endOfCast is not use anywhere
 		self.casting = true
-		self.preventSwingReset = noreset_swing_spells[spell]
+		self.preventSwingReset = self.preventSwingReset or noreset_swing_spells[spell]
 		if spell and pause_swing_spells[spell] then
 			self.pauseSwingTime = now
 			if self.mainSpeed > 0 then
@@ -478,15 +481,6 @@ function lib:UNIT_SPELLCAST_START(_, unit, _, spell)
 				if self.offTimer then
 					self.offTimer:Cancel()
 				end
-			end
-		end
-		for i = 1, 255 do
-			local _, _, _, _, _, _, _, _, _, spellId = UnitAura(unit, i, filter)
-			if not spellId then
-				return
-			end
-			if prevent_reset_swing_auras[spellId] then
-				self.preventSwingReset = true
 			end
 		end
 	end
