@@ -142,6 +142,13 @@ local pause_swing_spells = {
 	[47475] = true, -- Slam (rank 8)
 }
 
+local ranged_swing = {
+	[75] = true, -- Auto Shot
+	[3018] = true, -- Shoot
+	[2764] = true, -- Throw
+	[5019] = true, -- Shoot
+}
+
 local reset_ranged_swing = {
 	[58433] = true, -- Volley
 	[58432] = true, -- Volley
@@ -436,7 +443,7 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, _, _, spell)
 	if (spell and reset_swing_spells[spell]) or (self.casting and not self.preventSwingReset) then
 		self:SwingStart("mainhand", now, true)
 		self:SwingStart("offhand", now, true)
-		self:SwingStart("ranged", now, (spell ~= 75 and spell ~= 3018 and spell ~= 2764 and spell ~= 5019)) -- this needs to be refactored and explain what this spellids are
+		self:SwingStart("ranged", now, not ranged_swing[spell]) -- set reset flag to true if the spell is not in list of ranged swing spells
 	end
 	if spell and pause_swing_spells[spell] and self.pauseSwingTime then
 		local offset = now - self.pauseSwingTime
@@ -456,7 +463,7 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, _, _, spell)
 			end)
 		end
 	end
-	if self.casting and spell ~= 6603 then -- this needs at least a comment explaining what is 6603
+	if self.casting and spell ~= 6603 then -- 6603=Auto Attack prevent set casting to false when auto attack is toggle on
 		self.casting = false
 	end
 end
