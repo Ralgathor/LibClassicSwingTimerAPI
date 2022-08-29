@@ -5,7 +5,7 @@ if not lib then
 end
 
 local frame = CreateFrame("Frame")
-local C_Timer, tonumber = C_Timer, tonumber
+local C_Timer, tonumber, hooksecurefunc = C_Timer, tonumber, hooksecurefunc
 local GetSpellInfo, GetTime, CombatLogGetCurrentEventInfo = GetSpellInfo, GetTime, CombatLogGetCurrentEventInfo
 local UnitAttackSpeed, UnitAura, UnitGUID, UnitRangedDamage = UnitAttackSpeed, UnitAura, UnitGUID, UnitRangedDamage
 
@@ -15,7 +15,6 @@ local reset_swing_spells = {
 	[51533] = true, -- Feral Spirit
 	[2764] = true, -- Throw
 	[3018] = true, -- Shoots,
-	[5384] = true, -- Feign Death
 	[5019] = true, -- Shoot
 	[75] = true, -- Auto Shot
 	[20066] = true, -- Repentance
@@ -188,6 +187,7 @@ function lib:ADDON_LOADED(_, addOnName)
 	self.lastRangedSwing = now
 	self.rangedSpeed = UnitRangedDamage("player") or 0
 	self.rangedExpirationTime = self.lastRangedSwing + self.rangedSpeed
+	self.feignDeathStatus = false
 
 	self.mainTimer = nil
 	self.offTimer = nil
@@ -463,6 +463,16 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, _, _, spell)
 			end)
 		end
 	end
+	self.feignDeathStatus = spell == 5384 -- 5384=Feign Death set Feign Death flag
+	-- if self.feignDeathStatus then
+	-- 	frame:SetScript("OnUpdate", function()
+	-- 		if lib.feignDeathStatus and GetUnitSpeed("player") > 0 then
+	-- 			lib.feignDeathStatus = false
+	-- 			lib:SwingStart("ranged", GetTime(), true)
+	-- 			self:SetScript("OnUpdate", nil)
+	-- 		end
+	-- 	end)
+	-- end
 	if self.casting and spell ~= 6603 then -- 6603=Auto Attack prevent set casting to false when auto attack is toggle on
 		self.casting = false
 	end
@@ -489,6 +499,9 @@ function lib:UNIT_SPELLCAST_START(_, unit, _, spell)
 					self.offTimer:Cancel()
 				end
 			end
+		end
+		if self.feignDeathStatus then
+			self:SwingStart("ranged", now, true)
 		end
 	end
 end
@@ -549,3 +562,23 @@ frame:SetScript("OnEvent", function(_, event, ...)
 		lib[event](lib, event, ...)
 	end
 end)
+
+local function updateFeignDeathStatus(startTime)
+	print("updateFeignDeathStatus", startTime)
+	if lib.feignDeathStatus then
+		lib.feignDeathStatus = false
+		lib:SwingStart("ranged", startTime or GetTime(), true)
+	end
+end
+
+hooksecurefunc("JumpOrAscendStart", updateFeignDeathStatus)
+hooksecurefunc("MoveBackwardStart", updateFeignDeathStatus)
+hooksecurefunc("MoveForwardStart", updateFeignDeathStatus)
+hooksecurefunc("StrafeLeftStart", updateFeignDeathStatus)
+hooksecurefunc("StrafeRightStart", updateFeignDeathStatus)
+hooksecurefunc("SitStandOrDescendStart", updateFeignDeathStatus)
+hooksecurefunc("CastSpell", updateFeignDeathStatus)
+hooksecurefunc("TurnLeftStart", updateFeignDeathStatus)
+hooksecurefunc("TurnRightStart", updateFeignDeathStatus)
+
+
