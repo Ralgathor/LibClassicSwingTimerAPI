@@ -343,9 +343,9 @@ function lib:UNIT_ATTACK_SPEED(event, unit)
         end
     end
     if offSpeedNew > 0 and self.offSpeed > 0 and offSpeedNew ~= self.offSpeed then
-        local multiplier = mainSpeedNew / self.offSpeed
+        local multiplier = offSpeedNew / self.offSpeed
         local timeLeft = (self.lastOffSwing + self.offSpeed - now) * multiplier
-        self.offSpeed = mainSpeedNew
+        self.offSpeed = offSpeedNew
         self.offExpirationTime = now + timeLeft
         if self.calculaDeltaTimer ~= nil then
             self.calculaDeltaTimer:Cancel()
