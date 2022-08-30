@@ -1,5 +1,5 @@
 ## Interface: 30400
-## Version: 1.1.1
+## Version: 1.2.0
 ## Title: Swing Timer API
 ## Notes: Swing Timer Library
 ## Author: Ralgathor

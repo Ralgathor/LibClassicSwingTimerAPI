@@ -1,4 +1,4 @@
-local MAJOR, MINOR = "LibClassicSwingTimerAPI", 3
+local MAJOR, MINOR = "LibClassicSwingTimerAPI", 4
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then
 	return
@@ -470,6 +470,8 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, _, _, spell)
 		self.feignDeathTimer = C_Timer.NewTicker(0.1, function() -- Start watching FD CD
 			local start, _, enabled = GetSpellCooldown(spell)
 			if enabled == 1 then -- Reset ranged swing when FD CD start
+				self:SwingStart("mainhand", start, true)
+				self:SwingStart("offhand", start, true)
 				self:SwingStart("ranged", start, true)
 				if self.feignDeathTimer then
 					self.feignDeathTimer:Cancel()
