@@ -1,4 +1,4 @@
-## Interface: 90207
+## Interface: 30400
 ## Version: 1.2.0
 ## Title: Swing Timer API
 ## Notes: Swing Timer Library
