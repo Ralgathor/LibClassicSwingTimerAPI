@@ -5,7 +5,7 @@ if not lib then
 end
 
 local frame = CreateFrame("Frame")
-local C_Timer, tonumber, hooksecurefunc = C_Timer, tonumber, hooksecurefunc
+local C_Timer, tonumber = C_Timer, tonumber
 local GetSpellInfo, GetTime, CombatLogGetCurrentEventInfo = GetSpellInfo, GetTime, CombatLogGetCurrentEventInfo
 local UnitAttackSpeed, UnitAura, UnitGUID, UnitRangedDamage = UnitAttackSpeed, UnitAura, UnitGUID, UnitRangedDamage
 
@@ -187,6 +187,7 @@ function lib:ADDON_LOADED(_, addOnName)
 	self.lastRangedSwing = now
 	self.rangedSpeed = UnitRangedDamage("player") or 0
 	self.rangedExpirationTime = self.lastRangedSwing + self.rangedSpeed
+	self.feignDeathTimer = nil
 
 	self.mainTimer = nil
 	self.offTimer = nil
