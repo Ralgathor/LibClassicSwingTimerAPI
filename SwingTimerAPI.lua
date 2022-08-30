@@ -187,7 +187,6 @@ function lib:ADDON_LOADED(_, addOnName)
 	self.lastRangedSwing = now
 	self.rangedSpeed = UnitRangedDamage("player") or 0
 	self.rangedExpirationTime = self.lastRangedSwing + self.rangedSpeed
-	self.feignDeathStatus = false
 
 	self.mainTimer = nil
 	self.offTimer = nil
@@ -463,18 +462,19 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, _, _, spell)
 			end)
 		end
 	end
-	self.feignDeathStatus = spell == 5384 -- 5384=Feign Death set Feign Death flag
-	-- if self.feignDeathStatus then
-	-- 	frame:SetScript("OnUpdate", function()
-	-- 		if lib.feignDeathStatus and GetUnitSpeed("player") > 0 then
-	-- 			lib.feignDeathStatus = false
-	-- 			lib:SwingStart("ranged", GetTime(), true)
-	-- 			self:SetScript("OnUpdate", nil)
-	-- 		end
-	-- 	end)
-	-- end
 	if self.casting and spell ~= 6603 then -- 6603=Auto Attack prevent set casting to false when auto attack is toggle on
 		self.casting = false
+	end
+	if spell == 5384 then -- 5384=Feign Death
+		self.feignDeathTimer = C_Timer.NewTicker(0.1, function() -- Start watching FD CD
+			local start, _, enabled = GetSpellCooldown(spell)
+			if enabled == 1 then -- Reset ranged swing when FD CD start
+				self:SwingStart("ranged", start, true)
+				if self.feignDeathTimer then
+					self.feignDeathTimer:Cancel()
+				end
+			end
+		end);
 	end
 end
 
@@ -499,9 +499,6 @@ function lib:UNIT_SPELLCAST_START(_, unit, _, spell)
 					self.offTimer:Cancel()
 				end
 			end
-		end
-		if self.feignDeathStatus then
-			self:SwingStart("ranged", now, true)
 		end
 	end
 end
@@ -562,23 +559,3 @@ frame:SetScript("OnEvent", function(_, event, ...)
 		lib[event](lib, event, ...)
 	end
 end)
-
-local function updateFeignDeathStatus(startTime)
-	print("updateFeignDeathStatus", startTime)
-	if lib.feignDeathStatus then
-		lib.feignDeathStatus = false
-		lib:SwingStart("ranged", startTime or GetTime(), true)
-	end
-end
-
-hooksecurefunc("JumpOrAscendStart", updateFeignDeathStatus)
-hooksecurefunc("MoveBackwardStart", updateFeignDeathStatus)
-hooksecurefunc("MoveForwardStart", updateFeignDeathStatus)
-hooksecurefunc("StrafeLeftStart", updateFeignDeathStatus)
-hooksecurefunc("StrafeRightStart", updateFeignDeathStatus)
-hooksecurefunc("SitStandOrDescendStart", updateFeignDeathStatus)
-hooksecurefunc("CastSpell", updateFeignDeathStatus)
-hooksecurefunc("TurnLeftStart", updateFeignDeathStatus)
-hooksecurefunc("TurnRightStart", updateFeignDeathStatus)
-
-
