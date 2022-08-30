@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Add Feign Death ranged swing reset interaction.
+- Add Feign Death ranged swing reset.
 
 ## [1.1.1] - 2022-08-29
 

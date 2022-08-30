@@ -187,6 +187,7 @@ function lib:ADDON_LOADED(_, addOnName)
 	self.lastRangedSwing = now
 	self.rangedSpeed = UnitRangedDamage("player") or 0
 	self.rangedExpirationTime = self.lastRangedSwing + self.rangedSpeed
+	self.feignDeathTimer = nil
 
 	self.mainTimer = nil
 	self.offTimer = nil
