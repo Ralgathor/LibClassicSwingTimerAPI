@@ -5,7 +5,7 @@ if not lib then
 end
 
 local frame = CreateFrame("Frame")
-local C_Timer, tonumber = C_Timer, tonumber
+local C_Timer, tonumber, hooksecurefunc = C_Timer, tonumber, hooksecurefunc
 local GetSpellInfo, GetTime, CombatLogGetCurrentEventInfo = GetSpellInfo, GetTime, CombatLogGetCurrentEventInfo
 local UnitAttackSpeed, UnitAura, UnitGUID, UnitRangedDamage = UnitAttackSpeed, UnitAura, UnitGUID, UnitRangedDamage
 
@@ -15,7 +15,6 @@ local reset_swing_spells = {
 	[51533] = true, -- Feral Spirit
 	[2764] = true, -- Throw
 	[3018] = true, -- Shoots,
-	[5384] = true, -- Feign Death
 	[5019] = true, -- Shoot
 	[75] = true, -- Auto Shot
 	[20066] = true, -- Repentance
@@ -465,6 +464,17 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, _, _, spell)
 	end
 	if self.casting and spell ~= 6603 then -- 6603=Auto Attack prevent set casting to false when auto attack is toggle on
 		self.casting = false
+	end
+	if spell == 5384 then -- 5384=Feign Death
+		self.feignDeathTimer = C_Timer.NewTicker(0.1, function() -- Start watching FD CD
+			local start, _, enabled = GetSpellCooldown(spell)
+			if enabled == 1 then -- Reset ranged swing when FD CD start
+				self:SwingStart("ranged", start, true)
+				if self.feignDeathTimer then
+					self.feignDeathTimer:Cancel()
+				end
+			end
+		end);
 	end
 end
 
