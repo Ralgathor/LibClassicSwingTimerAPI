@@ -1,3 +1,4 @@
+local _, Private = ...
 local MAJOR, MINOR = "LibClassicSwingTimerAPI", 3
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then
@@ -15,8 +16,8 @@ local reset_swing_spells = {
 	[51533] = true, -- Feral Spirit
 	[2764] = true, -- Throw
 	[3018] = true, -- Shoots,
+	[5019] = true, -- Shoot Wand
 	[5384] = true, -- Feign Death
-	[5019] = true, -- Shoot
 	[75] = true, -- Auto Shot
 	[20066] = true, -- Repentance
 }
@@ -146,7 +147,7 @@ local ranged_swing = {
 	[75] = true, -- Auto Shot
 	[3018] = true, -- Shoot
 	[2764] = true, -- Throw
-	[5019] = true, -- Shoot
+	[5019] = true, -- Shoot Wand
 }
 
 local reset_ranged_swing = {
