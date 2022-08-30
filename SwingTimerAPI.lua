@@ -1,5 +1,5 @@
 local _, Private = ...
-local MAJOR, MINOR = "LibClassicSwingTimerAPI", 3
+local MAJOR, MINOR = "LibClassicSwingTimerAPI", 4
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then
 	return
@@ -189,6 +189,7 @@ function lib:ADDON_LOADED(_, addOnName)
 	self.lastRangedSwing = now
 	self.rangedSpeed = UnitRangedDamage("player") or 0
 	self.rangedExpirationTime = self.lastRangedSwing + self.rangedSpeed
+	self.feignDeathTimer = nil
 
 	self.mainTimer = nil
 	self.offTimer = nil
@@ -466,6 +467,19 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, _, _, spell)
 	end
 	if self.casting and spell ~= 6603 then -- 6603=Auto Attack prevent set casting to false when auto attack is toggle on
 		self.casting = false
+	end
+	if spell == 5384 then -- 5384=Feign Death
+		self.feignDeathTimer = C_Timer.NewTicker(0.1, function() -- Start watching FD CD
+			local start, _, enabled = GetSpellCooldown(spell)
+			if enabled == 1 then -- Reset ranged swing when FD CD start
+				self:SwingStart("mainhand", start, true)
+				self:SwingStart("offhand", start, true)
+				self:SwingStart("ranged", start, true)
+				if self.feignDeathTimer then
+					self.feignDeathTimer:Cancel()
+				end
+			end
+		end);
 	end
 end
 
