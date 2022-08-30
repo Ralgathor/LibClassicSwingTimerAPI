@@ -5,7 +5,7 @@ if not lib then
 end
 
 local frame = CreateFrame("Frame")
-local C_Timer, tonumber = C_Timer, tonumber
+local C_Timer, tonumber, hooksecurefunc = C_Timer, tonumber, hooksecurefunc
 local GetSpellInfo, GetTime, CombatLogGetCurrentEventInfo = GetSpellInfo, GetTime, CombatLogGetCurrentEventInfo
 local UnitAttackSpeed, UnitAura, UnitGUID, UnitRangedDamage = UnitAttackSpeed, UnitAura, UnitGUID, UnitRangedDamage
 
