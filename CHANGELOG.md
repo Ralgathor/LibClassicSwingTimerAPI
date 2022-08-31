@@ -7,7 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Added Retails swing reset specificity
+- Added Retails swing reset specificity.
+- Added game version ranged swing reset specificity.
 
 ## [1.2.0] - 2022-08-30
 
