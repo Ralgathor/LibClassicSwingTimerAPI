@@ -13,6 +13,9 @@ lib.reset_swing_spells = {
 	[20066] = true, -- Repentance
 }
 
+lib.reset_swing_channel_spells = {
+}
+
 lib.prevent_swing_speed_update = {
 	[768] = true, -- Cat Form
 	[5487] = true, -- Bear Form

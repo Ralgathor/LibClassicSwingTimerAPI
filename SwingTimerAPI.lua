@@ -385,8 +385,18 @@ function lib:UNIT_SPELLCAST_CHANNEL_START(_, _, _, spell)
 	self.preventSwingReset = self.noreset_swing_spells[spell]
 end
 
-function lib:UNIT_SPELLCAST_CHANNEL_STOP()
+function lib:UNIT_SPELLCAST_CHANNEL_STOP(_, _, _, spell)
+	local now = GetTime()
 	self.channeling = false
+	if (spell and self.reset_swing_channel_spells[spell]) then
+		if self.isRetails then		
+			self:SwingStart("mainhand", now, true)
+		else
+			self:SwingStart("mainhand", now, true)
+			self:SwingStart("offhand", now, true)
+			self:SwingStart("ranged", now, true)
+		end
+	end
 end
 
 function lib:PLAYER_EQUIPMENT_CHANGED(_, equipmentSlot)
