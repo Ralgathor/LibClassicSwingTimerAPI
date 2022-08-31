@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Added support for all active game version.
 - Added Retails swing reset specificity.
 - Added game version ranged swing reset specificity.
 - Added channeled spell swing reset.
