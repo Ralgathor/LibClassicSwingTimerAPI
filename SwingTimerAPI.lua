@@ -127,8 +127,13 @@ function lib:SwingEnd(hand)
 	self:Fire("SWING_TIMER_STOP", hand)
 	if (self.casting or self.channeling) and self.isAttacking and hand ~= "ranged" then
 		local now = GetTime()
-		self:SwingStart(hand, now, true)
-		self:Fire("SWING_TIMER_CLIPPED", hand)
+		if self.isRetails and hand == "mainhand" then		
+			self:SwingStart(hand, now, true)
+			self:Fire("SWING_TIMER_CLIPPED", hand)
+		elseif not self.isRetails then
+			self:SwingStart(hand, now, true)
+			self:Fire("SWING_TIMER_CLIPPED", hand)
+		end
 	end
 end
 
@@ -303,9 +308,11 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, _, _, spell)
 		end
 	end
 	if (spell and self.reset_swing_spells[spell]) or (self.casting and not self.preventSwingReset) then
-		self:SwingStart("mainhand", now, true)
-		self:SwingStart("offhand", now, true)
-		if not self.isRetails then
+		if self.isRetails then		
+			self:SwingStart("mainhand", now, not self.ranged_swing[spell]) -- set reset flag to true if the spell is not in list of ranged swing spells
+		else
+			self:SwingStart("mainhand", now, true)
+			self:SwingStart("offhand", now, true)
 			self:SwingStart("ranged", now, not self.ranged_swing[spell]) -- set reset flag to true if the spell is not in list of ranged swing spells
 		end
 	end
