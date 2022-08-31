@@ -6,5 +6,6 @@
 
 LibStub\LibStub.lua
 CallbackHandler-1.0\CallbackHandler-1.0.lua
-utils.lua
 SwingTimerAPI.lua
+st_utils.lua
+st_data_TBC.lua

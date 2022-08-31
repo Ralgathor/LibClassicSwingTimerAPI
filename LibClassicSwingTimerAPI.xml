@@ -3,4 +3,6 @@
   <Script file = "LibStub\LibStub.lua"/>
   <Include file ="CallbackHandler-1.0\CallbackHandler-1.0.xml"/>
   <Script file = "SwingTimerAPI.lua"/>
+  <Script file = "st_utils.lua"/>
+  <Script file = "st_data.lua"/>
 </Ui>
