@@ -167,11 +167,15 @@ function lib:COMBAT_LOG_EVENT_UNFILTERED(_, ts, subEvent, _, sourceGUID, _, _, _
 		if isOffHand then
 			self.firstOffSwing = true
 			self:SwingStart("offhand", now, false)
-			self:SwingStart("ranged", now, true)
+			if not lib.isClassicOrBCC and not self.isRetails then
+				self:SwingStart("ranged", now, true)
+			end
 		else
 			self.firstMainSwing = true
 			self:SwingStart("mainhand", now, false)
-			self:SwingStart("ranged", now, true)
+			if not lib.isClassicOrBCC and not self.isRetails then
+				self:SwingStart("ranged", now, true)
+			end
 		end
 	elseif subEvent == "SWING_MISSED" and amount ~= nil and amount == "PARRY" and destGUID == self.unitGUID then
 		if self.mainTimer then
@@ -202,7 +206,11 @@ function lib:COMBAT_LOG_EVENT_UNFILTERED(_, ts, subEvent, _, sourceGUID, _, _, _
 	elseif (subEvent == "SPELL_DAMAGE" or subEvent == "SPELL_MISSED") and sourceGUID == self.unitGUID then
 		local spell = amount
 		if self.reset_ranged_swing[spell] then
-			self:SwingStart("ranged", GetTime(), true)
+			if self.isRetails then
+				self:SwingStart("mainhand", GetTime(), true)
+			else
+				self:SwingStart("ranged", GetTime(), true)
+			end
 		end
 	end
 end
@@ -290,12 +298,16 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, _, _, spell)
 	local now = GetTime()
 	if spell ~= nil and self.next_melee_spells[spell] then
 		self:SwingStart("mainhand", now, false)
-		self:SwingStart("ranged", now, true)
+		if not self.isClassicOrBCC and not self.isRetails then
+			self:SwingStart("ranged", now, true)
+		end
 	end
 	if (spell and self.reset_swing_spells[spell]) or (self.casting and not self.preventSwingReset) then
 		self:SwingStart("mainhand", now, true)
 		self:SwingStart("offhand", now, true)
-		self:SwingStart("ranged", now, not self.ranged_swing[spell]) -- set reset flag to true if the spell is not in list of ranged swing spells
+		if not self.isRetails then
+			self:SwingStart("ranged", now, not self.ranged_swing[spell]) -- set reset flag to true if the spell is not in list of ranged swing spells
+		end
 	end
 	if spell and self.pause_swing_spells[spell] and self.pauseSwingTime then
 		local offset = now - self.pauseSwingTime
@@ -324,7 +336,9 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, _, _, spell)
 			if enabled == 1 then -- Reset ranged swing when FD CD start
 				self:SwingStart("mainhand", start, true)
 				self:SwingStart("offhand", start, true)
-				self:SwingStart("ranged", start, true)
+				if not self.isRetails then
+					self:SwingStart("ranged", start, true)
+				end
 				if self.feignDeathTimer then
 					self.feignDeathTimer:Cancel()
 				end
@@ -373,7 +387,9 @@ function lib:PLAYER_EQUIPMENT_CHANGED(_, equipmentSlot)
 		local now = GetTime()
 		self:SwingStart("mainhand", now, true)
 		self:SwingStart("offhand", now, true)
-		self:SwingStart("ranged", now, true)
+		if not self.isRetails then
+			self:SwingStart("ranged", now, true)
+		end
 	end
 end
 

@@ -9,6 +9,8 @@ lib.isBCC = WOW_PROJECT_ID == WOW_PROJECT_BURNING_CRUSADE_CLASSIC and LE_EXPANSI
 
 lib.isWarth = WOW_PROJECT_ID == WOW_PROJECT_BURNING_CRUSADE_CLASSIC and LE_EXPANSION_LEVEL_CURRENT == LE_EXPANSION_WRATH_OF_THE_LICH_KING
 
+lib.isClassicOrBCC = lib.isClassic or lib.isBCC
+
 lib.getVersionShortName = function()
 	if lib.isRetails() then
 		return "RETAILS"
