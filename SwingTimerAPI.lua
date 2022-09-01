@@ -27,6 +27,8 @@ local reset_swing_spells = {
 	[75] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = true, }, -- Auto Shot
 	[20066] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Repentance
 	[51533] = {["CLASSIC"] = false, ["BCC"] = false, ["WRATH"] = true, ["RETAILS"] = false, }, -- Feral Spirit
+	[124682] = {["CLASSIC"] = false, ["BCC"] = false, ["WRATH"] = false, ["RETAILS"] = true, }, -- Enveloping Mist
+	[116670] = {["CLASSIC"] = false, ["BCC"] = false, ["WRATH"] = false, ["RETAILS"] = true, }, -- Vivify
 }
 
 local reset_swing_channel_spells = {
@@ -142,6 +144,8 @@ local noreset_swing_spells = {
 	[19434] = {["CLASSIC"] = false, ["BCC"] = false, ["WRATH"] = false, ["RETAILS"] = true, }, -- Aimed Shot
 	[113656] = {["CLASSIC"] = false, ["BCC"] = false, ["WRATH"] = false, ["RETAILS"] = true, }, -- Fists of Fury
 	[198013] = {["CLASSIC"] = false, ["BCC"] = false, ["WRATH"] = false, ["RETAILS"] = true, }, -- Eye Beam
+	[101546] = {["CLASSIC"] = false, ["BCC"] = false, ["WRATH"] = false, ["RETAILS"] = true, }, -- Spinning Crane Kick
+	[322729] = {["CLASSIC"] = false, ["BCC"] = false, ["WRATH"] = false, ["RETAILS"] = true, }, -- Spinning Crane Kick	
 }
 
 local prevent_reset_swing_auras = {
