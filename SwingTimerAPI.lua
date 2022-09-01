@@ -13,7 +13,7 @@ local isRetail = WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
 local isClassic = WOW_PROJECT_ID == WOW_PROJECT_CLASSIC
 local isBCC = WOW_PROJECT_ID == WOW_PROJECT_BURNING_CRUSADE_CLASSIC and LE_EXPANSION_LEVEL_CURRENT == LE_EXPANSION_BURNING_CRUSADE
 local isWrath = WOW_PROJECT_ID == WOW_PROJECT_BURNING_CRUSADE_CLASSIC and LE_EXPANSION_LEVEL_CURRENT == LE_EXPANSION_WRATH_OF_THE_LICH_KING
-local isClassicOrBCC = isClassic or isBCC
+local isClassicOrBCCOrWrath = isClassicOrBCCOrWrath
 
 local gameVersion = (isRetail and "RETAILS") or (isClassic and "CLASSIC") or (isBCC and "BCC") or (isWrath and "WRATH")
 
@@ -302,7 +302,7 @@ function lib:SwingEnd(hand)
 		if isRetail and hand == "mainhand" then		
 			self:SwingStart(hand, now, true)
 			self:Fire("SWING_TIMER_CLIPPED", hand)
-		elseif not isRetail then
+		elseif isClassicOrBCCOrWrath then
 			self:SwingStart(hand, now, true)
 			self:Fire("SWING_TIMER_CLIPPED", hand)
 		end
@@ -344,13 +344,13 @@ function lib:COMBAT_LOG_EVENT_UNFILTERED(_, ts, subEvent, _, sourceGUID, _, _, _
 		if isOffHand then
 			self.firstOffSwing = true
 			self:SwingStart("offhand", now, false)
-			if not isClassicOrBCC and not isRetail then
+			if isWrath then
 				self:SwingStart("ranged", now, true)
 			end
 		else
 			self.firstMainSwing = true
 			self:SwingStart("mainhand", now, false)
-			if not isClassicOrBCC and not isRetail then
+			if isWrath then
 				self:SwingStart("ranged", now, true)
 			end
 		end
@@ -475,7 +475,7 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, _, _, spell)
 	local now = GetTime()
 	if spell ~= nil and next_melee_spells[spell] and next_melee_spells[spell][gameVersion] then
 		self:SwingStart("mainhand", now, false)
-		if not self.isClassicOrBCC and not isRetail then
+		if isWrath then
 			self:SwingStart("ranged", now, true)
 		end
 	end
@@ -516,7 +516,7 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, _, _, spell)
 			if enabled == 1 then -- Reset ranged swing when FD CD start
 				self:SwingStart("mainhand", start, true)
 				self:SwingStart("offhand", start, true)
-				if not isRetail then
+				if isClassicOrBCCOrWrath then
 					self:SwingStart("ranged", start, true)
 				end
 				if self.feignDeathTimer then
@@ -578,7 +578,7 @@ function lib:PLAYER_EQUIPMENT_CHANGED(_, equipmentSlot)
 		local now = GetTime()
 		self:SwingStart("mainhand", now, true)
 		self:SwingStart("offhand", now, true)
-		if not isRetail then
+		if isClassicOrBCCOrWrath then
 			self:SwingStart("ranged", now, true)
 		end
 	end
