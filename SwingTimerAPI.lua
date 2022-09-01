@@ -9,13 +9,13 @@ local C_Timer, tonumber = C_Timer, tonumber
 local GetSpellInfo, GetTime, CombatLogGetCurrentEventInfo = GetSpellInfo, GetTime, CombatLogGetCurrentEventInfo
 local UnitAttackSpeed, UnitAura, UnitGUID, UnitRangedDamage = UnitAttackSpeed, UnitAura, UnitGUID, UnitRangedDamage
 
-local isRetails = WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
+local isRetail = WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
 local isClassic = WOW_PROJECT_ID == WOW_PROJECT_CLASSIC
 local isBCC = WOW_PROJECT_ID == WOW_PROJECT_BURNING_CRUSADE_CLASSIC and LE_EXPANSION_LEVEL_CURRENT == LE_EXPANSION_BURNING_CRUSADE
-local isWarth = WOW_PROJECT_ID == WOW_PROJECT_BURNING_CRUSADE_CLASSIC and LE_EXPANSION_LEVEL_CURRENT == LE_EXPANSION_WRATH_OF_THE_LICH_KING
+local isWrath = WOW_PROJECT_ID == WOW_PROJECT_BURNING_CRUSADE_CLASSIC and LE_EXPANSION_LEVEL_CURRENT == LE_EXPANSION_WRATH_OF_THE_LICH_KING
 local isClassicOrBCC = isClassic or isBCC
 
-local gameVersion = (isRetails and "RETAILS") or (isClassic and "CLASSIC") or (isBCC and "BCC") or (isWarth and "WRATH")
+local gameVersion = (isRetail and "RETAILS") or (isClassic and "CLASSIC") or (isBCC and "BCC") or (isWrath and "WRATH")
 
 local reset_swing_spells = {
 	[16589] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Noggenfogger Elixir
@@ -299,10 +299,10 @@ function lib:SwingEnd(hand)
 	self:Fire("SWING_TIMER_STOP", hand)
 	if (self.casting or self.channeling) and self.isAttacking and hand ~= "ranged" then
 		local now = GetTime()
-		if isRetails and hand == "mainhand" then		
+		if isRetail and hand == "mainhand" then		
 			self:SwingStart(hand, now, true)
 			self:Fire("SWING_TIMER_CLIPPED", hand)
-		elseif not isRetails then
+		elseif not isRetail then
 			self:SwingStart(hand, now, true)
 			self:Fire("SWING_TIMER_CLIPPED", hand)
 		end
@@ -344,13 +344,13 @@ function lib:COMBAT_LOG_EVENT_UNFILTERED(_, ts, subEvent, _, sourceGUID, _, _, _
 		if isOffHand then
 			self.firstOffSwing = true
 			self:SwingStart("offhand", now, false)
-			if not isClassicOrBCC and not isRetails then
+			if not isClassicOrBCC and not isRetail then
 				self:SwingStart("ranged", now, true)
 			end
 		else
 			self.firstMainSwing = true
 			self:SwingStart("mainhand", now, false)
-			if not isClassicOrBCC and not isRetails then
+			if not isClassicOrBCC and not isRetail then
 				self:SwingStart("ranged", now, true)
 			end
 		end
@@ -383,7 +383,7 @@ function lib:COMBAT_LOG_EVENT_UNFILTERED(_, ts, subEvent, _, sourceGUID, _, _, _
 	elseif (subEvent == "SPELL_DAMAGE" or subEvent == "SPELL_MISSED") and sourceGUID == self.unitGUID then
 		local spell = amount
 		if reset_ranged_swing[spell] and reset_ranged_swing[spell][gameVersion] then
-			if isRetails then
+			if isRetail then
 				self:SwingStart("mainhand", GetTime(), true)
 			else
 				self:SwingStart("ranged", GetTime(), true)
@@ -475,12 +475,12 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, _, _, spell)
 	local now = GetTime()
 	if spell ~= nil and next_melee_spells[spell] and next_melee_spells[spell][gameVersion] then
 		self:SwingStart("mainhand", now, false)
-		if not self.isClassicOrBCC and not isRetails then
+		if not self.isClassicOrBCC and not isRetail then
 			self:SwingStart("ranged", now, true)
 		end
 	end
 	if (spell and reset_swing_spells[spell] and reset_swing_spells[spell][gameVersion]) or (self.casting and not self.preventSwingReset) then
-		if isRetails then		
+		if isRetail then		
 			self:SwingStart("mainhand", now, not (ranged_swing[spell] and ranged_swing[spell][gameVersion])) -- set reset flag to true if the spell is not in list of ranged swing spells
 		else
 			self:SwingStart("mainhand", now, true)
@@ -516,7 +516,7 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, _, _, spell)
 			if enabled == 1 then -- Reset ranged swing when FD CD start
 				self:SwingStart("mainhand", start, true)
 				self:SwingStart("offhand", start, true)
-				if not isRetails then
+				if not isRetail then
 					self:SwingStart("ranged", start, true)
 				end
 				if self.feignDeathTimer then
@@ -563,7 +563,7 @@ function lib:UNIT_SPELLCAST_CHANNEL_STOP(_, _, _, spell)
 	self.channeling = false
 	self.preventSwingReset = self.auraPreventSwingReset or false
 	if (spell and reset_swing_channel_spells[spell] and reset_swing_channel_spells[spell][gameVersion]) then
-		if isRetails then		
+		if isRetail then		
 			self:SwingStart("mainhand", now, true)
 		else
 			self:SwingStart("mainhand", now, true)
@@ -578,7 +578,7 @@ function lib:PLAYER_EQUIPMENT_CHANGED(_, equipmentSlot)
 		local now = GetTime()
 		self:SwingStart("mainhand", now, true)
 		self:SwingStart("offhand", now, true)
-		if not isRetails then
+		if not isRetail then
 			self:SwingStart("ranged", now, true)
 		end
 	end
