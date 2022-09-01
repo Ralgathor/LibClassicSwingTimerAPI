@@ -17,7 +17,7 @@ local isClassicOrBCCOrWrath = isClassicOrBCCOrWrath
 
 local gameVersion = (isRetail and "RETAILS") or (isClassic and "CLASSIC") or (isBCC and "BCC") or (isWrath and "WRATH")
 
-local reset_swing_spells = {
+local list_reset_swing_spells = {
 	[16589] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Noggenfogger Elixir
 	[2645] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Ghost Wolf
 	[2764] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Throw
@@ -31,17 +31,17 @@ local reset_swing_spells = {
 	[116670] = {["CLASSIC"] = false, ["BCC"] = false, ["WRATH"] = false, ["RETAILS"] = true, }, -- Vivify
 }
 
-local reset_swing_channel_spells = {
+local list_reset_swing_channel_spells = {
 	[257044] = {["CLASSIC"] = false, ["BCC"] = false, ["WRATH"] = false, ["RETAILS"] = true, }, -- Rapide Fire
 }
 
-local prevent_swing_speed_update = {
+local list_prevent_swing_speed_update = {
 	[768] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = true, }, -- Cat Form
 	[5487] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = true, }, -- Bear Form
 	[9634] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = true, }, -- Dire Bear Form
 }
 
-local next_melee_spells = {
+local list_next_melee_spells = {
 	[47450] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Heroic Strike (rank 13)
 	[47449] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Heroic Strike (rank 12)
 	[30324] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Heroic Strike (rank 11)
@@ -86,7 +86,7 @@ local next_melee_spells = {
 	[48480] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Maul (rank 10)
 }
 
-local noreset_swing_spells = {
+local list_noreset_swing_spells = {
 	[23063] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Dense Dynamite
 	[4054] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Rough Dynamite
 	[4064] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Rough Copper Bomb
@@ -149,11 +149,11 @@ local noreset_swing_spells = {
 	[123986] = {["CLASSIC"] = false, ["BCC"] = false, ["WRATH"] = false, ["RETAILS"] = true, }, -- Chi Burst	
 }
 
-local prevent_reset_swing_auras = {
+local list_prevent_reset_swing_auras = {
 	[53817] = {["CLASSIC"] = false, ["BCC"] = false, ["WRATH"] = true, ["RETAILS"] = false, }, -- Maelstrom Weapon
 }
 
-local pause_swing_spells = {
+local list_pause_swing_spells = {
 	[1464] = {["CLASSIC"] = false, ["BCC"] = false, ["WRATH"] = true, ["RETAILS"] = false, }, -- Slam (rank 1)
 	[8820] = {["CLASSIC"] = false, ["BCC"] = false, ["WRATH"] = true, ["RETAILS"] = false, }, -- Slam (rank 2)
 	[11604] = {["CLASSIC"] = false, ["BCC"] = false, ["WRATH"] = true, ["RETAILS"] = false, }, -- Slam (rank 3)
@@ -164,14 +164,14 @@ local pause_swing_spells = {
 	[47475] = {["CLASSIC"] = false, ["BCC"] = false, ["WRATH"] = true, ["RETAILS"] = false, }, -- Slam (rank 8)
 }
 
-local ranged_swing = {
+local list_ranged_swing = {
 	[75] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = true, }, -- Auto Shot
 	[3018] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Shoot
 	[2764] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Throw
 	[5019] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Shoot Wand
 }
 
-local reset_ranged_swing = {
+local list_reset_ranged_swing = {
 	[58433] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Volley (rank 6)
 	[58432] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Volley (rank 5)
 	[42234] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Volley (rank 4)
@@ -179,6 +179,16 @@ local reset_ranged_swing = {
 	[42244] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Volley (rank 2)
 	[42243] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, },  -- Volley (rank 1)
 }
+
+local reset_swing_spells = {}
+local reset_swing_channel_spells = {}
+local prevent_swing_speed_update = {}
+local next_melee_spells = {}
+local noreset_swing_spells = {}
+local prevent_reset_swing_auras = {}
+local pause_swing_spells = {}
+local ranged_swing = {}
+local reset_ranged_swing = {}
 
 lib.callbacks = lib.callbacks or LibStub("CallbackHandler-1.0"):New(lib)
 
@@ -227,6 +237,60 @@ function lib:ADDON_LOADED(_, addOnName)
 
 	self.skipNextAttackSpeedUpdate = nil
 	self.skipNextAttackSpeedUpdateCount = 0
+
+	for spell in pairs(list_reset_swing_spells) do
+		if list_reset_swing_spells[spell][gameVersion] then
+			reset_swing_spells[spell] = true
+		end
+	end
+
+	for spell in pairs(list_reset_swing_channel_spells) do
+		if list_reset_swing_channel_spells[spell][gameVersion] then
+			reset_swing_channel_spells[spell] = true
+		end
+	end
+
+	for spell in pairs(list_prevent_swing_speed_update) do
+		if list_prevent_swing_speed_update[spell][gameVersion] then
+			prevent_swing_speed_update[spell] = true
+		end
+	end
+
+	for spell in pairs(list_next_melee_spells) do
+		if list_next_melee_spells[spell][gameVersion] then
+			next_melee_spells[spell] = true
+		end
+	end
+
+	for spell in pairs(list_noreset_swing_spells) do
+		if list_noreset_swing_spells[spell][gameVersion] then
+			noreset_swing_spells[spell] = true
+		end
+	end
+
+	for spell in pairs(list_prevent_reset_swing_auras) do
+		if list_prevent_reset_swing_auras[spell][gameVersion] then
+			prevent_reset_swing_auras[spell] = true
+		end
+	end
+
+	for spell in pairs(list_pause_swing_spells) do
+		if list_pause_swing_spells[spell][gameVersion] then
+			pause_swing_spells[spell] = true
+		end
+	end
+
+	for spell in pairs(list_ranged_swing) do
+		if list_ranged_swing[spell][gameVersion] then
+			ranged_swing[spell] = true
+		end
+	end
+
+	for spell in pairs(list_reset_ranged_swing) do
+		if list_reset_ranged_swing[spell][gameVersion] then
+			reset_ranged_swing[spell] = true
+		end
+	end
 end
 
 function lib:CalculateDelta()
@@ -373,16 +437,16 @@ function lib:COMBAT_LOG_EVENT_UNFILTERED(_, ts, subEvent, _, sourceGUID, _, _, _
 		end
 	elseif (subEvent == "SPELL_AURA_APPLIED" or subEvent == "SPELL_AURA_REMOVED") and sourceGUID == self.unitGUID then
 		local spell = amount
-		if spell and prevent_swing_speed_update[spell] and prevent_swing_speed_update[spell][gameVersion] then
+		if spell and prevent_swing_speed_update[spell] then
 			self.skipNextAttackSpeedUpdate = now
 			self.skipNextAttackSpeedUpdateCount = 2
 		end
-		if spell and prevent_reset_swing_auras[spell] and prevent_reset_swing_auras[spell][gameVersion] then
+		if spell and prevent_reset_swing_auras[spell] then
 			self.auraPreventSwingReset = subEvent == "SPELL_AURA_APPLIED"
 		end
 	elseif (subEvent == "SPELL_DAMAGE" or subEvent == "SPELL_MISSED") and sourceGUID == self.unitGUID then
 		local spell = amount
-		if reset_ranged_swing[spell] and reset_ranged_swing[spell][gameVersion] then
+		if reset_ranged_swing[spell] then
 			if isRetail then
 				self:SwingStart("mainhand", GetTime(), true)
 			else
@@ -442,7 +506,7 @@ end
 
 function lib:UNIT_SPELLCAST_INTERRUPTED_OR_FAILED(_, _, _, spell)
 	self.casting = false
-	if spell and pause_swing_spells[spell] and pause_swing_spells[spell][gameVersion] and self.pauseSwingTime then
+	if spell and pause_swing_spells[spell] and self.pauseSwingTime then
 		self.pauseSwingTime = nil
 		if self.mainSpeed > 0 then
 			if self.mainExpirationTime < GetTime() and self.isAttacking then
@@ -473,22 +537,22 @@ end
 
 function lib:UNIT_SPELLCAST_SUCCEEDED(_, _, _, spell)
 	local now = GetTime()
-	if spell ~= nil and next_melee_spells[spell] and next_melee_spells[spell][gameVersion] then
+	if spell ~= nil and next_melee_spells[spell] then
 		self:SwingStart("mainhand", now, false)
 		if isWrath then
 			self:SwingStart("ranged", now, true)
 		end
 	end
-	if (spell and reset_swing_spells[spell] and reset_swing_spells[spell][gameVersion]) or (self.casting and not self.preventSwingReset) then
+	if (spell and reset_swing_spells[spell]) or (self.casting and not self.preventSwingReset) then
 		if isRetail then		
-			self:SwingStart("mainhand", now, not (ranged_swing[spell] and ranged_swing[spell][gameVersion])) -- set reset flag to true if the spell is not in list of ranged swing spells
+			self:SwingStart("mainhand", now, not ranged_swing[spell]) -- set reset flag to true if the spell is not in list of ranged swing spells
 		else
 			self:SwingStart("mainhand", now, true)
 			self:SwingStart("offhand", now, true)
-			self:SwingStart("ranged", now, not (ranged_swing[spell] and ranged_swing[spell][gameVersion])) -- set reset flag to true if the spell is not in list of ranged swing spells
+			self:SwingStart("ranged", now, not ranged_swing[spell]) -- set reset flag to true if the spell is not in list of ranged swing spells
 		end
 	end
-	if spell and pause_swing_spells[spell] and pause_swing_spells[spell][gameVersion] and self.pauseSwingTime then
+	if spell and pause_swing_spells[spell] and self.pauseSwingTime then
 		local offset = now - self.pauseSwingTime
 		self.pauseSwingTime = nil
 		if self.mainSpeed > 0 then
@@ -533,8 +597,8 @@ function lib:UNIT_SPELLCAST_START(_, unit, _, spell)
 		local name, rank, icon, castTime, minRange, maxRange, spellId = GetSpellInfo(spell)
 		local endOfCast = now + (castTime / 1000) -- endOfCast is not use anywhere
 		self.casting = true
-		self.preventSwingReset = self.auraPreventSwingReset or (noreset_swing_spells[spell] and noreset_swing_spells[spell][gameVersion])
-		if spell and pause_swing_spells[spell] and pause_swing_spells[spell][gameVersion] then
+		self.preventSwingReset = self.auraPreventSwingReset or noreset_swing_spells[spell]
+		if spell and pause_swing_spells[spell] then
 			self.pauseSwingTime = now
 			if self.mainSpeed > 0 then
 				self:Fire("SWING_TIMER_PAUSED", "mainhand")
@@ -555,14 +619,14 @@ end
 function lib:UNIT_SPELLCAST_CHANNEL_START(_, _, _, spell)
 	self.casting = true
 	self.channeling = true
-	self.preventSwingReset = self.auraPreventSwingReset or (noreset_swing_spells[spell] and noreset_swing_spells[spell][gameVersion])
+	self.preventSwingReset = self.auraPreventSwingReset or noreset_swing_spells[spell]
 end
 
 function lib:UNIT_SPELLCAST_CHANNEL_STOP(_, _, _, spell)
 	local now = GetTime()
 	self.channeling = false
 	self.preventSwingReset = self.auraPreventSwingReset or false
-	if (spell and reset_swing_channel_spells[spell] and reset_swing_channel_spells[spell][gameVersion]) then
+	if (spell and reset_swing_channel_spells[spell]) then
 		if isRetail then		
 			self:SwingStart("mainhand", now, true)
 		else
