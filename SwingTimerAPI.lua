@@ -220,6 +220,7 @@ function lib:ADDON_LOADED(_, addOnName)
 	self.channeling = false
 	self.isAttacking = false
 	self.preventSwingReset = false
+	self.auraPreventSwingReset = false
 	self.skipNextAttack = nil
 	self.skipNextAttackCount = 0
 
@@ -376,7 +377,7 @@ function lib:COMBAT_LOG_EVENT_UNFILTERED(_, ts, subEvent, _, sourceGUID, _, _, _
 			self.skipNextAttackSpeedUpdateCount = 2
 		end
 		if spell and prevent_reset_swing_auras[spell] and prevent_reset_swing_auras[spell][gameVersion] then
-			self.preventSwingReset = subEvent == "SPELL_AURA_APPLIED"
+			self.auraPreventSwingReset = subEvent == "SPELL_AURA_APPLIED"
 		end
 	elseif (subEvent == "SPELL_DAMAGE" or subEvent == "SPELL_MISSED") and sourceGUID == self.unitGUID then
 		local spell = amount
@@ -504,6 +505,7 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, _, _, spell)
 			end)
 		end
 	end
+	self.preventSwingReset = self.auraPreventSwingReset or false
 	if self.casting and spell ~= 6603 then -- 6603=Auto Attack prevent set casting to false when auto attack is toggle on
 		self.casting = false
 	end
@@ -530,7 +532,7 @@ function lib:UNIT_SPELLCAST_START(_, unit, _, spell)
 		local name, rank, icon, castTime, minRange, maxRange, spellId = GetSpellInfo(spell)
 		local endOfCast = now + (castTime / 1000) -- endOfCast is not use anywhere
 		self.casting = true
-		self.preventSwingReset = self.preventSwingReset or (noreset_swing_spells[spell] and noreset_swing_spells[spell][gameVersion])
+		self.preventSwingReset = self.auraPreventSwingReset or (noreset_swing_spells[spell] and noreset_swing_spells[spell][gameVersion])
 		if spell and pause_swing_spells[spell] and pause_swing_spells[spell][gameVersion] then
 			self.pauseSwingTime = now
 			if self.mainSpeed > 0 then
@@ -552,12 +554,13 @@ end
 function lib:UNIT_SPELLCAST_CHANNEL_START(_, _, _, spell)
 	self.casting = true
 	self.channeling = true
-	self.preventSwingReset = noreset_swing_spells[spell] and noreset_swing_spells[spell][gameVersion]
+	self.preventSwingReset = self.auraPreventSwingReset or (noreset_swing_spells[spell] and noreset_swing_spells[spell][gameVersion])
 end
 
 function lib:UNIT_SPELLCAST_CHANNEL_STOP(_, _, _, spell)
 	local now = GetTime()
 	self.channeling = false
+	self.preventSwingReset = self.auraPreventSwingReset or false
 	if (spell and reset_swing_channel_spells[spell] and reset_swing_channel_spells[spell][gameVersion]) then
 		if isRetails then		
 			self:SwingStart("mainhand", now, true)
