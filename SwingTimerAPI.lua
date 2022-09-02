@@ -16,7 +16,7 @@ local isWrath = WOW_PROJECT_ID == WOW_PROJECT_BURNING_CRUSADE_CLASSIC and LE_EXP
 local isClassicOrBCCOrWrath = isClassicOrBCCOrWrath
 
 local reset_swing_spells = nil
-local reset_swing_channel_spells = nil
+local reset_swing_on_channel_stop_spells = nil
 local prevent_swing_speed_update = nil
 local next_melee_spells = nil
 local noreset_swing_spells = nil
@@ -406,7 +406,7 @@ function lib:UNIT_SPELLCAST_CHANNEL_STOP(_, _, _, spell)
 	local now = GetTime()
 	self.channeling = false
 	self.preventSwingReset = self.auraPreventSwingReset or false
-	if (spell and reset_swing_channel_spells[spell]) then
+	if (spell and reset_swing_on_channel_stop_spells[spell]) then
 		if isRetail then		
 			self:SwingStart("mainhand", now, true)
 		else
@@ -481,7 +481,7 @@ if isClassic then
 		[20066] = true, -- Repentance
 	}
 
-	reset_swing_channel_spells = {}
+	reset_swing_on_channel_stop_spells = {}
 
 	prevent_swing_speed_update = {
 		[768] = true, -- Cat Form
@@ -578,7 +578,7 @@ elseif isBCC then
 		[20066] = true, -- Repentance
 	}
 
-	reset_swing_channel_spells = {}
+	reset_swing_on_channel_stop_spells = {}
 
 	prevent_swing_speed_update = {
 		[768] = true, -- Cat Form
@@ -691,7 +691,7 @@ elseif isWrath then
 		[75] = true, -- Auto Shot
 	}
 
-	reset_swing_channel_spells = {}
+	reset_swing_on_channel_stop_spells = {}
 
 	prevent_swing_speed_update = {
 		[768] = true, -- Cat Form
@@ -836,7 +836,7 @@ elseif isRetail then
 		[116670] = true, -- Vivify
 	}
 
-	reset_swing_channel_spells = {
+	reset_swing_on_channel_stop_spells = {
 		[257044] = true, -- Rapide Fire
 	}
 

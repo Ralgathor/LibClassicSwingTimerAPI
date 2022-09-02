@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added support for all active game version.
 - Added Retails swing reset specificity.
 - Added game version ranged swing reset specificity.
-- Added channeled spell swing reset.
+- Added swing reset on channeled spell stop.
 
 ### Fixed
 - Fix preventSwingReset flag. Prevent flag from being stuck to true after channeling a spell.
