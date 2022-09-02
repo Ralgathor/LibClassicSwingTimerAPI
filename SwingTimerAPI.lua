@@ -326,11 +326,11 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, _, _, spell)
 	end
 	if (spell and reset_swing_spells[spell]) or (self.casting and not self.preventSwingReset) then
 		if isRetail then		
-			self:SwingStart("mainhand", now, not ranged_swing[spell]) -- set reset flag to true if the spell is not in list of ranged swing spells
+			self:SwingStart("mainhand", now, not ranged_swing[spell]) -- set reset flag to fase if the spell is in list of ranged swing spells
 		else
 			self:SwingStart("mainhand", now, true)
 			self:SwingStart("offhand", now, true)
-			self:SwingStart("ranged", now, not ranged_swing[spell]) -- set reset flag to true if the spell is not in list of ranged swing spells
+			self:SwingStart("ranged", now, not ranged_swing[spell]) -- set reset flag to fase if the spell is in list of ranged swing spells
 		end
 	end
 	if spell and pause_swing_spells[spell] and self.pauseSwingTime then
@@ -352,7 +352,7 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, _, _, spell)
 		end
 	end
 	self.preventSwingReset = self.auraPreventSwingReset or false
-	if self.casting and spell ~= 6603 then -- 6603=Auto Attack prevent set casting to false when auto attack is toggle on
+	if self.casting and spell ~= 6603 then -- 6603=Auto Attack prevent set casting flag to false when auto attack is toggle on
 		self.casting = false
 	end
 	if spell == 5384 then -- 5384=Feign Death
@@ -376,7 +376,6 @@ function lib:UNIT_SPELLCAST_START(_, unit, _, spell)
 	if spell then
 		local now = GetTime()
 		local name, rank, icon, castTime, minRange, maxRange, spellId = GetSpellInfo(spell)
-		local endOfCast = now + (castTime / 1000) -- endOfCast is not use anywhere
 		self.casting = true
 		self.preventSwingReset = self.auraPreventSwingReset or noreset_swing_spells[spell]
 		if spell and pause_swing_spells[spell] then
