@@ -15,180 +15,15 @@ local isBCC = WOW_PROJECT_ID == WOW_PROJECT_BURNING_CRUSADE_CLASSIC and LE_EXPAN
 local isWrath = WOW_PROJECT_ID == WOW_PROJECT_BURNING_CRUSADE_CLASSIC and LE_EXPANSION_LEVEL_CURRENT == LE_EXPANSION_WRATH_OF_THE_LICH_KING
 local isClassicOrBCCOrWrath = isClassicOrBCCOrWrath
 
-local gameVersion = (isRetail and "RETAILS") or (isClassic and "CLASSIC") or (isBCC and "BCC") or (isWrath and "WRATH")
-
-local list_reset_swing_spells = {
-	[16589] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Noggenfogger Elixir
-	[2645] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Ghost Wolf
-	[2764] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Throw
-	[3018] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Shoots,
-	[5019] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Shoot Wand
-	[5384] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Feign Death
-	[75] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = true, }, -- Auto Shot
-	[20066] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Repentance
-	[51533] = {["CLASSIC"] = false, ["BCC"] = false, ["WRATH"] = true, ["RETAILS"] = false, }, -- Feral Spirit
-	[124682] = {["CLASSIC"] = false, ["BCC"] = false, ["WRATH"] = false, ["RETAILS"] = true, }, -- Enveloping Mist
-	[116670] = {["CLASSIC"] = false, ["BCC"] = false, ["WRATH"] = false, ["RETAILS"] = true, }, -- Vivify
-}
-
-local list_reset_swing_channel_spells = {
-	[257044] = {["CLASSIC"] = false, ["BCC"] = false, ["WRATH"] = false, ["RETAILS"] = true, }, -- Rapide Fire
-}
-
-local list_prevent_swing_speed_update = {
-	[768] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = true, }, -- Cat Form
-	[5487] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = true, }, -- Bear Form
-	[9634] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = true, }, -- Dire Bear Form
-}
-
-local list_next_melee_spells = {
-	[47450] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Heroic Strike (rank 13)
-	[47449] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Heroic Strike (rank 12)
-	[30324] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Heroic Strike (rank 11)
-	[29707] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Heroic Strike (rank 10)
-	[25286] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Heroic Strike (rank 9)
-	[11567] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Heroic Strike (rank 18)
-	[11566] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Heroic Strike (rank 7)
-	[11565] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Heroic Strike (rank 6)
-	[11564] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Heroic Strike (rank 5)
-	[1608] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Heroic Strike (rank 4)
-	[285] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Heroic Strike (rank 3)
-	[284] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Heroic Strike (rank 2)
-	[78] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Heroic Strike (rank 1)
-	[47520] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Cleave (rank 8)
-	[47519] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Cleave (rank 7)
-	[25231] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Cleave (rank 6)
-	[20569] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Cleave (rank 5)
-	[11609] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Cleave (rank 4)
-	[11608] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Cleave (rank 3)
-	[7369] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Cleave (rank 2)
-	[845] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Cleave (rank 1)
-	[48996] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Raptor Strike (rank 11)
-	[48995] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Raptor Strike (rank 10)
-	[27014] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Raptor Strike (rank 9)
-	[14266] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Raptor Strike (rank 8)
-	[14265] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Raptor Strike (rank 7)
-	[14264] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Raptor Strike (rank 6)
-	[14263] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Raptor Strike (rank 5)
-	[14262] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Raptor Strike (rank 4)
-	[14261] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Raptor Strike (rank 3)
-	[14260] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Raptor Strike (rank 2)
-	[2973] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Raptor Strike (rank 1)
-	[6807] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Maul (rank 1)
-	[6808] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Maul (rank 2)
-	[6809] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Maul (rank 3)
-	[8972] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Maul (rank 4)
-	[9745] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Maul (rank 5)
-	[9880] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Maul (rank 6)
-	[9881] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Maul (rank 7)
-	[26996] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Maul (rank 8)
-	[48479] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Maul (rank 9)
-	[48480] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Maul (rank 10)
-}
-
-local list_noreset_swing_spells = {
-	[23063] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Dense Dynamite
-	[4054] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Rough Dynamite
-	[4064] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Rough Copper Bomb
-	[4061] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Coarse Dynamite
-	[8331] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Ez-Thro Dynamite
-	[4065] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Large Copper Bomb
-	[4066] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Small Bronze Bomb
-	[4062] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Heavy Dynamite
-	[4067] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Big Bronze Bomb
-	[4068] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Iron Grenade
-	[23000] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Ez-Thro Dynamite II
-	[12421] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Mithril Frag Bomb
-	[4069] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Big Iron Bomb
-	[12562] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- The Big One
-	[12543] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Hi-Explosive Bomb
-	[19769] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Thorium Grenade
-	[19784] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Dark Iron Bomb
-	[30216] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Fel Iron Bomb
-	[19821] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Arcane Bomb
-	[39965] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Frost Grenade
-	[30461] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- The Bigger One
-	[30217] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Adamantite Grenade
-	[35476] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Drums of Battle
-	[35475] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Drums of War
-	[35477] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Drums of Speed
-	[35478] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Drums of Restoration
-	[56641] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Steady Shot (rank 1)
-	[34120] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Steady Shot (rank 2)
-	[49051] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Steady Shot (rank 3)
-	[49052] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Steady Shot (rank 4)
-	[19434] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Aimed Shot (rank 1)
-	[1464] = {["CLASSIC"] = false, ["BCC"] = false, ["WRATH"] = true, ["RETAILS"] = false, }, -- Slam (rank 1)
-	[8820] = {["CLASSIC"] = false, ["BCC"] = false, ["WRATH"] = true, ["RETAILS"] = false, }, -- Slam (rank 2)
-	[11604] = {["CLASSIC"] = false, ["BCC"] = false, ["WRATH"] = true, ["RETAILS"] = false, }, -- Slam (rank 3)
-	[11605] = {["CLASSIC"] = false, ["BCC"] = false, ["WRATH"] = true, ["RETAILS"] = false, }, -- Slam (rank 4)
-	[25241] = {["CLASSIC"] = false, ["BCC"] = false, ["WRATH"] = true, ["RETAILS"] = false, }, -- Slam (rank 5)
-	[25242] = {["CLASSIC"] = false, ["BCC"] = false, ["WRATH"] = true, ["RETAILS"] = false, }, -- Slam (rank 6)
-	[47474] = {["CLASSIC"] = false, ["BCC"] = false, ["WRATH"] = true, ["RETAILS"] = false, }, -- Slam (rank 7)
-	[47475] = {["CLASSIC"] = false, ["BCC"] = false, ["WRATH"] = true, ["RETAILS"] = false, }, -- Slam (rank 8)
-	[48467] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Hurricane (rank 5)
-	[27012] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Hurricane (rank 4)
-	[17402] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Hurricane (rank 3)
-	[17401] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Hurricane (rank 2)
-	[16914] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Hurricane (rank 1)
-	[12051] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = true, }, -- Evocation
-	[58434] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Volley (rank 6)
-	[58431] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Volley (rank 5)
-	[27022] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Volley (rank 4)
-	[14295] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Volley (rank 3)
-	[14294] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Volley (rank 2)
-	[1510] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Volley (rank 1)
-	--35474 Drums of Panic DO reset the swing timer, do not add
-	[120360] = {["CLASSIC"] = false, ["BCC"] = false, ["WRATH"] = false, ["RETAILS"] = true, }, -- Barrage
-	[56641] = {["CLASSIC"] = false, ["BCC"] = false, ["WRATH"] = false, ["RETAILS"] = true, }, -- Steady Shot
-	[19434] = {["CLASSIC"] = false, ["BCC"] = false, ["WRATH"] = false, ["RETAILS"] = true, }, -- Aimed Shot
-	[113656] = {["CLASSIC"] = false, ["BCC"] = false, ["WRATH"] = false, ["RETAILS"] = true, }, -- Fists of Fury
-	[198013] = {["CLASSIC"] = false, ["BCC"] = false, ["WRATH"] = false, ["RETAILS"] = true, }, -- Eye Beam
-	[101546] = {["CLASSIC"] = false, ["BCC"] = false, ["WRATH"] = false, ["RETAILS"] = true, }, -- Spinning Crane Kick
-	[322729] = {["CLASSIC"] = false, ["BCC"] = false, ["WRATH"] = false, ["RETAILS"] = true, }, -- Spinning Crane Kick
-	[123986] = {["CLASSIC"] = false, ["BCC"] = false, ["WRATH"] = false, ["RETAILS"] = true, }, -- Chi Burst	
-}
-
-local list_prevent_reset_swing_auras = {
-	[53817] = {["CLASSIC"] = false, ["BCC"] = false, ["WRATH"] = true, ["RETAILS"] = false, }, -- Maelstrom Weapon
-}
-
-local list_pause_swing_spells = {
-	[1464] = {["CLASSIC"] = false, ["BCC"] = false, ["WRATH"] = true, ["RETAILS"] = false, }, -- Slam (rank 1)
-	[8820] = {["CLASSIC"] = false, ["BCC"] = false, ["WRATH"] = true, ["RETAILS"] = false, }, -- Slam (rank 2)
-	[11604] = {["CLASSIC"] = false, ["BCC"] = false, ["WRATH"] = true, ["RETAILS"] = false, }, -- Slam (rank 3)
-	[11605] = {["CLASSIC"] = false, ["BCC"] = false, ["WRATH"] = true, ["RETAILS"] = false, }, -- Slam (rank 4)
-	[25241] = {["CLASSIC"] = false, ["BCC"] = false, ["WRATH"] = true, ["RETAILS"] = false, }, -- Slam (rank 5)
-	[25242] = {["CLASSIC"] = false, ["BCC"] = false, ["WRATH"] = true, ["RETAILS"] = false, }, -- Slam (rank 6)
-	[47474] = {["CLASSIC"] = false, ["BCC"] = false, ["WRATH"] = true, ["RETAILS"] = false, }, -- Slam (rank 7)
-	[47475] = {["CLASSIC"] = false, ["BCC"] = false, ["WRATH"] = true, ["RETAILS"] = false, }, -- Slam (rank 8)
-}
-
-local list_ranged_swing = {
-	[75] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = true, }, -- Auto Shot
-	[3018] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Shoot
-	[2764] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Throw
-	[5019] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Shoot Wand
-}
-
-local list_reset_ranged_swing = {
-	[58433] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Volley (rank 6)
-	[58432] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Volley (rank 5)
-	[42234] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Volley (rank 4)
-	[42245] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Volley (rank 3)
-	[42244] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, }, -- Volley (rank 2)
-	[42243] = {["CLASSIC"] = true, ["BCC"] = true, ["WRATH"] = true, ["RETAILS"] = false, },  -- Volley (rank 1)
-}
-
-local reset_swing_spells = {}
-local reset_swing_channel_spells = {}
-local prevent_swing_speed_update = {}
-local next_melee_spells = {}
-local noreset_swing_spells = {}
-local prevent_reset_swing_auras = {}
-local pause_swing_spells = {}
-local ranged_swing = {}
-local reset_ranged_swing = {}
+local reset_swing_spells = nil
+local reset_swing_channel_spells = nil
+local prevent_swing_speed_update = nil
+local next_melee_spells = nil
+local noreset_swing_spells = nil
+local prevent_reset_swing_auras = nil
+local pause_swing_spells = nil
+local ranged_swing = nil
+local reset_ranged_swing = nil
 
 lib.callbacks = lib.callbacks or LibStub("CallbackHandler-1.0"):New(lib)
 
@@ -237,60 +72,6 @@ function lib:ADDON_LOADED(_, addOnName)
 
 	self.skipNextAttackSpeedUpdate = nil
 	self.skipNextAttackSpeedUpdateCount = 0
-
-	for spell in pairs(list_reset_swing_spells) do
-		if list_reset_swing_spells[spell][gameVersion] then
-			reset_swing_spells[spell] = true
-		end
-	end
-
-	for spell in pairs(list_reset_swing_channel_spells) do
-		if list_reset_swing_channel_spells[spell][gameVersion] then
-			reset_swing_channel_spells[spell] = true
-		end
-	end
-
-	for spell in pairs(list_prevent_swing_speed_update) do
-		if list_prevent_swing_speed_update[spell][gameVersion] then
-			prevent_swing_speed_update[spell] = true
-		end
-	end
-
-	for spell in pairs(list_next_melee_spells) do
-		if list_next_melee_spells[spell][gameVersion] then
-			next_melee_spells[spell] = true
-		end
-	end
-
-	for spell in pairs(list_noreset_swing_spells) do
-		if list_noreset_swing_spells[spell][gameVersion] then
-			noreset_swing_spells[spell] = true
-		end
-	end
-
-	for spell in pairs(list_prevent_reset_swing_auras) do
-		if list_prevent_reset_swing_auras[spell][gameVersion] then
-			prevent_reset_swing_auras[spell] = true
-		end
-	end
-
-	for spell in pairs(list_pause_swing_spells) do
-		if list_pause_swing_spells[spell][gameVersion] then
-			pause_swing_spells[spell] = true
-		end
-	end
-
-	for spell in pairs(list_ranged_swing) do
-		if list_ranged_swing[spell][gameVersion] then
-			ranged_swing[spell] = true
-		end
-	end
-
-	for spell in pairs(list_reset_ranged_swing) do
-		if list_reset_ranged_swing[spell][gameVersion] then
-			reset_ranged_swing[spell] = true
-		end
-	end
 end
 
 function lib:CalculateDelta()
@@ -685,3 +466,406 @@ frame:SetScript("OnEvent", function(_, event, ...)
 		lib[event](lib, event, ...)
 	end
 end)
+
+--[[
+	Set table data based on current game version
+]]--
+if isClassic then
+	reset_swing_spells = {
+		[16589] = true, -- Noggenfogger Elixir
+		[2645] = true, -- Ghost Wolf
+		[2764] = true, -- Throw
+		[3018] = true, -- Shoots,
+		[5019] = true, -- Shoot Wand
+		[5384] = true, -- Feign Death
+		[75] = true, -- Auto Shot
+		[20066] = true, -- Repentance
+	}
+
+	reset_swing_channel_spells = {}
+
+	prevent_swing_speed_update = {
+		[768] = true, -- Cat Form
+		[5487] = true, -- Bear Form
+		[9634] = true, -- Dire Bear Form
+	}
+
+	next_melee_spells = {
+		[25286] = true, -- Heroic Strike (rank 9)
+		[11567] = true, -- Heroic Strike (rank 18)
+		[11566] = true, -- Heroic Strike (rank 7)
+		[11565] = true, -- Heroic Strike (rank 6)
+		[11564] = true, -- Heroic Strike (rank 5)
+		[1608] = true, -- Heroic Strike (rank 4)
+		[285] = true, -- Heroic Strike (rank 3)
+		[284] = true, -- Heroic Strike (rank 2)
+		[78] = true, -- Heroic Strike (rank 1)
+		[20569] = true, -- Cleave (rank 5)
+		[11609] = true, -- Cleave (rank 4)
+		[11608] = true, -- Cleave (rank 3)
+		[7369] = true, -- Cleave (rank 2)
+		[845] = true, -- Cleave (rank 1)
+		[14266] = true, -- Raptor Strike (rank 8)
+		[14265] = true, -- Raptor Strike (rank 7)
+		[14264] = true, -- Raptor Strike (rank 6)
+		[14263] = true, -- Raptor Strike (rank 5)
+		[14262] = true, -- Raptor Strike (rank 4)
+		[14261] = true, -- Raptor Strike (rank 3)
+		[14260] = true, -- Raptor Strike (rank 2)
+		[2973] = true, -- Raptor Strike (rank 1)
+		[6807] = true, -- Maul (rank 1)
+		[6808] = true, -- Maul (rank 2)
+		[6809] = true, -- Maul (rank 3)
+		[8972] = true, -- Maul (rank 4)
+		[9745] = true, -- Maul (rank 5)
+		[9880] = true, -- Maul (rank 6)
+		[9881] = true, -- Maul (rank 7)
+	}
+
+	noreset_swing_spells = {
+		[23063] = true, -- Dense Dynamite
+		[4054] = true, -- Rough Dynamite
+		[4064] = true, -- Rough Copper Bomb
+		[4061] = true, -- Coarse Dynamite
+		[8331] = true, -- Ez-Thro Dynamite
+		[4065] = true, -- Large Copper Bomb
+		[4066] = true, -- Small Bronze Bomb
+		[4062] = true, -- Heavy Dynamite
+		[4067] = true, -- Big Bronze Bomb
+		[4068] = true, -- Iron Grenade
+		[23000] = true, -- Ez-Thro Dynamite II
+		[12421] = true, -- Mithril Frag Bomb
+		[4069] = true, -- Big Iron Bomb
+		[12562] = true, -- The Big One
+		[12543] = true, -- Hi-Explosive Bomb
+		[19769] = true, -- Thorium Grenade
+		[19784] = true, -- Dark Iron Bomb
+		[30216] = true, -- Fel Iron Bomb
+		[19821] = true, -- Arcane Bomb
+		[17402] = true, -- Hurricane (rank 3)
+		[17401] = true, -- Hurricane (rank 2)
+		[16914] = true, -- Hurricane (rank 1)
+		[12051] = true, -- Evocation
+		[14295] = true, -- Volley (rank 3)
+		[14294] = true, -- Volley (rank 2)
+		[1510] = true, -- Volley (rank 1)	
+	}
+
+	prevent_reset_swing_auras = {}
+
+	pause_swing_spells = {}
+
+	ranged_swing = {
+		[75] = true, -- Auto Shot
+		[3018] = true, -- Shoot
+		[2764] = true, -- Throw
+		[5019] = true, -- Shoot Wand
+	}
+
+	reset_ranged_swing = {
+		[42245] = true, -- Volley (rank 3)
+		[42244] = true, -- Volley (rank 2)
+		[42243] = true,  -- Volley (rank 1)
+	}
+elseif isBCC then
+	reset_swing_spells = {
+		[16589] = true, -- Noggenfogger Elixir
+		[2645] = true, -- Ghost Wolf
+		[2764] = true, -- Throw
+		[3018] = true, -- Shoots,
+		[5019] = true, -- Shoot Wand
+		[5384] = true, -- Feign Death
+		[75] = true, -- Auto Shot
+		[20066] = true, -- Repentance
+	}
+
+	reset_swing_channel_spells = {}
+
+	prevent_swing_speed_update = {
+		[768] = true, -- Cat Form
+		[5487] = true, -- Bear Form
+		[9634] = true, -- Dire Bear Form
+	}
+
+	next_melee_spells = {
+		[30324] = true, -- Heroic Strike (rank 11)
+		[29707] = true, -- Heroic Strike (rank 10)
+		[25286] = true, -- Heroic Strike (rank 9)
+		[11567] = true, -- Heroic Strike (rank 18)
+		[11566] = true, -- Heroic Strike (rank 7)
+		[11565] = true, -- Heroic Strike (rank 6)
+		[11564] = true, -- Heroic Strike (rank 5)
+		[1608] = true, -- Heroic Strike (rank 4)
+		[285] = true, -- Heroic Strike (rank 3)
+		[284] = true, -- Heroic Strike (rank 2)
+		[78] = true, -- Heroic Strike (rank 1)
+		[25231] = true, -- Cleave (rank 6)
+		[20569] = true, -- Cleave (rank 5)
+		[11609] = true, -- Cleave (rank 4)
+		[11608] = true, -- Cleave (rank 3)
+		[7369] = true, -- Cleave (rank 2)
+		[845] = true, -- Cleave (rank 1)
+		[27014] = true, -- Raptor Strike (rank 9)
+		[14266] = true, -- Raptor Strike (rank 8)
+		[14265] = true, -- Raptor Strike (rank 7)
+		[14264] = true, -- Raptor Strike (rank 6)
+		[14263] = true, -- Raptor Strike (rank 5)
+		[14262] = true, -- Raptor Strike (rank 4)
+		[14261] = true, -- Raptor Strike (rank 3)
+		[14260] = true, -- Raptor Strike (rank 2)
+		[2973] = true, -- Raptor Strike (rank 1)
+		[6807] = true, -- Maul (rank 1)
+		[6808] = true, -- Maul (rank 2)
+		[6809] = true, -- Maul (rank 3)
+		[8972] = true, -- Maul (rank 4)
+		[9745] = true, -- Maul (rank 5)
+		[9880] = true, -- Maul (rank 6)
+		[9881] = true, -- Maul (rank 7)
+		[26996] = true, -- Maul (rank 8)
+	}
+
+	noreset_swing_spells = {
+		[23063] = true, -- Dense Dynamite
+		[4054] = true, -- Rough Dynamite
+		[4064] = true, -- Rough Copper Bomb
+		[4061] = true, -- Coarse Dynamite
+		[8331] = true, -- Ez-Thro Dynamite
+		[4065] = true, -- Large Copper Bomb
+		[4066] = true, -- Small Bronze Bomb
+		[4062] = true, -- Heavy Dynamite
+		[4067] = true, -- Big Bronze Bomb
+		[4068] = true, -- Iron Grenade
+		[23000] = true, -- Ez-Thro Dynamite II
+		[12421] = true, -- Mithril Frag Bomb
+		[4069] = true, -- Big Iron Bomb
+		[12562] = true, -- The Big One
+		[12543] = true, -- Hi-Explosive Bomb
+		[19769] = true, -- Thorium Grenade
+		[19784] = true, -- Dark Iron Bomb
+		[30216] = true, -- Fel Iron Bomb
+		[19821] = true, -- Arcane Bomb
+		[39965] = true, -- Frost Grenade
+		[30461] = true, -- The Bigger One
+		[30217] = true, -- Adamantite Grenade
+		[35476] = true, -- Drums of Battle
+		[35475] = true, -- Drums of War
+		[35477] = true, -- Drums of Speed
+		[35478] = true, -- Drums of Restoration
+		[56641] = true, -- Steady Shot (rank 1)
+		[27012] = true, -- Hurricane (rank 4)
+		[17402] = true, -- Hurricane (rank 3)
+		[17401] = true, -- Hurricane (rank 2)
+		[16914] = true, -- Hurricane (rank 1)
+		[12051] = true, -- Evocation
+		[27022] = true, -- Volley (rank 4)
+		[14295] = true, -- Volley (rank 3)
+		[14294] = true, -- Volley (rank 2)
+		[1510] = true, -- Volley (rank 1)
+		--35474 Drums of Panic DO reset the swing timer, do not add
+	}
+
+	prevent_reset_swing_auras = {}
+
+	pause_swing_spells = {}
+
+	ranged_swing = {
+		[75] = true, -- Auto Shot
+		[3018] = true, -- Shoot
+		[2764] = true, -- Throw
+		[5019] = true, -- Shoot Wand
+	}
+
+	reset_ranged_swing = {
+		[42234] = true, -- Volley (rank 4)
+		[42245] = true, -- Volley (rank 3)
+		[42244] = true, -- Volley (rank 2)
+		[42243] = true,  -- Volley (rank 1)
+	}
+elseif isWrath then
+	reset_swing_spells = {
+		[16589] = true, -- Noggenfogger Elixir
+		[2645] = true, -- Ghost Wolf
+		[2764] = true, -- Throw
+		[3018] = true, -- Shoots,
+		[5019] = true, -- Shoot Wand
+		[5384] = true, -- Feign Death
+		[75] = true, -- Auto Shot
+	}
+
+	reset_swing_channel_spells = {}
+
+	prevent_swing_speed_update = {
+		[768] = true, -- Cat Form
+		[5487] = true, -- Bear Form
+		[9634] = true, -- Dire Bear Form
+	}
+
+	next_melee_spells = {
+		[47450] = true, -- Heroic Strike (rank 13)
+		[47449] = true, -- Heroic Strike (rank 12)
+		[30324] = true, -- Heroic Strike (rank 11)
+		[29707] = true, -- Heroic Strike (rank 10)
+		[25286] = true, -- Heroic Strike (rank 9)
+		[11567] = true, -- Heroic Strike (rank 18)
+		[11566] = true, -- Heroic Strike (rank 7)
+		[11565] = true, -- Heroic Strike (rank 6)
+		[11564] = true, -- Heroic Strike (rank 5)
+		[1608] = true, -- Heroic Strike (rank 4)
+		[285] = true, -- Heroic Strike (rank 3)
+		[284] = true, -- Heroic Strike (rank 2)
+		[78] = true, -- Heroic Strike (rank 1)
+		[47520] = true, -- Cleave (rank 8)
+		[47519] = true, -- Cleave (rank 7)
+		[25231] = true, -- Cleave (rank 6)
+		[20569] = true, -- Cleave (rank 5)
+		[11609] = true, -- Cleave (rank 4)
+		[11608] = true, -- Cleave (rank 3)
+		[7369] = true, -- Cleave (rank 2)
+		[845] = true, -- Cleave (rank 1)
+		[48996] = true, -- Raptor Strike (rank 11)
+		[48995] = true, -- Raptor Strike (rank 10)
+		[27014] = true, -- Raptor Strike (rank 9)
+		[14266] = true, -- Raptor Strike (rank 8)
+		[14265] = true, -- Raptor Strike (rank 7)
+		[14264] = true, -- Raptor Strike (rank 6)
+		[14263] = true, -- Raptor Strike (rank 5)
+		[14262] = true, -- Raptor Strike (rank 4)
+		[14261] = true, -- Raptor Strike (rank 3)
+		[14260] = true, -- Raptor Strike (rank 2)
+		[2973] = true, -- Raptor Strike (rank 1)
+		[6807] = true, -- Maul (rank 1)
+		[6808] = true, -- Maul (rank 2)
+		[6809] = true, -- Maul (rank 3)
+		[8972] = true, -- Maul (rank 4)
+		[9745] = true, -- Maul (rank 5)
+		[9880] = true, -- Maul (rank 6)
+		[9881] = true, -- Maul (rank 7)
+		[26996] = true, -- Maul (rank 8)
+		[48479] = true, -- Maul (rank 9)
+		[48480] = true, -- Maul (rank 10)
+	}
+
+	noreset_swing_spells = {
+		[23063] = true, -- Dense Dynamite
+		[4054] = true, -- Rough Dynamite
+		[4064] = true, -- Rough Copper Bomb
+		[4061] = true, -- Coarse Dynamite
+		[8331] = true, -- Ez-Thro Dynamite
+		[4065] = true, -- Large Copper Bomb
+		[4066] = true, -- Small Bronze Bomb
+		[4062] = true, -- Heavy Dynamite
+		[4067] = true, -- Big Bronze Bomb
+		[4068] = true, -- Iron Grenade
+		[23000] = true, -- Ez-Thro Dynamite II
+		[12421] = true, -- Mithril Frag Bomb
+		[4069] = true, -- Big Iron Bomb
+		[12562] = true, -- The Big One
+		[12543] = true, -- Hi-Explosive Bomb
+		[19769] = true, -- Thorium Grenade
+		[19784] = true, -- Dark Iron Bomb
+		[30216] = true, -- Fel Iron Bomb
+		[19821] = true, -- Arcane Bomb
+		[39965] = true, -- Frost Grenade
+		[30461] = true, -- The Bigger One
+		[30217] = true, -- Adamantite Grenade
+		[35476] = true, -- Drums of Battle
+		[35475] = true, -- Drums of War
+		[35477] = true, -- Drums of Speed
+		[35478] = true, -- Drums of Restoration
+		[56641] = true, -- Steady Shot (rank 1)
+		[34120] = true, -- Steady Shot (rank 2)
+		[49051] = true, -- Steady Shot (rank 3)
+		[49052] = true, -- Steady Shot (rank 4)
+		[19434] = true, -- Aimed Shot (rank 1)
+		[1464] = true, -- Slam (rank 1)
+		[8820] = true, -- Slam (rank 2)
+		[11604] = true, -- Slam (rank 3)
+		[11605] = true, -- Slam (rank 4)
+		[25241] = true, -- Slam (rank 5)
+		[25242] = true, -- Slam (rank 6)
+		[47474] = true, -- Slam (rank 7)
+		[47475] = true, -- Slam (rank 8)
+		[48467] = true, -- Hurricane (rank 5)
+		[27012] = true, -- Hurricane (rank 4)
+		[17402] = true, -- Hurricane (rank 3)
+		[17401] = true, -- Hurricane (rank 2)
+		[16914] = true, -- Hurricane (rank 1)
+		[12051] = true, -- Evocation
+		[58434] = true, -- Volley (rank 6)
+		[58431] = true, -- Volley (rank 5)
+		[27022] = true, -- Volley (rank 4)
+		[14295] = true, -- Volley (rank 3)
+		[14294] = true, -- Volley (rank 2)
+		[1510] = true, -- Volley (rank 1)
+		--35474 Drums of Panic DO reset the swing timer, do not add
+	}
+
+	prevent_reset_swing_auras = {
+		[53817] = true, -- Maelstrom Weapon
+	}
+
+	pause_swing_spells = {
+		[1464] = true, -- Slam (rank 1)
+		[8820] = true, -- Slam (rank 2)
+		[11604] = true, -- Slam (rank 3)
+		[11605] = true, -- Slam (rank 4)
+		[25241] = true, -- Slam (rank 5)
+		[25242] = true, -- Slam (rank 6)
+		[47474] = true, -- Slam (rank 7)
+		[47475] = true, -- Slam (rank 8)
+	}
+
+	ranged_swing = {
+		[75] = true, -- Auto Shot
+		[3018] = true, -- Shoot
+		[2764] = true, -- Throw
+		[5019] = true, -- Shoot Wand
+	}
+
+	reset_ranged_swing = {
+		[58433] = true, -- Volley (rank 6)
+		[58432] = true, -- Volley (rank 5)
+		[42234] = true, -- Volley (rank 4)
+		[42245] = true, -- Volley (rank 3)
+		[42244] = true, -- Volley (rank 2)
+		[42243] = true,  -- Volley (rank 1)
+	}
+elseif isRetail then
+	reset_swing_spells = {
+		[75] = true, -- Auto Shot
+		[124682] = true, -- Enveloping Mist
+		[116670] = true, -- Vivify
+	}
+
+	reset_swing_channel_spells = {
+		[257044] = true, -- Rapide Fire
+	}
+
+	prevent_swing_speed_update = {
+		[768] = true, -- Cat Form
+		[5487] = true, -- Bear Form
+		[9634] = true, -- Dire Bear Form
+	}
+
+	noreset_swing_spells = {
+		[12051] = true, -- Evocation
+		[120360] = true, -- Barrage
+		[56641] = true, -- Steady Shot
+		[19434] = true, -- Aimed Shot
+		[113656] = true, -- Fists of Fury
+		[198013] = true, -- Eye Beam
+		[101546] = true, -- Spinning Crane Kick
+		[322729] = true, -- Spinning Crane Kick
+		[123986] = true, -- Chi Burst	
+	}
+
+	prevent_reset_swing_auras = {}
+
+	pause_swing_spells = {}
+
+	ranged_swing = {
+		[75] = true, -- Auto Shot
+	}
+
+	reset_ranged_swing = {}
+end
