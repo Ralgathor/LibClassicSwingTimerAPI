@@ -17,7 +17,6 @@ local reset_swing_spells = {
 	[3018] = true, -- Shoots,
 	[5019] = true, -- Shoot
 	[75] = true, -- Auto Shot
-	[20066] = true, -- Repentance
 }
 
 local prevent_swing_speed_update = {
