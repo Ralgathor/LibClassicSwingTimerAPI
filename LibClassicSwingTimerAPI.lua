@@ -12,8 +12,8 @@ local UnitAttackSpeed, UnitAura, UnitGUID, UnitRangedDamage = UnitAttackSpeed, U
 local isRetail = WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
 local isClassic = WOW_PROJECT_ID == WOW_PROJECT_CLASSIC
 local isBCC = WOW_PROJECT_ID == WOW_PROJECT_BURNING_CRUSADE_CLASSIC and LE_EXPANSION_LEVEL_CURRENT == LE_EXPANSION_BURNING_CRUSADE
-local isWrath = WOW_PROJECT_ID == WOW_PROJECT_BURNING_CRUSADE_CLASSIC and LE_EXPANSION_LEVEL_CURRENT == LE_EXPANSION_WRATH_OF_THE_LICH_KING
-local isClassicOrBCCOrWrath = isClassicOrBCCOrWrath
+local isWrath = WOW_PROJECT_ID == WOW_PROJECT_WRATH_CLASSIC and LE_EXPANSION_LEVEL_CURRENT == LE_EXPANSION_WRATH_OF_THE_LICH_KING
+local isClassicOrBCCOrWrath = isClassic or isBCC or isWrath
 
 local reset_swing_spells = nil
 local reset_swing_on_channel_stop_spells = nil
@@ -797,6 +797,7 @@ elseif isWrath then
 		[14294] = true, -- Volley (rank 2)
 		[1510] = true, -- Volley (rank 1)
 		--35474 Drums of Panic DO reset the swing timer, do not add
+
 	}
 
 	prevent_reset_swing_auras = {
@@ -857,6 +858,8 @@ elseif isRetail then
 		[322729] = true, -- Spinning Crane Kick
 		[123986] = true, -- Chi Burst	
 	}
+
+	next_melee_spells = {}
 
 	prevent_reset_swing_auras = {}
 
