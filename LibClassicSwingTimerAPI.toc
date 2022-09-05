@@ -7,6 +7,6 @@
 ## Notes: Swing Timer Library
 ## Author: Ralgathor
 
-LibStub\LibStub.lua
-CallbackHandler-1.0\CallbackHandler-1.0.lua
+Libs\LibStub\LibStub.lua
+Libs\CallbackHandler-1.0\CallbackHandler-1.0.lua
 SwingTimerAPI.lua
