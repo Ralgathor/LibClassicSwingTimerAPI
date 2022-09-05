@@ -37,12 +37,9 @@ function lib:ADDON_LOADED(_, addOnName)
 	end
 
 	self.unitGUID = UnitGUID("player")
-
-	local mainSpeed, offSpeed = UnitAttackSpeed("player")
 	local now = GetTime()
 
-	self.mainSpeed = mainSpeed
-	self.offSpeed = offSpeed or 0
+	self:InitSwingSpeeds()
 
 	self.lastMainSwing = now
 	self.mainExpirationTime = self.lastMainSwing + self.mainSpeed
@@ -72,6 +69,25 @@ function lib:ADDON_LOADED(_, addOnName)
 
 	self.skipNextAttackSpeedUpdate = nil
 	self.skipNextAttackSpeedUpdateCount = 0
+
+	-- Repoll the speed a few seconds after init to get around the API
+	-- for UnitAttackSpeed mainhand sometimes returning zero for a short time
+	-- when the game is first loaded.
+	C_Timer.After(3, function()
+		self:InitSwingSpeeds()
+		end
+	)
+
+end
+
+function lib:InitSwingSpeeds()
+	local mainSpeed, offSpeed = UnitAttackSpeed("player")
+	if mainSpeed == 0 then
+		self.mainSpeed = 3.0 -- some dummy non-zero value to prevent infinities
+	else
+		self.mainSpeed = mainSpeed
+	end
+	self.offSpeed = offSpeed or 0
 end
 
 function lib:CalculateDelta()
@@ -238,6 +254,7 @@ function lib:COMBAT_LOG_EVENT_UNFILTERED(_, ts, subEvent, _, sourceGUID, _, _, _
 end
 
 function lib:UNIT_ATTACK_SPEED()
+	print('UNIT_ATTACK_SPEED call made')
 	local now = GetTime()
 	if
 		self.skipNextAttackSpeedUpdate
