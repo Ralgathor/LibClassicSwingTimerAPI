@@ -4,16 +4,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.3.0]
 
 ### Added
 - Added support for all active game version.
 - Added Retails swing reset specificity.
 - Added game version ranged swing reset specificity.
 - Added swing reset on channeled spell stop.
+- Project now supports BigWigs packager and now no longer contains source of other embeds
 
 ### Fixed
 - Fix preventSwingReset flag. Prevent flag from being stuck to true after channeling a spell.
+- Fix to version detection logic
+- Attack speeds are now repolled 3s after addon init to resolve UnitAttackSpeed wrongly returning zero on first load of the game.
 
 ## [1.2.0] - 2022-08-30
 
