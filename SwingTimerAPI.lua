@@ -1,4 +1,4 @@
-local MAJOR, MINOR = "LibClassicSwingTimerAPI", 4
+local MAJOR, MINOR = "LibClassicSwingTimerAPI", 5
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then
 	return
@@ -9,152 +9,21 @@ local C_Timer, tonumber = C_Timer, tonumber
 local GetSpellInfo, GetTime, CombatLogGetCurrentEventInfo = GetSpellInfo, GetTime, CombatLogGetCurrentEventInfo
 local UnitAttackSpeed, UnitAura, UnitGUID, UnitRangedDamage = UnitAttackSpeed, UnitAura, UnitGUID, UnitRangedDamage
 
-local reset_swing_spells = {
-	[16589] = true, -- Noggenfogger Elixir
-	[2645] = true, -- Ghost Wolf
-	[51533] = true, -- Feral Spirit
-	[2764] = true, -- Throw
-	[3018] = true, -- Shoots,
-	[5019] = true, -- Shoot
-	[75] = true, -- Auto Shot
-}
+local isRetail = WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
+local isClassic = WOW_PROJECT_ID == WOW_PROJECT_CLASSIC
+local isBCC = WOW_PROJECT_ID == WOW_PROJECT_BURNING_CRUSADE_CLASSIC and LE_EXPANSION_LEVEL_CURRENT == LE_EXPANSION_BURNING_CRUSADE
+local isWrath = WOW_PROJECT_ID == WOW_PROJECT_BURNING_CRUSADE_CLASSIC and LE_EXPANSION_LEVEL_CURRENT == LE_EXPANSION_WRATH_OF_THE_LICH_KING
+local isClassicOrBCCOrWrath = isClassicOrBCCOrWrath
 
-local prevent_swing_speed_update = {
-	[768] = true, -- Cat Form
-	[5487] = true, -- Bear Form
-	[9634] = true, -- Dire Bear Form
-}
-
-local next_melee_spells = {
-	[47450] = true, -- Heroic Strike (rank 13)
-	[47449] = true, -- Heroic Strike (rank 12)
-	[30324] = true, -- Heroic Strike (rank 11)
-	[29707] = true, -- Heroic Strike (rank 10)
-	[25286] = true, -- Heroic Strike (rank 9)
-	[11567] = true, -- Heroic Strike (rank 18)
-	[11566] = true, -- Heroic Strike (rank 7)
-	[11565] = true, -- Heroic Strike (rank 6)
-	[11564] = true, -- Heroic Strike (rank 5)
-	[1608] = true, -- Heroic Strike (rank 4)
-	[285] = true, -- Heroic Strike (rank 3)
-	[284] = true, -- Heroic Strike (rank 2)
-	[78] = true, -- Heroic Strike (rank 1)
-	[47520] = true, -- Cleave (rank 8)
-	[47519] = true, -- Cleave (rank 7)
-	[25231] = true, -- Cleave (rank 6)
-	[20569] = true, -- Cleave (rank 5)
-	[11609] = true, -- Cleave (rank 4)
-	[11608] = true, -- Cleave (rank 3)
-	[7369] = true, -- Cleave (rank 2)
-	[845] = true, -- Cleave (rank 1)
-	[48996] = true, -- Raptor Strike (rank 11)
-	[48995] = true, -- Raptor Strike (rank 10)
-	[27014] = true, -- Raptor Strike (rank 9)
-	[14266] = true, -- Raptor Strike (rank 8)
-	[14265] = true, -- Raptor Strike (rank 7)
-	[14264] = true, -- Raptor Strike (rank 6)
-	[14263] = true, -- Raptor Strike (rank 5)
-	[14262] = true, -- Raptor Strike (rank 4)
-	[14261] = true, -- Raptor Strike (rank 3)
-	[14260] = true, -- Raptor Strike (rank 2)
-	[2973] = true, -- Raptor Strike (rank 1)
-	[6807] = true, -- Maul (rank 1)
-	[6808] = true, -- Maul (rank 2)
-	[6809] = true, -- Maul (rank 3)
-	[8972] = true, -- Maul (rank 4)
-	[9745] = true, -- Maul (rank 5)
-	[9880] = true, -- Maul (rank 6)
-	[9881] = true, -- Maul (rank 7)
-	[26996] = true, -- Maul (rank 8)
-	[48479] = true, -- Maul (rank 9)
-	[48480] = true, -- Maul (rank 10)
-}
-
-local noreset_swing_spells = {
-	[23063] = true, -- Dense Dynamite
-	[4054] = true, -- Rough Dynamite
-	[4064] = true, -- Rough Copper Bomb
-	[4061] = true, -- Coarse Dynamite
-	[8331] = true, -- Ez-Thro Dynamite
-	[4065] = true, -- Large Copper Bomb
-	[4066] = true, -- Small Bronze Bomb
-	[4062] = true, -- Heavy Dynamite
-	[4067] = true, -- Big Bronze Bomb
-	[4068] = true, -- Iron Grenade
-	[23000] = true, -- Ez-Thro Dynamite II
-	[12421] = true, -- Mithril Frag Bomb
-	[4069] = true, -- Big Iron Bomb
-	[12562] = true, -- The Big One
-	[12543] = true, -- Hi-Explosive Bomb
-	[19769] = true, -- Thorium Grenade
-	[19784] = true, -- Dark Iron Bomb
-	[30216] = true, -- Fel Iron Bomb
-	[19821] = true, -- Arcane Bomb
-	[39965] = true, -- Frost Grenade
-	[30461] = true, -- The Bigger One
-	[30217] = true, -- Adamantite Grenade
-	[35476] = true, -- Drums of Battle
-	[35475] = true, -- Drums of War
-	[35477] = true, -- Drums of Speed
-	[35478] = true, -- Drums of Restoration
-	[56641] = true, -- Steady Shot (rank 1)
-	[34120] = true, -- Steady Shot (rank 2)
-	[49051] = true, -- Steady Shot (rank 3)
-	[49052] = true, -- Steady Shot (rank 4)
-	[19434] = true, -- Aimed Shot (rank 1)
-	[1464] = true, -- Slam (rank 1)
-	[8820] = true, -- Slam (rank 2)
-	[11604] = true, -- Slam (rank 3)
-	[11605] = true, -- Slam (rank 4)
-	[25241] = true, -- Slam (rank 5)
-	[25242] = true, -- Slam (rank 6)
-	[47474] = true, -- Slam (rank 7)
-	[47475] = true, -- Slam (rank 8)
-	[48467] = true, -- Hurricane (rank 5)
-	[27012] = true, -- Hurricane (rank 4)
-	[17402] = true, -- Hurricane (rank 3)
-	[17401] = true, -- Hurricane (rank 2)
-	[16914] = true, -- Hurricane (rank 1)
-	[12051] = true, -- Evocation
-	[58434] = true, -- Volley (rank 6)
-	[58431] = true, -- Volley (rank 5)
-	[27022] = true, -- Volley (rank 4)
-	[14295] = true, -- Volley (rank 3)
-	[14294] = true, -- Volley (rank 2)
-	[1510] = true, -- Volley (rank 1)
-	--35474 Drums of Panic DO reset the swing timer, do not add
-}
-
-local prevent_reset_swing_auras = {
-	[53817] = true, -- Maelstrom Weapon
-}
-
-local pause_swing_spells = {
-	[1464] = true, -- Slam (rank 1)
-	[8820] = true, -- Slam (rank 2)
-	[11604] = true, -- Slam (rank 3)
-	[11605] = true, -- Slam (rank 4)
-	[25241] = true, -- Slam (rank 5)
-	[25242] = true, -- Slam (rank 6)
-	[47474] = true, -- Slam (rank 7)
-	[47475] = true, -- Slam (rank 8)
-}
-
-local ranged_swing = {
-	[75] = true, -- Auto Shot
-	[3018] = true, -- Shoot
-	[2764] = true, -- Throw
-	[5019] = true, -- Shoot
-}
-
-local reset_ranged_swing = {
-	[58433] = true, -- Volley
-	[58432] = true, -- Volley
-	[42234] = true, -- Volley
-	[42245] = true, -- Volley
-	[42244] = true, -- Volley
-	[42243] = true,  -- Volley
-}
+local reset_swing_spells = nil
+local reset_swing_on_channel_stop_spells = nil
+local prevent_swing_speed_update = nil
+local next_melee_spells = nil
+local noreset_swing_spells = nil
+local prevent_reset_swing_auras = nil
+local pause_swing_spells = nil
+local ranged_swing = nil
+local reset_ranged_swing = nil
 
 lib.callbacks = lib.callbacks or LibStub("CallbackHandler-1.0"):New(lib)
 
@@ -197,6 +66,7 @@ function lib:ADDON_LOADED(_, addOnName)
 	self.channeling = false
 	self.isAttacking = false
 	self.preventSwingReset = false
+	self.auraPreventSwingReset = false
 	self.skipNextAttack = nil
 	self.skipNextAttackCount = 0
 
@@ -274,8 +144,13 @@ function lib:SwingEnd(hand)
 	self:Fire("SWING_TIMER_STOP", hand)
 	if (self.casting or self.channeling) and self.isAttacking and hand ~= "ranged" then
 		local now = GetTime()
-		self:SwingStart(hand, now, true)
-		self:Fire("SWING_TIMER_CLIPPED", hand)
+		if isRetail and hand == "mainhand" then		
+			self:SwingStart(hand, now, true)
+			self:Fire("SWING_TIMER_CLIPPED", hand)
+		elseif isClassicOrBCCOrWrath then
+			self:SwingStart(hand, now, true)
+			self:Fire("SWING_TIMER_CLIPPED", hand)
+		end
 	end
 end
 
@@ -314,11 +189,15 @@ function lib:COMBAT_LOG_EVENT_UNFILTERED(_, ts, subEvent, _, sourceGUID, _, _, _
 		if isOffHand then
 			self.firstOffSwing = true
 			self:SwingStart("offhand", now, false)
-			self:SwingStart("ranged", now, true)
+			if isWrath then
+				self:SwingStart("ranged", now, true)
+			end
 		else
 			self.firstMainSwing = true
 			self:SwingStart("mainhand", now, false)
-			self:SwingStart("ranged", now, true)
+			if isWrath then
+				self:SwingStart("ranged", now, true)
+			end
 		end
 	elseif subEvent == "SWING_MISSED" and amount ~= nil and amount == "PARRY" and destGUID == self.unitGUID then
 		if self.mainTimer then
@@ -344,12 +223,16 @@ function lib:COMBAT_LOG_EVENT_UNFILTERED(_, ts, subEvent, _, sourceGUID, _, _, _
 			self.skipNextAttackSpeedUpdateCount = 2
 		end
 		if spell and prevent_reset_swing_auras[spell] then
-			self.preventSwingReset = subEvent == "SPELL_AURA_APPLIED"
+			self.auraPreventSwingReset = subEvent == "SPELL_AURA_APPLIED"
 		end
 	elseif (subEvent == "SPELL_DAMAGE" or subEvent == "SPELL_MISSED") and sourceGUID == self.unitGUID then
 		local spell = amount
 		if reset_ranged_swing[spell] then
-			self:SwingStart("ranged", GetTime(), true)
+			if isRetail then
+				self:SwingStart("mainhand", GetTime(), true)
+			else
+				self:SwingStart("ranged", GetTime(), true)
+			end
 		end
 	end
 end
@@ -437,12 +320,18 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, _, _, spell)
 	local now = GetTime()
 	if spell ~= nil and next_melee_spells[spell] then
 		self:SwingStart("mainhand", now, false)
-		self:SwingStart("ranged", now, true)
+		if isWrath then
+			self:SwingStart("ranged", now, true)
+		end
 	end
 	if (spell and reset_swing_spells[spell]) or (self.casting and not self.preventSwingReset) then
-		self:SwingStart("mainhand", now, true)
-		self:SwingStart("offhand", now, true)
-		self:SwingStart("ranged", now, not ranged_swing[spell]) -- set reset flag to true if the spell is not in list of ranged swing spells
+		if isRetail then		
+			self:SwingStart("mainhand", now, not ranged_swing[spell]) -- set reset flag to fase if the spell is in list of ranged swing spells
+		else
+			self:SwingStart("mainhand", now, true)
+			self:SwingStart("offhand", now, true)
+			self:SwingStart("ranged", now, not ranged_swing[spell]) -- set reset flag to fase if the spell is in list of ranged swing spells
+		end
 	end
 	if spell and pause_swing_spells[spell] and self.pauseSwingTime then
 		local offset = now - self.pauseSwingTime
@@ -462,7 +351,8 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, _, _, spell)
 			end)
 		end
 	end
-	if self.casting and spell ~= 6603 then -- 6603=Auto Attack prevent set casting to false when auto attack is toggle on
+	self.preventSwingReset = self.auraPreventSwingReset or false
+	if self.casting and spell ~= 6603 then -- 6603=Auto Attack prevent set casting flag to false when auto attack is toggle on
 		self.casting = false
 	end
 	if spell == 5384 then -- 5384=Feign Death
@@ -471,12 +361,14 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, _, _, spell)
 			if enabled == 1 then -- Reset ranged swing when FD CD start
 				self:SwingStart("mainhand", start, true)
 				self:SwingStart("offhand", start, true)
-				self:SwingStart("ranged", start, true)
+				if isClassicOrBCCOrWrath then
+					self:SwingStart("ranged", start, true)
+				end
 				if self.feignDeathTimer then
 					self.feignDeathTimer:Cancel()
 				end
 			end
-		end);
+		end)
 	end
 end
 
@@ -484,9 +376,8 @@ function lib:UNIT_SPELLCAST_START(_, unit, _, spell)
 	if spell then
 		local now = GetTime()
 		local name, rank, icon, castTime, minRange, maxRange, spellId = GetSpellInfo(spell)
-		local endOfCast = now + (castTime / 1000) -- endOfCast is not use anywhere
 		self.casting = true
-		self.preventSwingReset = self.preventSwingReset or noreset_swing_spells[spell]
+		self.preventSwingReset = self.auraPreventSwingReset or noreset_swing_spells[spell]
 		if spell and pause_swing_spells[spell] then
 			self.pauseSwingTime = now
 			if self.mainSpeed > 0 then
@@ -508,11 +399,22 @@ end
 function lib:UNIT_SPELLCAST_CHANNEL_START(_, _, _, spell)
 	self.casting = true
 	self.channeling = true
-	self.preventSwingReset = noreset_swing_spells[spell]
+	self.preventSwingReset = self.auraPreventSwingReset or noreset_swing_spells[spell]
 end
 
-function lib:UNIT_SPELLCAST_CHANNEL_STOP()
+function lib:UNIT_SPELLCAST_CHANNEL_STOP(_, _, _, spell)
+	local now = GetTime()
 	self.channeling = false
+	self.preventSwingReset = self.auraPreventSwingReset or false
+	if (spell and reset_swing_on_channel_stop_spells[spell]) then
+		if isRetail then		
+			self:SwingStart("mainhand", now, true)
+		else
+			self:SwingStart("mainhand", now, true)
+			self:SwingStart("offhand", now, true)
+			self:SwingStart("ranged", now, true)
+		end
+	end
 end
 
 function lib:PLAYER_EQUIPMENT_CHANGED(_, equipmentSlot)
@@ -520,7 +422,9 @@ function lib:PLAYER_EQUIPMENT_CHANGED(_, equipmentSlot)
 		local now = GetTime()
 		self:SwingStart("mainhand", now, true)
 		self:SwingStart("offhand", now, true)
-		self:SwingStart("ranged", now, true)
+		if isClassicOrBCCOrWrath then
+			self:SwingStart("ranged", now, true)
+		end
 	end
 end
 
@@ -561,3 +465,406 @@ frame:SetScript("OnEvent", function(_, event, ...)
 		lib[event](lib, event, ...)
 	end
 end)
+
+--[[
+	Set table data based on current game version
+]]--
+if isClassic then
+	reset_swing_spells = {
+		[16589] = true, -- Noggenfogger Elixir
+		[2645] = true, -- Ghost Wolf
+		[2764] = true, -- Throw
+		[3018] = true, -- Shoots,
+		[5019] = true, -- Shoot Wand
+		[5384] = true, -- Feign Death
+		[75] = true, -- Auto Shot
+		[20066] = true, -- Repentance
+	}
+
+	reset_swing_on_channel_stop_spells = {}
+
+	prevent_swing_speed_update = {
+		[768] = true, -- Cat Form
+		[5487] = true, -- Bear Form
+		[9634] = true, -- Dire Bear Form
+	}
+
+	next_melee_spells = {
+		[25286] = true, -- Heroic Strike (rank 9)
+		[11567] = true, -- Heroic Strike (rank 18)
+		[11566] = true, -- Heroic Strike (rank 7)
+		[11565] = true, -- Heroic Strike (rank 6)
+		[11564] = true, -- Heroic Strike (rank 5)
+		[1608] = true, -- Heroic Strike (rank 4)
+		[285] = true, -- Heroic Strike (rank 3)
+		[284] = true, -- Heroic Strike (rank 2)
+		[78] = true, -- Heroic Strike (rank 1)
+		[20569] = true, -- Cleave (rank 5)
+		[11609] = true, -- Cleave (rank 4)
+		[11608] = true, -- Cleave (rank 3)
+		[7369] = true, -- Cleave (rank 2)
+		[845] = true, -- Cleave (rank 1)
+		[14266] = true, -- Raptor Strike (rank 8)
+		[14265] = true, -- Raptor Strike (rank 7)
+		[14264] = true, -- Raptor Strike (rank 6)
+		[14263] = true, -- Raptor Strike (rank 5)
+		[14262] = true, -- Raptor Strike (rank 4)
+		[14261] = true, -- Raptor Strike (rank 3)
+		[14260] = true, -- Raptor Strike (rank 2)
+		[2973] = true, -- Raptor Strike (rank 1)
+		[6807] = true, -- Maul (rank 1)
+		[6808] = true, -- Maul (rank 2)
+		[6809] = true, -- Maul (rank 3)
+		[8972] = true, -- Maul (rank 4)
+		[9745] = true, -- Maul (rank 5)
+		[9880] = true, -- Maul (rank 6)
+		[9881] = true, -- Maul (rank 7)
+	}
+
+	noreset_swing_spells = {
+		[23063] = true, -- Dense Dynamite
+		[4054] = true, -- Rough Dynamite
+		[4064] = true, -- Rough Copper Bomb
+		[4061] = true, -- Coarse Dynamite
+		[8331] = true, -- Ez-Thro Dynamite
+		[4065] = true, -- Large Copper Bomb
+		[4066] = true, -- Small Bronze Bomb
+		[4062] = true, -- Heavy Dynamite
+		[4067] = true, -- Big Bronze Bomb
+		[4068] = true, -- Iron Grenade
+		[23000] = true, -- Ez-Thro Dynamite II
+		[12421] = true, -- Mithril Frag Bomb
+		[4069] = true, -- Big Iron Bomb
+		[12562] = true, -- The Big One
+		[12543] = true, -- Hi-Explosive Bomb
+		[19769] = true, -- Thorium Grenade
+		[19784] = true, -- Dark Iron Bomb
+		[30216] = true, -- Fel Iron Bomb
+		[19821] = true, -- Arcane Bomb
+		[17402] = true, -- Hurricane (rank 3)
+		[17401] = true, -- Hurricane (rank 2)
+		[16914] = true, -- Hurricane (rank 1)
+		[12051] = true, -- Evocation
+		[14295] = true, -- Volley (rank 3)
+		[14294] = true, -- Volley (rank 2)
+		[1510] = true, -- Volley (rank 1)	
+	}
+
+	prevent_reset_swing_auras = {}
+
+	pause_swing_spells = {}
+
+	ranged_swing = {
+		[75] = true, -- Auto Shot
+		[3018] = true, -- Shoot
+		[2764] = true, -- Throw
+		[5019] = true, -- Shoot Wand
+	}
+
+	reset_ranged_swing = {
+		[42245] = true, -- Volley (rank 3)
+		[42244] = true, -- Volley (rank 2)
+		[42243] = true,  -- Volley (rank 1)
+	}
+elseif isBCC then
+	reset_swing_spells = {
+		[16589] = true, -- Noggenfogger Elixir
+		[2645] = true, -- Ghost Wolf
+		[2764] = true, -- Throw
+		[3018] = true, -- Shoots,
+		[5019] = true, -- Shoot Wand
+		[5384] = true, -- Feign Death
+		[75] = true, -- Auto Shot
+		[20066] = true, -- Repentance
+	}
+
+	reset_swing_on_channel_stop_spells = {}
+
+	prevent_swing_speed_update = {
+		[768] = true, -- Cat Form
+		[5487] = true, -- Bear Form
+		[9634] = true, -- Dire Bear Form
+	}
+
+	next_melee_spells = {
+		[30324] = true, -- Heroic Strike (rank 11)
+		[29707] = true, -- Heroic Strike (rank 10)
+		[25286] = true, -- Heroic Strike (rank 9)
+		[11567] = true, -- Heroic Strike (rank 18)
+		[11566] = true, -- Heroic Strike (rank 7)
+		[11565] = true, -- Heroic Strike (rank 6)
+		[11564] = true, -- Heroic Strike (rank 5)
+		[1608] = true, -- Heroic Strike (rank 4)
+		[285] = true, -- Heroic Strike (rank 3)
+		[284] = true, -- Heroic Strike (rank 2)
+		[78] = true, -- Heroic Strike (rank 1)
+		[25231] = true, -- Cleave (rank 6)
+		[20569] = true, -- Cleave (rank 5)
+		[11609] = true, -- Cleave (rank 4)
+		[11608] = true, -- Cleave (rank 3)
+		[7369] = true, -- Cleave (rank 2)
+		[845] = true, -- Cleave (rank 1)
+		[27014] = true, -- Raptor Strike (rank 9)
+		[14266] = true, -- Raptor Strike (rank 8)
+		[14265] = true, -- Raptor Strike (rank 7)
+		[14264] = true, -- Raptor Strike (rank 6)
+		[14263] = true, -- Raptor Strike (rank 5)
+		[14262] = true, -- Raptor Strike (rank 4)
+		[14261] = true, -- Raptor Strike (rank 3)
+		[14260] = true, -- Raptor Strike (rank 2)
+		[2973] = true, -- Raptor Strike (rank 1)
+		[6807] = true, -- Maul (rank 1)
+		[6808] = true, -- Maul (rank 2)
+		[6809] = true, -- Maul (rank 3)
+		[8972] = true, -- Maul (rank 4)
+		[9745] = true, -- Maul (rank 5)
+		[9880] = true, -- Maul (rank 6)
+		[9881] = true, -- Maul (rank 7)
+		[26996] = true, -- Maul (rank 8)
+	}
+
+	noreset_swing_spells = {
+		[23063] = true, -- Dense Dynamite
+		[4054] = true, -- Rough Dynamite
+		[4064] = true, -- Rough Copper Bomb
+		[4061] = true, -- Coarse Dynamite
+		[8331] = true, -- Ez-Thro Dynamite
+		[4065] = true, -- Large Copper Bomb
+		[4066] = true, -- Small Bronze Bomb
+		[4062] = true, -- Heavy Dynamite
+		[4067] = true, -- Big Bronze Bomb
+		[4068] = true, -- Iron Grenade
+		[23000] = true, -- Ez-Thro Dynamite II
+		[12421] = true, -- Mithril Frag Bomb
+		[4069] = true, -- Big Iron Bomb
+		[12562] = true, -- The Big One
+		[12543] = true, -- Hi-Explosive Bomb
+		[19769] = true, -- Thorium Grenade
+		[19784] = true, -- Dark Iron Bomb
+		[30216] = true, -- Fel Iron Bomb
+		[19821] = true, -- Arcane Bomb
+		[39965] = true, -- Frost Grenade
+		[30461] = true, -- The Bigger One
+		[30217] = true, -- Adamantite Grenade
+		[35476] = true, -- Drums of Battle
+		[35475] = true, -- Drums of War
+		[35477] = true, -- Drums of Speed
+		[35478] = true, -- Drums of Restoration
+		[56641] = true, -- Steady Shot (rank 1)
+		[27012] = true, -- Hurricane (rank 4)
+		[17402] = true, -- Hurricane (rank 3)
+		[17401] = true, -- Hurricane (rank 2)
+		[16914] = true, -- Hurricane (rank 1)
+		[12051] = true, -- Evocation
+		[27022] = true, -- Volley (rank 4)
+		[14295] = true, -- Volley (rank 3)
+		[14294] = true, -- Volley (rank 2)
+		[1510] = true, -- Volley (rank 1)
+		--35474 Drums of Panic DO reset the swing timer, do not add
+	}
+
+	prevent_reset_swing_auras = {}
+
+	pause_swing_spells = {}
+
+	ranged_swing = {
+		[75] = true, -- Auto Shot
+		[3018] = true, -- Shoot
+		[2764] = true, -- Throw
+		[5019] = true, -- Shoot Wand
+	}
+
+	reset_ranged_swing = {
+		[42234] = true, -- Volley (rank 4)
+		[42245] = true, -- Volley (rank 3)
+		[42244] = true, -- Volley (rank 2)
+		[42243] = true,  -- Volley (rank 1)
+	}
+elseif isWrath then
+	reset_swing_spells = {
+		[16589] = true, -- Noggenfogger Elixir
+		[2645] = true, -- Ghost Wolf
+		[2764] = true, -- Throw
+		[3018] = true, -- Shoots,
+		[5019] = true, -- Shoot Wand
+		[5384] = true, -- Feign Death
+		[75] = true, -- Auto Shot
+	}
+
+	reset_swing_on_channel_stop_spells = {}
+
+	prevent_swing_speed_update = {
+		[768] = true, -- Cat Form
+		[5487] = true, -- Bear Form
+		[9634] = true, -- Dire Bear Form
+	}
+
+	next_melee_spells = {
+		[47450] = true, -- Heroic Strike (rank 13)
+		[47449] = true, -- Heroic Strike (rank 12)
+		[30324] = true, -- Heroic Strike (rank 11)
+		[29707] = true, -- Heroic Strike (rank 10)
+		[25286] = true, -- Heroic Strike (rank 9)
+		[11567] = true, -- Heroic Strike (rank 18)
+		[11566] = true, -- Heroic Strike (rank 7)
+		[11565] = true, -- Heroic Strike (rank 6)
+		[11564] = true, -- Heroic Strike (rank 5)
+		[1608] = true, -- Heroic Strike (rank 4)
+		[285] = true, -- Heroic Strike (rank 3)
+		[284] = true, -- Heroic Strike (rank 2)
+		[78] = true, -- Heroic Strike (rank 1)
+		[47520] = true, -- Cleave (rank 8)
+		[47519] = true, -- Cleave (rank 7)
+		[25231] = true, -- Cleave (rank 6)
+		[20569] = true, -- Cleave (rank 5)
+		[11609] = true, -- Cleave (rank 4)
+		[11608] = true, -- Cleave (rank 3)
+		[7369] = true, -- Cleave (rank 2)
+		[845] = true, -- Cleave (rank 1)
+		[48996] = true, -- Raptor Strike (rank 11)
+		[48995] = true, -- Raptor Strike (rank 10)
+		[27014] = true, -- Raptor Strike (rank 9)
+		[14266] = true, -- Raptor Strike (rank 8)
+		[14265] = true, -- Raptor Strike (rank 7)
+		[14264] = true, -- Raptor Strike (rank 6)
+		[14263] = true, -- Raptor Strike (rank 5)
+		[14262] = true, -- Raptor Strike (rank 4)
+		[14261] = true, -- Raptor Strike (rank 3)
+		[14260] = true, -- Raptor Strike (rank 2)
+		[2973] = true, -- Raptor Strike (rank 1)
+		[6807] = true, -- Maul (rank 1)
+		[6808] = true, -- Maul (rank 2)
+		[6809] = true, -- Maul (rank 3)
+		[8972] = true, -- Maul (rank 4)
+		[9745] = true, -- Maul (rank 5)
+		[9880] = true, -- Maul (rank 6)
+		[9881] = true, -- Maul (rank 7)
+		[26996] = true, -- Maul (rank 8)
+		[48479] = true, -- Maul (rank 9)
+		[48480] = true, -- Maul (rank 10)
+	}
+
+	noreset_swing_spells = {
+		[23063] = true, -- Dense Dynamite
+		[4054] = true, -- Rough Dynamite
+		[4064] = true, -- Rough Copper Bomb
+		[4061] = true, -- Coarse Dynamite
+		[8331] = true, -- Ez-Thro Dynamite
+		[4065] = true, -- Large Copper Bomb
+		[4066] = true, -- Small Bronze Bomb
+		[4062] = true, -- Heavy Dynamite
+		[4067] = true, -- Big Bronze Bomb
+		[4068] = true, -- Iron Grenade
+		[23000] = true, -- Ez-Thro Dynamite II
+		[12421] = true, -- Mithril Frag Bomb
+		[4069] = true, -- Big Iron Bomb
+		[12562] = true, -- The Big One
+		[12543] = true, -- Hi-Explosive Bomb
+		[19769] = true, -- Thorium Grenade
+		[19784] = true, -- Dark Iron Bomb
+		[30216] = true, -- Fel Iron Bomb
+		[19821] = true, -- Arcane Bomb
+		[39965] = true, -- Frost Grenade
+		[30461] = true, -- The Bigger One
+		[30217] = true, -- Adamantite Grenade
+		[35476] = true, -- Drums of Battle
+		[35475] = true, -- Drums of War
+		[35477] = true, -- Drums of Speed
+		[35478] = true, -- Drums of Restoration
+		[56641] = true, -- Steady Shot (rank 1)
+		[34120] = true, -- Steady Shot (rank 2)
+		[49051] = true, -- Steady Shot (rank 3)
+		[49052] = true, -- Steady Shot (rank 4)
+		[19434] = true, -- Aimed Shot (rank 1)
+		[1464] = true, -- Slam (rank 1)
+		[8820] = true, -- Slam (rank 2)
+		[11604] = true, -- Slam (rank 3)
+		[11605] = true, -- Slam (rank 4)
+		[25241] = true, -- Slam (rank 5)
+		[25242] = true, -- Slam (rank 6)
+		[47474] = true, -- Slam (rank 7)
+		[47475] = true, -- Slam (rank 8)
+		[48467] = true, -- Hurricane (rank 5)
+		[27012] = true, -- Hurricane (rank 4)
+		[17402] = true, -- Hurricane (rank 3)
+		[17401] = true, -- Hurricane (rank 2)
+		[16914] = true, -- Hurricane (rank 1)
+		[12051] = true, -- Evocation
+		[58434] = true, -- Volley (rank 6)
+		[58431] = true, -- Volley (rank 5)
+		[27022] = true, -- Volley (rank 4)
+		[14295] = true, -- Volley (rank 3)
+		[14294] = true, -- Volley (rank 2)
+		[1510] = true, -- Volley (rank 1)
+		--35474 Drums of Panic DO reset the swing timer, do not add
+	}
+
+	prevent_reset_swing_auras = {
+		[53817] = true, -- Maelstrom Weapon
+	}
+
+	pause_swing_spells = {
+		[1464] = true, -- Slam (rank 1)
+		[8820] = true, -- Slam (rank 2)
+		[11604] = true, -- Slam (rank 3)
+		[11605] = true, -- Slam (rank 4)
+		[25241] = true, -- Slam (rank 5)
+		[25242] = true, -- Slam (rank 6)
+		[47474] = true, -- Slam (rank 7)
+		[47475] = true, -- Slam (rank 8)
+	}
+
+	ranged_swing = {
+		[75] = true, -- Auto Shot
+		[3018] = true, -- Shoot
+		[2764] = true, -- Throw
+		[5019] = true, -- Shoot Wand
+	}
+
+	reset_ranged_swing = {
+		[58433] = true, -- Volley (rank 6)
+		[58432] = true, -- Volley (rank 5)
+		[42234] = true, -- Volley (rank 4)
+		[42245] = true, -- Volley (rank 3)
+		[42244] = true, -- Volley (rank 2)
+		[42243] = true,  -- Volley (rank 1)
+	}
+elseif isRetail then
+	reset_swing_spells = {
+		[75] = true, -- Auto Shot
+		[124682] = true, -- Enveloping Mist
+		[116670] = true, -- Vivify
+	}
+
+	reset_swing_on_channel_stop_spells = {
+		[257044] = true, -- Rapide Fire
+	}
+
+	prevent_swing_speed_update = {
+		[768] = true, -- Cat Form
+		[5487] = true, -- Bear Form
+		[9634] = true, -- Dire Bear Form
+	}
+
+	noreset_swing_spells = {
+		[12051] = true, -- Evocation
+		[120360] = true, -- Barrage
+		[56641] = true, -- Steady Shot
+		[19434] = true, -- Aimed Shot
+		[113656] = true, -- Fists of Fury
+		[198013] = true, -- Eye Beam
+		[101546] = true, -- Spinning Crane Kick
+		[322729] = true, -- Spinning Crane Kick
+		[123986] = true, -- Chi Burst	
+	}
+
+	prevent_reset_swing_auras = {}
+
+	pause_swing_spells = {}
+
+	ranged_swing = {
+		[75] = true, -- Auto Shot
+	}
+
+	reset_ranged_swing = {}
+end
