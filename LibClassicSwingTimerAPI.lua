@@ -12,8 +12,8 @@ local UnitAttackSpeed, UnitAura, UnitGUID, UnitRangedDamage = UnitAttackSpeed, U
 local isRetail = WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
 local isClassic = WOW_PROJECT_ID == WOW_PROJECT_CLASSIC
 local isBCC = WOW_PROJECT_ID == WOW_PROJECT_BURNING_CRUSADE_CLASSIC and LE_EXPANSION_LEVEL_CURRENT == LE_EXPANSION_BURNING_CRUSADE
-local isWrath = WOW_PROJECT_ID == WOW_PROJECT_BURNING_CRUSADE_CLASSIC and LE_EXPANSION_LEVEL_CURRENT == LE_EXPANSION_WRATH_OF_THE_LICH_KING
-local isClassicOrBCCOrWrath = isClassicOrBCCOrWrath
+local isWrath = WOW_PROJECT_ID == WOW_PROJECT_WRATH_CLASSIC and LE_EXPANSION_LEVEL_CURRENT == LE_EXPANSION_WRATH_OF_THE_LICH_KING
+local isClassicOrBCCOrWrath = isClassic or isBCC or isWrath
 
 local reset_swing_spells = nil
 local reset_swing_on_channel_stop_spells = nil
@@ -37,12 +37,9 @@ function lib:ADDON_LOADED(_, addOnName)
 	end
 
 	self.unitGUID = UnitGUID("player")
-
-	local mainSpeed, offSpeed = UnitAttackSpeed("player")
 	local now = GetTime()
 
-	self.mainSpeed = mainSpeed
-	self.offSpeed = offSpeed or 0
+	self:InitSwingSpeeds()
 
 	self.lastMainSwing = now
 	self.mainExpirationTime = self.lastMainSwing + self.mainSpeed
@@ -72,6 +69,26 @@ function lib:ADDON_LOADED(_, addOnName)
 
 	self.skipNextAttackSpeedUpdate = nil
 	self.skipNextAttackSpeedUpdateCount = 0
+
+	-- Repoll the speed a few seconds after init to get around the API
+	-- for UnitAttackSpeed mainhand and ranged sometimes returning zero for a short time
+	-- when the game is first loaded.
+	C_Timer.After(3, function()
+		self:InitSwingSpeeds()
+		end
+	)
+
+end
+
+function lib:InitSwingSpeeds()
+	local mainSpeed, offSpeed = UnitAttackSpeed("player")
+	self.rangedSpeed = UnitRangedDamage("player") or 0
+	if mainSpeed == 0 then
+		self.mainSpeed = 3.0 -- some dummy non-zero value to prevent infinities
+	else
+		self.mainSpeed = mainSpeed
+	end
+	self.offSpeed = offSpeed or 0
 end
 
 function lib:CalculateDelta()
@@ -797,6 +814,7 @@ elseif isWrath then
 		[14294] = true, -- Volley (rank 2)
 		[1510] = true, -- Volley (rank 1)
 		--35474 Drums of Panic DO reset the swing timer, do not add
+
 	}
 
 	prevent_reset_swing_auras = {
@@ -857,6 +875,8 @@ elseif isRetail then
 		[322729] = true, -- Spinning Crane Kick
 		[123986] = true, -- Chi Burst	
 	}
+
+	next_melee_spells = {}
 
 	prevent_reset_swing_auras = {}
 

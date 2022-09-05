@@ -1,6 +1,6 @@
 # LibClassicSwingTimerAPI
 
-There is no relevant WOW API to have a real state of the swing timer. This lib fire custom EVENTS that can be use in other ADDON to show swing timer bar.
+There is no relevant WOW API to have an easily accessible state of the swing timer. This library fires custom EVENTS that can be used in other ADDONs to produce swing timer information.
 
 ## Usage example:
 
@@ -31,7 +31,7 @@ SwingTimerLib.RegisterCallback(f, "SWING_TIMER_DELTA", SwingTimerEventHandler)
 
 ### SWING_TIMER_START
 
-Fired when a weapon or ranged swing start.
+Fired when a weapon or ranged swing starts.
 
 | Property | Description |  
 | ----------- | ----------- |
@@ -41,7 +41,7 @@ Fired when a weapon or ranged swing start.
 
 ### SWING_TIMER_UPDATE
 
-Fired when weapon speed change
+Fired when weapon speed changes.
 
 | Property | Description |  
 | ----------- | ----------- |
@@ -67,7 +67,7 @@ Fired if a weapon swing is paused by a spell cast.
 
 ### SWING_TIMER_STOP
 
-Fired when a weapon or ranged swing end.
+Fired when a weapon or ranged swing ends.
 
 | Property | Description |  
 | ----------- | ----------- |
@@ -85,7 +85,7 @@ Fired when delta calculation between MH and OH update
 
 ### SwingTimerInfo(hand)
 
-Returns the hand current swing state.
+Returns the `hand`'s current swing state.
 
 ```
 speed, expirationTime, lastSwing = SwingTimerInfo(hand)
