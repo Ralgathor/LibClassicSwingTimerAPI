@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Setup lib variables on PLAYER_ENTERING_WORLD instead of ADDON_LOADED.
+
 ## [1.3.0] - 2022-09-05
 
 ### Added

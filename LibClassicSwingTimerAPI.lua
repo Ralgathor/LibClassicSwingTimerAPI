@@ -31,15 +31,15 @@ function lib:Fire(event, ...)
 	self.callbacks:Fire(event, ...)
 end
 
-function lib:ADDON_LOADED(_, addOnName)
-	if addOnName ~= MAJOR then
-		return
-	end
-
+function lib:PLAYER_ENTERING_WORLD()
 	self.unitGUID = UnitGUID("player")
+
+	local mainSpeed, offSpeed = UnitAttackSpeed("player")
 	local now = GetTime()
 
-	self:InitSwingSpeeds()
+	self.mainSpeed = mainSpeed or 3 -- some dummy non-zero value to prevent infinities
+	self.offSpeed = offSpeed or 0
+	self.rangedSpeed = UnitRangedDamage("player") or 0
 
 	self.lastMainSwing = now
 	self.mainExpirationTime = self.lastMainSwing + self.mainSpeed
@@ -50,7 +50,6 @@ function lib:ADDON_LOADED(_, addOnName)
 	self.firstOffSwing = false
 
 	self.lastRangedSwing = now
-	self.rangedSpeed = UnitRangedDamage("player") or 0
 	self.rangedExpirationTime = self.lastRangedSwing + self.rangedSpeed
 	self.feignDeathTimer = nil
 
@@ -69,26 +68,6 @@ function lib:ADDON_LOADED(_, addOnName)
 
 	self.skipNextAttackSpeedUpdate = nil
 	self.skipNextAttackSpeedUpdateCount = 0
-
-	-- Repoll the speed a few seconds after init to get around the API
-	-- for UnitAttackSpeed mainhand and ranged sometimes returning zero for a short time
-	-- when the game is first loaded.
-	C_Timer.After(3, function()
-		self:InitSwingSpeeds()
-		end
-	)
-
-end
-
-function lib:InitSwingSpeeds()
-	local mainSpeed, offSpeed = UnitAttackSpeed("player")
-	self.rangedSpeed = UnitRangedDamage("player") or 0
-	if mainSpeed == 0 then
-		self.mainSpeed = 3.0 -- some dummy non-zero value to prevent infinities
-	else
-		self.mainSpeed = mainSpeed
-	end
-	self.offSpeed = offSpeed or 0
 end
 
 function lib:CalculateDelta()
@@ -466,6 +445,7 @@ frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
 frame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
 frame:RegisterEvent("PLAYER_ENTER_COMBAT")
 frame:RegisterEvent("PLAYER_LEAVE_COMBAT")
+frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 frame:RegisterUnitEvent("UNIT_ATTACK_SPEED", "player")
 frame:RegisterUnitEvent("UNIT_SPELLCAST_START", "player")
 frame:RegisterUnitEvent("UNIT_SPELLCAST_INTERRUPTED", "player")
@@ -473,7 +453,6 @@ frame:RegisterUnitEvent("UNIT_SPELLCAST_FAILED", "player")
 frame:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
 frame:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_START", "player")
 frame:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_STOP", "player")
-frame:RegisterEvent("ADDON_LOADED")
 
 frame:SetScript("OnEvent", function(_, event, ...)
 	if event == "COMBAT_LOG_EVENT_UNFILTERED" then
