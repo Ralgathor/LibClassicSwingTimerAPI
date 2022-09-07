@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Removed Auto Shot from the reset_swing_spells for Retails. Auto Shot reset is managed with the ranged_swing list for this game version.
+
 ## [1.3.1] - 2022-09-07
 
 ### Changed

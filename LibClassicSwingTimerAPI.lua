@@ -828,7 +828,6 @@ elseif isWrath then
 	}
 elseif isRetail then
 	reset_swing_spells = {
-		[75] = true, -- Auto Shot
 		[124682] = true, -- Enveloping Mist
 		[116670] = true, -- Vivify
 	}
