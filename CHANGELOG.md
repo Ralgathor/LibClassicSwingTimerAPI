@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Fix Paladin Seal of the Crusader snapshot logic for Classic version. Prevent UNIT_ATTACK_SPEED update when aura is gained or removed.
+- Fix Ranged swing reset logic for Classic version compatibility.
 
 ## [1.3.0] - 2022-09-05
 

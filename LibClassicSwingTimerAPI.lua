@@ -324,11 +324,17 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, _, _, spell)
 	end
 	if (spell and reset_swing_spells[spell]) or (self.casting and not self.preventSwingReset) then
 		if isRetail then		
-			self:SwingStart("mainhand", now, not ranged_swing[spell]) -- set reset flag to fase if the spell is in list of ranged swing spells
+			self:SwingStart("mainhand", now, true)
 		else
 			self:SwingStart("mainhand", now, true)
 			self:SwingStart("offhand", now, true)
-			self:SwingStart("ranged", now, not ranged_swing[spell]) -- set reset flag to fase if the spell is in list of ranged swing spells
+		end
+	end
+	if spell and ranged_swing[spell] then
+		if isRetail then		
+			self:SwingStart("mainhand", now, false)
+		else
+			self:SwingStart("ranged", now, false)
 		end
 	end
 	if spell and pause_swing_spells[spell] and self.pauseSwingTime then
@@ -471,11 +477,7 @@ if isClassic then
 	reset_swing_spells = {
 		[16589] = true, -- Noggenfogger Elixir
 		[2645] = true, -- Ghost Wolf
-		[2764] = true, -- Throw
-		[3018] = true, -- Shoots,
-		[5019] = true, -- Shoot Wand
 		[5384] = true, -- Feign Death
-		[75] = true, -- Auto Shot
 		[20066] = true, -- Repentance
 	}
 
@@ -568,11 +570,7 @@ elseif isBCC then
 	reset_swing_spells = {
 		[16589] = true, -- Noggenfogger Elixir
 		[2645] = true, -- Ghost Wolf
-		[2764] = true, -- Throw
-		[3018] = true, -- Shoots,
-		[5019] = true, -- Shoot Wand
 		[5384] = true, -- Feign Death
-		[75] = true, -- Auto Shot
 		[20066] = true, -- Repentance
 	}
 
