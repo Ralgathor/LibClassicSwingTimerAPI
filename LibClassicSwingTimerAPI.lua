@@ -7,7 +7,7 @@ end
 local frame = CreateFrame("Frame")
 local C_Timer, tonumber = C_Timer, tonumber
 local GetSpellInfo, GetTime, CombatLogGetCurrentEventInfo = GetSpellInfo, GetTime, CombatLogGetCurrentEventInfo
-local UnitAttackSpeed, UnitAura, UnitGUID, UnitRangedDamage = UnitAttackSpeed, UnitAura, UnitGUID, UnitRangedDamage
+local UnitAttackSpeed, UnitAura, UnitGUID, UnitRangedDamage, GetPlayerInfoByGUID = UnitAttackSpeed, UnitAura, UnitGUID, UnitRangedDamage, GetPlayerInfoByGUID
 
 local isRetail = WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
 local isClassic = WOW_PROJECT_ID == WOW_PROJECT_CLASSIC
@@ -33,6 +33,7 @@ end
 
 function lib:PLAYER_ENTERING_WORLD()
 	self.unitGUID = UnitGUID("player")
+	self.class = select(2,GetPlayerInfoByGUID(self.unitGUID))
 
 	local mainSpeed, offSpeed = UnitAttackSpeed("player")
 	local now = GetTime()
@@ -234,6 +235,7 @@ function lib:COMBAT_LOG_EVENT_UNFILTERED(_, ts, subEvent, _, sourceGUID, _, _, _
 end
 
 function lib:UNIT_ATTACK_SPEED()
+	if isClassic and self.class == "PALADIN" then return end -- Ignore UNIT_ATTACK_SPEED on Classic for Paladin. Seal of the Crusader snapshot. No other dynamic speed change.
 	local now = GetTime()
 	if
 		self.skipNextAttackSpeedUpdate

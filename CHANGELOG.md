@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Setup lib variables on PLAYER_ENTERING_WORLD instead of ADDON_LOADED.
 
+### Fixed
+- Fix Paladin Seal of the Crusader snapshot logic for Classic version. Prevent UNIT_ATTACK_SPEED update when aura is gained or removed.
+
 ## [1.3.0] - 2022-09-05
 
 ### Added
