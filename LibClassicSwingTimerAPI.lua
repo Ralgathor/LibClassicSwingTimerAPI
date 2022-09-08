@@ -738,6 +738,7 @@ elseif isWrath then
 		[26996] = true, -- Maul (rank 8)
 		[48479] = true, -- Maul (rank 9)
 		[48480] = true, -- Maul (rank 10)
+		[56815] = true, -- Rune Strike
 	}
 
 	noreset_swing_spells = {
