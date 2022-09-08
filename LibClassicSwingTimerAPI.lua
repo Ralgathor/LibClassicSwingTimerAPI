@@ -152,10 +152,10 @@ end
 
 lib.callbacks = lib.callbacks or LibStub("CallbackHandler-1.0"):New(lib)
 
-function lib:getUnit(unitGUID)
-	if self.player.unitGUID == unitGUID then
+function lib:getUnit(unit)
+	if self.player.unitGUID == unit or self.player.type == unit then
 		return self.player
-	elseif self.target.unitGUID == unitGUID then
+	elseif self.target.unitGUID == unit  or self.player.type == unit then
 		return self.target
 	else
 		return nil
@@ -355,8 +355,8 @@ function lib:UNIT_ATTACK_SPEED(unitGUID)
 	end
 end
 
-function lib:UNIT_SPELLCAST_INTERRUPTED_OR_FAILED(_, unitGUID, _, spell)
-	local unit = lib:getUnit(unitGUID)
+function lib:UNIT_SPELLCAST_INTERRUPTED_OR_FAILED(_, unitType, _, spell)
+	local unit = lib:getUnit(unitType)
 	if not unit then
 		return
 	end
@@ -390,8 +390,8 @@ function lib:UNIT_SPELLCAST_FAILED(...)
 	self:UNIT_SPELLCAST_INTERRUPTED_OR_FAILED(...)
 end
 
-function lib:UNIT_SPELLCAST_SUCCEEDED(_, unitGUID, _, spell)
-	local unit = lib:getUnit(unitGUID)
+function lib:UNIT_SPELLCAST_SUCCEEDED(_, unitType, _, spell)
+	local unit = lib:getUnit(unitType)
 	if not unit then
 		return
 	end
@@ -456,8 +456,8 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, unitGUID, _, spell)
 	end
 end
 
-function lib:UNIT_SPELLCAST_START(_, unitGUID, _, spell)
-	local unit = lib:getUnit(unitGUID)
+function lib:UNIT_SPELLCAST_START(_, unitType, _, spell)
+	local unit = lib:getUnit(unitType)
 	if not unit then
 		return
 	end
@@ -484,8 +484,8 @@ function lib:UNIT_SPELLCAST_START(_, unitGUID, _, spell)
 	end
 end
 
-function lib:UNIT_SPELLCAST_CHANNEL_START(_, unitGUID, _, spell)
-	local unit = lib:getUnit(unitGUID)
+function lib:UNIT_SPELLCAST_CHANNEL_START(_, unitType, _, spell)
+	local unit = lib:getUnit(unitType)
 	if not unit then
 		return
 	end
@@ -494,8 +494,8 @@ function lib:UNIT_SPELLCAST_CHANNEL_START(_, unitGUID, _, spell)
 	unit.preventSwingReset = unit.auraPreventSwingReset or noreset_swing_spells[spell]
 end
 
-function lib:UNIT_SPELLCAST_CHANNEL_STOP(_, unitGUID, _, spell)
-	local unit = lib:getUnit(unitGUID)
+function lib:UNIT_SPELLCAST_CHANNEL_STOP(_, unitType, _, spell)
+	local unit = lib:getUnit(unitType)
 	if not unit then
 		return
 	end
