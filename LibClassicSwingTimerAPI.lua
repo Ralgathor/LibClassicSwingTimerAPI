@@ -727,6 +727,7 @@ elseif isWrath then
 		[467] = true, [782] = true, [1075] = true, [8914] = true, [9756] = true, [9910] = true, [26992] = true, [53307] = true, -- Thorns
 		[5176] = true, [5177] = true, [5178] = true, [5179] = true, [5180] = true, [6780] = true, [8905] = true, [9912] = true, [26984] = true,
 			[26985] = true, [48459] = true, [48461] = true, -- Wrath
+		[53563] = true, -- Beacon of Light
 	}
 
 	reset_swing_on_channel_stop_spells = {}
