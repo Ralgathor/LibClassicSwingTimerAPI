@@ -227,6 +227,45 @@ function lib:PLAYER_ENTERING_WORLD()
 	self.player.skipNextAttackSpeedUpdateCount = 0
 end
 
+function lib:PLAYER_TARGET_CHANGED()
+	self.target.unitGUID = UnitGUID("target")
+
+	local mainSpeed, offSpeed = UnitAttackSpeed("target")
+	local now = GetTime()
+
+	self.target.mainSpeed = mainSpeed or 3 -- some dummy non-zero value to prevent infinities
+	self.target.offSpeed = offSpeed or 0
+	self.target.rangedSpeed = UnitRangedDamage("target") or 0
+
+	self.target.lastMainSwing = now
+	self.target.mainExpirationTime = self.target.lastMainSwing
+	self.target.firstMainSwing = false
+
+	self.target.lastOffSwing = now
+	self.target.offExpirationTime = self.target.lastMainSwing
+	self.target.firstOffSwing = false
+
+	self.target.lastRangedSwing = now
+	self.target.rangedExpirationTime = self.target.lastRangedSwing
+	self.target.feignDeathTimer = nil
+
+	self.target.mainTimer = nil
+	self.target.offTimer = nil
+	self.target.rangedTimer = nil
+	self.target.calculaDeltaTimer = nil
+
+	self.target.casting = false
+	self.target.channeling = false
+	self.target.isAttacking = false
+	self.target.preventSwingReset = false
+	self.target.auraPreventSwingReset = false
+	self.target.skipNextAttack = nil
+	self.target.skipNextAttackCount = 0
+
+	self.target.skipNextAttackSpeedUpdate = nil
+	self.target.skipNextAttackSpeedUpdateCount = 0
+end
+
 function lib:COMBAT_LOG_EVENT_UNFILTERED(_, ts, subEvent, _, sourceGUID, _, _, _, destGUID, _, _, _, amount, overkill, _, resisted, _, _, _, _, _, isOffHand)
 	local now = GetTime()
 	local unit = lib:getUnit(sourceGUID)
@@ -539,46 +578,6 @@ function lib:PLAYER_LEAVE_COMBAT()
 	self.player.isAttacking = false
 	self.player.firstMainSwing = false
 	self.player.firstOffSwing = false
-end
-
-function lib:PLAYER_TARGET_CHANGED()
-	self.target.unitGUID = UnitGUID("target")
-	-- self.target.class = select(2,GetPlayerInfoByGUID(self.target.unitGUID))
-
-	local mainSpeed, offSpeed = UnitAttackSpeed("target")
-	local now = GetTime()
-
-	self.target.mainSpeed = mainSpeed or 3 -- some dummy non-zero value to prevent infinities
-	self.target.offSpeed = offSpeed or 0
-	self.target.rangedSpeed = UnitRangedDamage("target") or 0
-
-	self.target.lastMainSwing = now
-	self.target.mainExpirationTime = self.target.lastMainSwing
-	self.target.firstMainSwing = false
-
-	self.target.lastOffSwing = now
-	self.target.offExpirationTime = self.target.lastMainSwing
-	self.target.firstOffSwing = false
-
-	self.target.lastRangedSwing = now
-	self.target.rangedExpirationTime = self.target.lastRangedSwing
-	self.target.feignDeathTimer = nil
-
-	self.target.mainTimer = nil
-	self.target.offTimer = nil
-	self.target.rangedTimer = nil
-	self.target.calculaDeltaTimer = nil
-
-	self.target.casting = false
-	self.target.channeling = false
-	self.target.isAttacking = false
-	self.target.preventSwingReset = false
-	self.target.auraPreventSwingReset = false
-	self.target.skipNextAttack = nil
-	self.target.skipNextAttackCount = 0
-
-	self.target.skipNextAttackSpeedUpdate = nil
-	self.target.skipNextAttackSpeedUpdateCount = 0
 end
 
 frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
