@@ -10,8 +10,8 @@ if not SwingTimerLib then return end
 
 local f = CreateFrame("Frame", nil)
 
-local SwingTimerInfo = function(hand)
-    return SwingTimerLib:SwingTimerInfo(hand)
+local SwingTimerInfo = function(hand, unitGUID)
+    return SwingTimerLib:SwingTimerInfo(hand, unitGUID)
 end
 
 local SwingTimerEventHandler = function(event, ...)
@@ -38,6 +38,7 @@ Fired when a weapon or ranged swing starts.
 | speed | number - weapon speed |
 | expirationTime | number - end of swing relative to GetTime() |
 | hand | string - the hand that start to swing ("mainhand", "offhand" or "ranged") |
+| unitGUID | string - the unit GUID |
 
 ### SWING_TIMER_UPDATE
 
@@ -48,6 +49,7 @@ Fired when weapon speed changes.
 | speed | number - weapon speed |
 | expirationTime | number - end of swing relative to GetTime() |
 | hand | string - the hand speed that update ("mainhand" or "offhand") |
+| unitGUID | string - the unit GUID |
 
 ### SWING_TIMER_CLIPPED
 
@@ -56,6 +58,7 @@ Fired if a weapon swing is clipped by a spell cast.
 | Property | Description |  
 | ----------- | ----------- |
 | hand | string - The hand that is clipped "mainhand" or "offhand" |
+| unitGUID | string - the unit GUID |
 
 ### SWING_TIMER_PAUSED
 
@@ -64,6 +67,7 @@ Fired if a weapon swing is paused by a spell cast.
 | Property | Description |  
 | ----------- | ----------- |
 | hand | string - The hand that is paused "mainhand" or "offhand" |
+| unitGUID | string - the unit GUID |
 
 ### SWING_TIMER_STOP
 
@@ -72,6 +76,7 @@ Fired when a weapon or ranged swing ends.
 | Property | Description |  
 | ----------- | ----------- |
 | hand | string - the hand that end a swing ("mainhand", "offhand" or "ranged") |
+| unitGUID | string - the unit GUID |
 
 ### SWING_TIMER_DELTA
 
@@ -80,12 +85,13 @@ Fired when delta calculation between MH and OH update
 | Property | Description |  
 | ----------- | ----------- |
 | swingDelta | number - Delta in seconds between MH and OH. |
+| unitGUID | string - the unit GUID |
 
 ## API METHODS
 
-### SwingTimerInfo(hand)
+### SwingTimerInfo(hand, unitGUID)
 
-Returns the `hand`'s current swing state.
+Returns the `hand`'s current swing state for the given unit GUID.
 
 ```
 speed, expirationTime, lastSwing = SwingTimerInfo(hand)
@@ -94,6 +100,8 @@ speed, expirationTime, lastSwing = SwingTimerInfo(hand)
 - Arguments
     - hand
         - string - The hand to get information for ("mainhand", "offhand" or "ranged")
+    - unitGUID
+        - string - the unit GUID
 - Returns
     - speed
         - number - weapon speed
