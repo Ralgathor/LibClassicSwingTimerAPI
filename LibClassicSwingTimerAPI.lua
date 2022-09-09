@@ -613,6 +613,24 @@ if isClassic then
 		[2645] = true, -- Ghost Wolf
 		[5384] = true, -- Feign Death
 		[20066] = true, -- Repentance
+		[2893] = true, -- Abolish Poison
+		[8946] = true, -- Cure Poison
+		[339] = true, [1062] = true, [5195] = true, [5196] = true, [9852] = true, [9853] = true, -- Entangling Roots
+		[770] = true, -- Faerie Fire
+		[21849] = true,	[21850] = true, -- Gift of the Wild
+		[5185] = true, [5186] = true, [5187] = true, [5188] = true, [5189] = true, [6778] = true, [8903] = true, [9758] = true, 
+			[9888] = true, [9889] = true, [25297] = true, -- Healing Touch
+		[2637] = true, [18657] = true, [18658] = true, -- Hibernate
+		[1126] = true, [5232] = true, [6756] = true, [5234] = true, [8907] = true, [9884] = true, [9885] = true,  -- Mark of the Wild
+		[8921] = true, [8924] = true, [8925] = true, [8926] = true, [8927] = true, [8928] = true, [8929] = true, [9833] = true, [9834] = true, [9835] = true, -- Moonfire
+		[20484] = true, [20739] = true, [20742] = true, [20747] = true, [20748] = true, -- Rebirth
+		[8936] = true, [8938] = true, [8939] = true, [8940] = true, [8941] = true, [9750] = true, [9856] = true, [9857] = true, [9858] = true, -- Regrowth
+		[774] = true, [1058] = true, [1430] = true, [2090] = true, [2091] = true, [3627] = true, [8910] = true, [9839] = true, [9840] = true,
+			[9841] = true, [25299] = true, -- Rejuvenation
+		[2782] = true, -- remove-curse
+		[2908] = true, [8955] = true, [9901] = true, -- Soothe Animal
+		[467] = true, [782] = true, [1075] = true, [8914] = true, [9756] = true, [9910] = true, -- Thorns
+		[5176] = true, [5177] = true, [5178] = true, [5179] = true, [5180] = true, [6780] = true, [8905] = true, [9912] = true, -- Wrath
 	}
 
 	reset_swing_on_channel_stop_spells = {}
@@ -819,6 +837,30 @@ elseif isWrath then
 		[5019] = true, -- Shoot Wand
 		[5384] = true, -- Feign Death
 		[75] = true, -- Auto Shot
+		[2893] = true, -- Abolish Poison
+		[8946] = true, -- Cure Poison
+		[339] = true, [1062] = true, [5195] = true, [5196] = true, [9852] = true, [9853] = true, [26989] = true, [53308] = true, -- Entangling Roots
+		[770] = true, -- Faerie Fire
+		[21849] = true,	[21850] = true,	[26991] = true,	[48470] = true, -- Gift of the Wild
+		[5185] = true, [5186] = true, [5187] = true, [5188] = true, [5189] = true, [6778] = true, [8903] = true, [9758] = true, 
+			[9888] = true, [9889] = true, [25297] = true, [26978] = true, [26979] = true, [58399] = true, [58378] = true, -- Healing Touch
+		[2637] = true, [18657] = true, [18658] = true, -- Hibernate
+		[33763] = true, [48450] = true, [48451] = true, -- Lifebloom
+		[1126] = true, [5232] = true, [6756] = true, [5234] = true, [8907] = true, [9884] = true, [9885] = true, [26990] = true, [48469] = true, -- Mark of the Wild
+		[8921] = true, [8924] = true, [8925] = true, [8926] = true, [8927] = true, [8928] = true, [8929] = true, [9833] = true, [9834] = true, 
+			[9835] = true, [26987] = true, [26988] = true, -- Moonfire
+		[50464] = true, -- Nourish
+		[20484] = true, [20739] = true, [20742] = true, [20747] = true, [20748] = true, [26994] = true, [48477] = true, -- Rebirth
+		[8936] = true, [8938] = true, [8939] = true, [8940] = true, [8941] = true, [9750] = true, [9856] = true, [9857] = true, [9858] = true,
+			[26980] = true, [48442] = true, [48443] = true, -- Regrowth
+		[774] = true, [1058] = true, [1430] = true, [2090] = true, [2091] = true, [3627] = true, [8910] = true, [9839] = true, [9840] = true,
+			[9841] = true, [25299] = true, [26981] = true, [26982] = true, [48440] = true, [48441] = true, -- Rejuvenation
+		[2782] = true, -- remove-curse
+		[50769] = true, [50768] = true, [50767] = true, [50766] = true, [50765] = true, [50764] = true, [50763] = true, -- Revive
+		[2908] = true, [8955] = true, [9901] = true, [26995] = true, -- Soothe Animal
+		[467] = true, [782] = true, [1075] = true, [8914] = true, [9756] = true, [9910] = true, [26992] = true, [53307] = true, -- Thorns
+		[5176] = true, [5177] = true, [5178] = true, [5179] = true, [5180] = true, [6780] = true, [8905] = true, [9912] = true, [26984] = true,
+			[26985] = true, [48459] = true, [48461] = true, -- Wrath
 	}
 
 	reset_swing_on_channel_stop_spells = {}
@@ -872,6 +914,7 @@ elseif isWrath then
 		[26996] = true, -- Maul (rank 8)
 		[48479] = true, -- Maul (rank 9)
 		[48480] = true, -- Maul (rank 10)
+		[56815] = true, -- Rune Strike
 	}
 
 	noreset_swing_spells = {
