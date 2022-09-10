@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+### Added
+- Added support for target swing timer info.
+- Added API EVENTS that reflect both player and target support with following format UNIT_SWING_TIMER_.
+- Backward compatibility of previous API EVENTS with SWING_TIMER_ format for player unit.
+- New api method UnitSwingTimerInfo to get swing informations for a specific unit.
+
 ## [1.3.2] - 2022-09-10
 
 ### Changed

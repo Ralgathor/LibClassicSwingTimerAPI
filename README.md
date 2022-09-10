@@ -10,24 +10,109 @@ if not SwingTimerLib then return end
 
 local f = CreateFrame("Frame", nil)
 
-local SwingTimerInfo = function(hand, unitType)
-    return SwingTimerLib:SwingTimerInfo(hand, unitType)
+local UnitSwingTimerInfo = function(unitId, hand)
+    return SwingTimerLib:UnitSwingTimerInfo(unitId, hand)
 end
 
 local SwingTimerEventHandler = function(event, ...)
     return f[event](f, event, ...)
 end
 
-SwingTimerLib.RegisterCallback(f, "SWING_TIMER_START", SwingTimerEventHandler)
-SwingTimerLib.RegisterCallback(f, "SWING_TIMER_UPDATE", SwingTimerEventHandler)
-SwingTimerLib.RegisterCallback(f, "SWING_TIMER_CLIPPED", SwingTimerEventHandler)
-SwingTimerLib.RegisterCallback(f, "SWING_TIMER_PAUSED", SwingTimerEventHandler)
-SwingTimerLib.RegisterCallback(f, "SWING_TIMER_STOP", SwingTimerEventHandler)
-SwingTimerLib.RegisterCallback(f, "SWING_TIMER_DELTA", SwingTimerEventHandler)
+SwingTimerLib.RegisterCallback(f, "UNIT_SWING_TIMER_START", SwingTimerEventHandler)
+SwingTimerLib.RegisterCallback(f, "UNIT_SWING_TIMER_UPDATE", SwingTimerEventHandler)
+SwingTimerLib.RegisterCallback(f, "UNIT_SWING_TIMER_CLIPPED", SwingTimerEventHandler)
+SwingTimerLib.RegisterCallback(f, "UNIT_SWING_TIMER_PAUSED", SwingTimerEventHandler)
+SwingTimerLib.RegisterCallback(f, "UNIT_SWING_TIMER_STOP", SwingTimerEventHandler)
+SwingTimerLib.RegisterCallback(f, "UNIT_SWING_TIMER_DELTA", SwingTimerEventHandler)
 
 ```
-
 ## API EVENTS
+
+### UNIT_SWING_TIMER_START
+
+Fired when a weapon or ranged swing starts.
+
+| Property | Description |  
+| ----------- | ----------- |
+| unitId | string - type of the unit ("player" or "target") |
+| speed | number - weapon speed |
+| expirationTime | number - end of swing relative to GetTime() |
+| hand | string - the hand that start to swing ("mainhand", "offhand" or "ranged") |
+
+### UNIT_SWING_TIMER_UPDATE
+
+Fired when weapon speed changes.
+
+| Property | Description |  
+| ----------- | ----------- |
+| unitId | string - type of the unit ("player" or "target") |
+| speed | number - weapon speed |
+| expirationTime | number - end of swing relative to GetTime() |
+| hand | string - the hand speed that update ("mainhand" or "offhand") |
+
+### UNIT_SWING_TIMER_CLIPPED
+
+Fired if a weapon swing is clipped by a spell cast.
+
+| Property | Description |  
+| ----------- | ----------- |
+| unitId | string - type of the unit ("player" or "target") |
+| hand | string - The hand that is clipped "mainhand" or "offhand" |
+
+### UNIT_SWING_TIMER_PAUSED
+
+Fired if a weapon swing is paused by a spell cast.
+
+| Property | Description |  
+| ----------- | ----------- |
+| unitId | string - type of the unit ("player" or "target") |
+| hand | string - The hand that is paused "mainhand" or "offhand" |
+
+### UNIT_SWING_TIMER_STOP
+
+Fired when a weapon or ranged swing ends.
+
+| Property | Description |  
+| ----------- | ----------- |
+| unitId | string - type of the unit ("player" or "target") |
+| hand | string - the hand that end a swing ("mainhand", "offhand" or "ranged") |
+
+### UNIT_SWING_TIMER_DELTA
+
+Fired when delta calculation between MH and OH update
+
+| Property | Description |  
+| ----------- | ----------- |
+| unitId | string - type of the unit ("player" or "target") |
+| swingDelta | number - Delta in seconds between MH and OH. |
+
+
+## API METHODS
+
+### UnitSwingTimerInfo(unitId, hand)
+
+Returns the `hand`'s current swing state for the given unit type.
+
+```
+speed, expirationTime, lastSwing = UnitSwingTimerInfo(unitId, hand)
+```
+
+- Arguments
+    - unitId
+        - string - type of the unit ("player" or "target")
+    - hand
+        - string - The hand to get information for ("mainhand", "offhand" or "ranged")
+- Returns
+    - speed
+        - number - weapon speed
+    - expirationTime
+        - number - end of swing relative to GetTime()
+    - lastSwing
+        - number - last swing relative to GetTime()
+
+## API EVENTS Backward compatibility
+
+Maintain backward compatibilit. The following events are still fired only for the player.
 
 ### SWING_TIMER_START
 
@@ -38,7 +123,6 @@ Fired when a weapon or ranged swing starts.
 | speed | number - weapon speed |
 | expirationTime | number - end of swing relative to GetTime() |
 | hand | string - the hand that start to swing ("mainhand", "offhand" or "ranged") |
-| unitType | string - type of the unit ("player" or "target") |
 
 ### SWING_TIMER_UPDATE
 
@@ -49,7 +133,6 @@ Fired when weapon speed changes.
 | speed | number - weapon speed |
 | expirationTime | number - end of swing relative to GetTime() |
 | hand | string - the hand speed that update ("mainhand" or "offhand") |
-| unitType | string - type of the unit ("player" or "target") |
 
 ### SWING_TIMER_CLIPPED
 
@@ -58,7 +141,6 @@ Fired if a weapon swing is clipped by a spell cast.
 | Property | Description |  
 | ----------- | ----------- |
 | hand | string - The hand that is clipped "mainhand" or "offhand" |
-| unitType | string - type of the unit ("player" or "target") |
 
 ### SWING_TIMER_PAUSED
 
@@ -67,7 +149,6 @@ Fired if a weapon swing is paused by a spell cast.
 | Property | Description |  
 | ----------- | ----------- |
 | hand | string - The hand that is paused "mainhand" or "offhand" |
-| unitType | string - type of the unit ("player" or "target") |
 
 ### SWING_TIMER_STOP
 
@@ -76,7 +157,6 @@ Fired when a weapon or ranged swing ends.
 | Property | Description |  
 | ----------- | ----------- |
 | hand | string - the hand that end a swing ("mainhand", "offhand" or "ranged") |
-| unitType | string - type of the unit ("player" or "target") |
 
 ### SWING_TIMER_DELTA
 
@@ -85,23 +165,20 @@ Fired when delta calculation between MH and OH update
 | Property | Description |  
 | ----------- | ----------- |
 | swingDelta | number - Delta in seconds between MH and OH. |
-| unitType | string - type of the unit ("player" or "target") |
 
-## API METHODS
+## API METHODS Backward compatibility
 
-### SwingTimerInfo(hand, unitType)
+### API method SwingTimerInfo(hand)
 
-Returns the `hand`'s current swing state for the given unit type.
+Returns the `hand`'s current swing state for the player unit.
 
 ```
-speed, expirationTime, lastSwing = SwingTimerInfo(hand, unitType)
+speed, expirationTime, lastSwing = SwingTimerInfo(hand)
 ```
 
 - Arguments
     - hand
         - string - The hand to get information for ("mainhand", "offhand" or "ranged")
-    - unitType
-        - string - type of the unit ("player" or "target")
 - Returns
     - speed
         - number - weapon speed
