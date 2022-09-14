@@ -26,6 +26,7 @@ local ranged_swing = nil
 local reset_ranged_swing = nil
 
 lib.callbacks = lib.callbacks or LibStub("CallbackHandler-1.0"):New(lib)
+lib.SWING_TIMER_READY = "SWING_TIMER_READY"
 
 function lib:Fire(event, ...)
 	self.callbacks:Fire(event, ...)
@@ -69,6 +70,8 @@ function lib:PLAYER_ENTERING_WORLD()
 
 	self.skipNextAttackSpeedUpdate = nil
 	self.skipNextAttackSpeedUpdateCount = 0
+
+	self.callbacks:Fire(self.SWING_TIMER_READY)
 end
 
 function lib:CalculateDelta()
