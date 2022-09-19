@@ -73,6 +73,10 @@ Fired when a weapon or ranged swing ends.
 | ----------- | ----------- |
 | hand | string - the hand that end a swing ("mainhand", "offhand" or "ranged") |
 
+### SWING_TIMER_INFO_INITIALIZED
+
+Fired after the initialization of the lib. The SwingTimerInfo method is only usable after this event.
+
 ### SWING_TIMER_DELTA
 
 Fired when delta calculation between MH and OH update
@@ -85,7 +89,7 @@ Fired when delta calculation between MH and OH update
 
 ### SwingTimerInfo(hand)
 
-Returns the `hand`'s current swing state.
+Returns the `hand`'s current swing state. Can only be used after the SWING_TIMER_INFO_INITIALIZED event.
 
 ```
 speed, expirationTime, lastSwing = SwingTimerInfo(hand)
