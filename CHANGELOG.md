@@ -5,7 +5,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
-- Added a callback event that gets fired once the library has been properly initialised, to let addons know they can start using the library's SwingTimerInfo endpoint.
+- Added a callback event that gets fired once the library has been properly initialised, to let addons know they can start using the library's SwingTimerInfo method.
 
 ## [1.3.2] - 2022-09-10
 

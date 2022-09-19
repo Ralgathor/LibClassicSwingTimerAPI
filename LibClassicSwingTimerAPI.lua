@@ -26,7 +26,14 @@ local ranged_swing = nil
 local reset_ranged_swing = nil
 
 lib.callbacks = lib.callbacks or LibStub("CallbackHandler-1.0"):New(lib)
-lib.SWING_TIMER_READY = "SWING_TIMER_READY"
+
+lib.SWING_TIMER_INFO_INITIALIZED = "SWING_TIMER_INFO_INITIALIZED"
+lib.SWING_TIMER_START = "SWING_TIMER_START"
+lib.SWING_TIMER_UPDATE = "SWING_TIMER_UPDATE"
+lib.SWING_TIMER_DELTA = "SWING_TIMER_DELTA"
+lib.SWING_TIMER_CLIPPED = "SWING_TIMER_CLIPPED"
+lib.SWING_TIMER_PAUSED = "SWING_TIMER_PAUSED"
+lib.SWING_TIMER_STOP = "SWING_TIMER_STOP"
 
 function lib:Fire(event, ...)
 	self.callbacks:Fire(event, ...)
@@ -71,12 +78,12 @@ function lib:PLAYER_ENTERING_WORLD()
 	self.skipNextAttackSpeedUpdate = nil
 	self.skipNextAttackSpeedUpdateCount = 0
 
-	self.callbacks:Fire(self.SWING_TIMER_READY)
+	self.callbacks:Fire(self.SWING_TIMER_INFO_INITIALIZED)
 end
 
 function lib:CalculateDelta()
 	if self.offSpeed > 0 and self.mainExpirationTime ~= nil and self.offExpirationTime ~= nil then
-		self:Fire("SWING_TIMER_DELTA", self.mainExpirationTime - self.offExpirationTime)
+		self:Fire(lib.SWING_TIMER_DELTA, self.mainExpirationTime - self.offExpirationTime)
 	end
 end
 
@@ -89,7 +96,7 @@ function lib:SwingStart(hand, startTime, isReset)
 		local mainSpeed, _ = UnitAttackSpeed("player")
 		self.mainSpeed = mainSpeed
 		self.mainExpirationTime = self.lastMainSwing + self.mainSpeed
-		self:Fire("SWING_TIMER_START", self.mainSpeed, self.mainExpirationTime, hand)
+		self:Fire(lib.SWING_TIMER_START, self.mainSpeed, self.mainExpirationTime, hand)
 		if self.mainSpeed > 0 and self.mainExpirationTime - GetTime() > 0 then
 			self.mainTimer = C_Timer.NewTimer(self.mainExpirationTime - GetTime(), function()
 				self:SwingEnd("mainhand")
@@ -109,9 +116,9 @@ function lib:SwingStart(hand, startTime, isReset)
 		if self.offSpeed > 0 and self.firstOffSwing == false and self.isAttacking then
 			self.offExpirationTime = self.lastOffSwing + (self.offSpeed / 2)
 			self:CalculateDelta()
-			self:Fire("SWING_TIMER_UPDATE", self.offSpeed, self.offExpirationTime, hand)
+			self:Fire(lib.SWING_TIMER_UPDATE, self.offSpeed, self.offExpirationTime, hand)
 		elseif self.offSpeed > 0 then
-			self:Fire("SWING_TIMER_START", self.offSpeed, self.offExpirationTime, hand)
+			self:Fire(lib.SWING_TIMER_START, self.offSpeed, self.offExpirationTime, hand)
 			self.calculaDeltaTimer = C_Timer.NewTimer(self.offSpeed / 2, function()
 				self:CalculateDelta()
 			end)
@@ -130,7 +137,7 @@ function lib:SwingStart(hand, startTime, isReset)
 			self.rangedSpeed = self.rangedSpeed
 			self.lastRangedSwing = startTime
 			self.rangedExpirationTime = self.lastRangedSwing + self.rangedSpeed
-			self:Fire("SWING_TIMER_START", self.rangedSpeed, self.rangedExpirationTime, hand)
+			self:Fire(lib.SWING_TIMER_START, self.rangedSpeed, self.rangedExpirationTime, hand)
 			if self.rangedExpirationTime - GetTime() > 0 then
 				self.rangedTimer = C_Timer.NewTimer(self.rangedExpirationTime - GetTime(), function()
 					self:SwingEnd("ranged")
@@ -141,15 +148,15 @@ function lib:SwingStart(hand, startTime, isReset)
 end
 
 function lib:SwingEnd(hand)
-	self:Fire("SWING_TIMER_STOP", hand)
+	self:Fire(lib.SWING_TIMER_STOP, hand)
 	if (self.casting or self.channeling) and self.isAttacking and hand ~= "ranged" then
 		local now = GetTime()
 		if isRetail and hand == "mainhand" then		
 			self:SwingStart(hand, now, true)
-			self:Fire("SWING_TIMER_CLIPPED", hand)
+			self:Fire(lib.SWING_TIMER_CLIPPED, hand)
 		elseif isClassicOrBCCOrWrath then
 			self:SwingStart(hand, now, true)
-			self:Fire("SWING_TIMER_CLIPPED", hand)
+			self:Fire(lib.SWING_TIMER_CLIPPED, hand)
 		end
 	end
 end
@@ -210,7 +217,7 @@ function lib:COMBAT_LOG_EVENT_UNFILTERED(_, ts, subEvent, _, sourceGUID, _, _, _
 		else
 			self.mainExpirationTime = swing_timer_reduced_40p
 		end
-		self:Fire("SWING_TIMER_UPDATE", self.mainSpeed, self.mainExpirationTime, "mainhand")
+		self:Fire(lib.SWING_TIMER_UPDATE, self.mainSpeed, self.mainExpirationTime, "mainhand")
 		if self.mainSpeed > 0 and self.mainExpirationTime - GetTime() > 0 then
 			self.mainTimer = C_Timer.NewTimer(self.mainExpirationTime - GetTime(), function()
 				self:SwingEnd("mainhand")
@@ -262,7 +269,7 @@ function lib:UNIT_ATTACK_SPEED()
 		local timeLeft = (self.lastMainSwing + self.mainSpeed - now) * multiplier
 		self.mainSpeed = mainSpeedNew
 		self.mainExpirationTime = now + timeLeft
-		self:Fire("SWING_TIMER_UPDATE", self.mainSpeed, self.mainExpirationTime, "mainhand")
+		self:Fire(lib.SWING_TIMER_UPDATE, self.mainSpeed, self.mainExpirationTime, "mainhand")
 		if self.mainSpeed > 0 and self.mainExpirationTime - GetTime() > 0 then
 			self.mainTimer = C_Timer.NewTimer(self.mainExpirationTime - GetTime(), function()
 				self:SwingEnd("mainhand")
@@ -277,7 +284,7 @@ function lib:UNIT_ATTACK_SPEED()
 		if self.calculaDeltaTimer ~= nil then
 			self.calculaDeltaTimer:Cancel()
 		end
-		self:Fire("SWING_TIMER_UPDATE", self.offSpeed, self.offExpirationTime, "offhand")
+		self:Fire(lib.SWING_TIMER_UPDATE, self.offSpeed, self.offExpirationTime, "offhand")
 		if self.offSpeed > 0 and self.offExpirationTime - GetTime() > 0 then
 			self.offTimer = C_Timer.NewTimer(self.offExpirationTime - GetTime(), function()
 				self:SwingEnd("offhand")
@@ -294,7 +301,7 @@ function lib:UNIT_SPELLCAST_INTERRUPTED_OR_FAILED(_, _, _, spell)
 			if self.mainExpirationTime < GetTime() and self.isAttacking then
 				self.mainExpirationTime = self.mainExpirationTime + self.mainSpeed
 			end
-			self:Fire("SWING_TIMER_UPDATE", self.mainSpeed, self.mainExpirationTime, "mainhand")
+			self:Fire(lib.SWING_TIMER_UPDATE, self.mainSpeed, self.mainExpirationTime, "mainhand")
 			self.mainTimer = C_Timer.NewTimer(self.mainExpirationTime - GetTime(), function()
 				self:SwingEnd("mainhand")
 			end)
@@ -303,7 +310,7 @@ function lib:UNIT_SPELLCAST_INTERRUPTED_OR_FAILED(_, _, _, spell)
 			if self.offExpirationTime < GetTime() and self.isAttacking then
 				self.offExpirationTime = self.offExpirationTime + self.offSpeed
 			end
-			self:Fire("SWING_TIMER_UPDATE", self.offSpeed, self.offExpirationTime, "offhand")
+			self:Fire(lib.SWING_TIMER_UPDATE, self.offSpeed, self.offExpirationTime, "offhand")
 			self.offTimer = C_Timer.NewTimer(self.offExpirationTime - GetTime(), function()
 				self:SwingEnd("offhand")
 			end)
@@ -345,14 +352,14 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, _, _, spell)
 		self.pauseSwingTime = nil
 		if self.mainSpeed > 0 then
 			self.mainExpirationTime = self.mainExpirationTime + offset
-			self:Fire("SWING_TIMER_UPDATE", self.mainSpeed, self.mainExpirationTime, "mainhand")
+			self:Fire(lib.SWING_TIMER_UPDATE, self.mainSpeed, self.mainExpirationTime, "mainhand")
 			self.mainTimer = C_Timer.NewTimer(self.mainExpirationTime - now, function()
 				self:SwingEnd("mainhand")
 			end)
 		end
 		if self.offSpeed > 0 then
 			self.offExpirationTime = self.offExpirationTime + offset
-			self:Fire("SWING_TIMER_UPDATE", self.offSpeed, self.offExpirationTime, "offhand")
+			self:Fire(lib.SWING_TIMER_UPDATE, self.offSpeed, self.offExpirationTime, "offhand")
 			self.offTimer = C_Timer.NewTimer(self.offExpirationTime - now, function()
 				self:SwingEnd("offhand")
 			end)
@@ -388,13 +395,13 @@ function lib:UNIT_SPELLCAST_START(_, unit, _, spell)
 		if spell and pause_swing_spells[spell] then
 			self.pauseSwingTime = now
 			if self.mainSpeed > 0 then
-				self:Fire("SWING_TIMER_PAUSED", "mainhand")
+				self:Fire(lib.SWING_TIMER_PAUSED, "mainhand")
 				if self.mainTimer then
 					self.mainTimer:Cancel()
 				end
 			end
 			if self.offSpeed > 0 then
-				self:Fire("SWING_TIMER_PAUSED", "offhand")
+				self:Fire(lib.SWING_TIMER_PAUSED, "offhand")
 				if self.offTimer then
 					self.offTimer:Cancel()
 				end
