@@ -82,8 +82,11 @@ end
 
 function lib:SwingStart(hand, startTime, isReset)
 	if hand == "mainhand" then
-		if self.mainTimer and isReset then
+		if self.mainTimer and not self.mainTimer:IsCancelled() then
 			self.mainTimer:Cancel()
+			if not isReset then
+				self:Fire("SWING_TIMER_STOP", hand)
+			end
 		end
 		self.lastMainSwing = startTime
 		local mainSpeed, _ = UnitAttackSpeed("player")
@@ -96,8 +99,11 @@ function lib:SwingStart(hand, startTime, isReset)
 			end)
 		end
 	elseif hand == "offhand" then
-		if self.offTimer and isReset then
+		if self.offTimer and not self.offTimer:IsCancelled() then
 			self.offTimer:Cancel()
+			if not isReset then
+				self:Fire("SWING_TIMER_STOP", hand)
+			end
 		end
 		self.lastOffSwing = startTime
 		local _, offSpeed = UnitAttackSpeed("player")
@@ -122,8 +128,11 @@ function lib:SwingStart(hand, startTime, isReset)
 			end)
 		end
 	elseif hand == "ranged" then
-		if self.rangedTimer and isReset then
+		if self.rangedTimer and not self.rangedTimer:IsCancelled() then
 			self.rangedTimer:Cancel()
+			if not isReset then
+				self:Fire("SWING_TIMER_STOP", hand)
+			end
 		end
 		self.rangedSpeed = UnitRangedDamage("player") or 0
 		if self.rangedSpeed ~= nil and self.rangedSpeed > 0 then
@@ -141,6 +150,13 @@ function lib:SwingStart(hand, startTime, isReset)
 end
 
 function lib:SwingEnd(hand)
+	if hand == "mainhand" then
+		self.mainTimer:Cancel()
+	elseif hand == "offhand" then
+		self.offTimer:Cancel()
+	elseif hand == "ranged" then
+		self.rangedTimer:Cancel()
+	end
 	self:Fire("SWING_TIMER_STOP", hand)
 	if (self.casting or self.channeling) and self.isAttacking and hand ~= "ranged" then
 		local now = GetTime()

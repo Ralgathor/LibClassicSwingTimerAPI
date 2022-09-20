@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Added a callback event that gets fired once the library has been properly initialised, to let addons know they can start using the library's SwingTimerInfo endpoint.
 
+### Fixed
+- Fix consistency of SWING_TIMER_STOP event fire logic.
+
 ## [1.3.2] - 2022-09-10
 
 ### Changed
