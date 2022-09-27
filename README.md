@@ -18,6 +18,7 @@ local SwingTimerEventHandler = function(event, ...)
     return f[event](f, event, ...)
 end
 
+SwingTimerLib.RegisterCallback(f, "SWING_TIMER_INFO_INITIALIZED", SwingTimerEventHandler)
 SwingTimerLib.RegisterCallback(f, "SWING_TIMER_START", SwingTimerEventHandler)
 SwingTimerLib.RegisterCallback(f, "SWING_TIMER_UPDATE", SwingTimerEventHandler)
 SwingTimerLib.RegisterCallback(f, "SWING_TIMER_CLIPPED", SwingTimerEventHandler)
