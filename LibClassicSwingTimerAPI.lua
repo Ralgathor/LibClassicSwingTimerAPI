@@ -233,7 +233,7 @@ function lib:COMBAT_LOG_EVENT_UNFILTERED(_, ts, subEvent, _, sourceGUID, _, _, _
 		end
 	elseif (subEvent == "SPELL_AURA_APPLIED" or subEvent == "SPELL_AURA_REMOVED") and sourceGUID == self.unitGUID then
 		local spell = amount
-		if spell and prevent_swing_speed_update[spell] then
+		if spell and prevent_swing_speed_update[spell] and (GetTime() < self.mainExpirationTime) then
 			self.skipNextAttackSpeedUpdate = now
 			self.skipNextAttackSpeedUpdateCount = 2
 		end
