@@ -264,15 +264,12 @@ function lib:UNIT_ATTACK_SPEED()
 		self.skipNextAttackSpeedUpdateCount = self.skipNextAttackSpeedUpdateCount - 1
 		return
 	end
-	if self.mainTimer then
-		self.mainTimer:Cancel()
-	end
-	if self.offTimer then
-		self.offTimer:Cancel()
-	end
 	local mainSpeedNew, offSpeedNew = UnitAttackSpeed("player")
 	offSpeedNew = offSpeedNew or 0
 	if mainSpeedNew > 0 and self.mainSpeed > 0 and mainSpeedNew ~= self.mainSpeed then
+		if self.mainTimer then
+			self.mainTimer:Cancel()
+		end
 		local multiplier = mainSpeedNew / self.mainSpeed
 		local timeLeft = (self.lastMainSwing + self.mainSpeed - now) * multiplier
 		self.mainSpeed = mainSpeedNew
@@ -285,6 +282,9 @@ function lib:UNIT_ATTACK_SPEED()
 		end
 	end
 	if offSpeedNew > 0 and self.offSpeed > 0 and offSpeedNew ~= self.offSpeed then
+		if self.offTimer then
+			self.offTimer:Cancel()
+		end
 		local multiplier = offSpeedNew / self.offSpeed
 		local timeLeft = (self.lastOffSwing + self.offSpeed - now) * multiplier
 		self.offSpeed = offSpeedNew
