@@ -310,18 +310,22 @@ function lib:UNIT_SPELLCAST_INTERRUPTED_OR_FAILED(_, _, _, spell)
 				self.mainExpirationTime = self.mainExpirationTime + self.mainSpeed
 			end
 			self:Fire("SWING_TIMER_UPDATE", self.mainSpeed, self.mainExpirationTime, "mainhand")
-			self.mainTimer = C_Timer.NewTimer(self.mainExpirationTime - GetTime(), function()
-				self:SwingEnd("mainhand")
-			end)
+			if self.mainExpirationTime - GetTime() > 0 then
+				self.mainTimer = C_Timer.NewTimer(self.mainExpirationTime - GetTime(), function()
+					self:SwingEnd("mainhand")
+				end)
+			end
 		end
 		if self.offSpeed > 0 then
 			if self.offExpirationTime < GetTime() and self.isAttacking then
 				self.offExpirationTime = self.offExpirationTime + self.offSpeed
 			end
 			self:Fire("SWING_TIMER_UPDATE", self.offSpeed, self.offExpirationTime, "offhand")
-			self.offTimer = C_Timer.NewTimer(self.offExpirationTime - GetTime(), function()
-				self:SwingEnd("offhand")
-			end)
+			if self.offExpirationTime - GetTime() > 0 then
+				self.offTimer = C_Timer.NewTimer(self.offExpirationTime - GetTime(), function()
+					self:SwingEnd("offhand")
+				end)
+			end
 		end
 	end
 end
@@ -361,19 +365,25 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, _, _, spell)
 		if self.mainSpeed > 0 then
 			self.mainExpirationTime = self.mainExpirationTime + offset
 			self:Fire("SWING_TIMER_UPDATE", self.mainSpeed, self.mainExpirationTime, "mainhand")
-			self.mainTimer = C_Timer.NewTimer(self.mainExpirationTime - now, function()
-				self:SwingEnd("mainhand")
-			end)
+			if self.mainExpirationTime - now > 0 then
+				self.mainTimer = C_Timer.NewTimer(self.mainExpirationTime - now, function()
+					self:SwingEnd("mainhand")
+				end)
+			end
 		end
 		if self.offSpeed > 0 then
 			self.offExpirationTime = self.offExpirationTime + offset
 			self:Fire("SWING_TIMER_UPDATE", self.offSpeed, self.offExpirationTime, "offhand")
-			self.offTimer = C_Timer.NewTimer(self.offExpirationTime - now, function()
-				self:SwingEnd("offhand")
-			end)
+			if self.offExpirationTime - now > 0 then
+				self.offTimer = C_Timer.NewTimer(self.offExpirationTime - now, function()
+					self:SwingEnd("offhand")
+				end)
+			end
 		end
+	end	
+	if spell ~= 6603 then -- 6603=Auto Attack prevent set preventSwingReset flag to false when auto attack is toggle on/off
+		self.preventSwingReset = self.auraPreventSwingReset or false
 	end
-	self.preventSwingReset = self.auraPreventSwingReset or false
 	if self.casting and spell ~= 6603 then -- 6603=Auto Attack prevent set casting flag to false when auto attack is toggle on
 		self.casting = false
 	end
@@ -402,13 +412,13 @@ function lib:UNIT_SPELLCAST_START(_, unit, _, spell)
 		self.preventSwingReset = self.auraPreventSwingReset or noreset_swing_spells[spell]
 		if spell and pause_swing_spells[spell] then
 			self.pauseSwingTime = now
-			if self.mainSpeed > 0 then
+			if self.mainSpeed > 0 and self.mainExpirationTime > now then
 				self:Fire("SWING_TIMER_PAUSED", "mainhand")
 				if self.mainTimer then
 					self.mainTimer:Cancel()
 				end
 			end
-			if self.offSpeed > 0 then
+			if self.offSpeed > 0 and self.mainExpirationTime > now then
 				self:Fire("SWING_TIMER_PAUSED", "offhand")
 				if self.offTimer then
 					self.offTimer:Cancel()
