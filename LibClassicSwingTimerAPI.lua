@@ -151,6 +151,10 @@ end
 function lib:SwingEnd(hand)
 	if hand == "mainhand" then
 		self.mainTimer:Cancel()
+		if self.class == "DRUID" and self.skipNextAttackSpeedUpdate then
+			self.skipNextAttackSpeedUpdate = nil
+			self:UNIT_ATTACK_SPEED()
+		end
 	elseif hand == "offhand" then
 		self.offTimer:Cancel()
 	elseif hand == "ranged" then
