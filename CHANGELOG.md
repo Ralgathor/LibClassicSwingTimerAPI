@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
+- Druid attack speeds are no longer snapshotted when the druid's form changes when the swing timer is full
+- Druid attack speed changes following mid-swing form changes are now correctly reported when the swing ends.
 - Fix Slam pause. Prevent LUA error when Slam is casting without autoattack toggled on or if auto attack is toggle of during the cast.
 - Fix main and off hand timer cancellation on UNIT_ATTACK_SPEED event. Prevent timer to be cancelled when the UNIT_ATTACK_SPEED is not modify.
 
