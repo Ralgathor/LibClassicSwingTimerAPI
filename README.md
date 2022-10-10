@@ -121,8 +121,7 @@ speed, expirationTime, lastSwing = UnitSwingTimerInfo(unitId, hand)
 
 ## API EVENTS Backward compatibility
 
-Maintain backward compatibilit. The following events are still fired only for the player.
-
+Maintain backward compatibility. The following events are still fired only for the player.
 
 ### SWING_TIMER_INFO_INITIALIZED
 
@@ -184,7 +183,7 @@ Fired when delta calculation between MH and OH update
 
 ### API method SwingTimerInfo(hand)
 
-Returns the `hand`'s current swing state. Can only be used after the SWING_TIMER_INFO_INITIALIZED event.
+Returns the `hand`'s current swing state for the player. Can only be used after the SWING_TIMER_INFO_INITIALIZED event.
 
 ```
 speed, expirationTime, lastSwing = SwingTimerInfo(hand)
