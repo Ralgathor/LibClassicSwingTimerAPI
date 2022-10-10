@@ -12,6 +12,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Backward compatibility of previous API EVENTS with SWING_TIMER_ format for player unit.
 - New api method UnitSwingTimerInfo to get swing informations for a specific unit.
 
+## [1.4.1] - 2022-10-07
+
+### Fixed
+- Druid attack speeds are no longer snapshotted when the druid's form changes when the swing timer is full
+- Druid attack speed changes following mid-swing form changes are now correctly reported when the swing ends.
+- Fix Slam pause. Prevent LUA error when Slam is casting without autoattack toggled on or if auto attack is toggle of during the cast.
+- Fix main and off hand timer cancellation on UNIT_ATTACK_SPEED event. Prevent timer to be cancelled when the UNIT_ATTACK_SPEED is not modify.
+
+## [1.4.0] - 2022-09-26
+
+### Added
+- Added a callback event that gets fired once the library has been properly initialised, to let addons know they can start using the library's SwingTimerInfo method.
+
+### Fixed
+- Fix consistency of SWING_TIMER_STOP event fire logic.
+
 ## [1.3.2] - 2022-09-10
 
 ### Changed

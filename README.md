@@ -18,6 +18,7 @@ local SwingTimerEventHandler = function(event, ...)
     return f[event](f, event, ...)
 end
 
+SwingTimerLib.RegisterCallback(f, "UNIT_SWING_TIMER_INFO_INITIALIZED", SwingTimerEventHandler)
 SwingTimerLib.RegisterCallback(f, "UNIT_SWING_TIMER_START", SwingTimerEventHandler)
 SwingTimerLib.RegisterCallback(f, "UNIT_SWING_TIMER_UPDATE", SwingTimerEventHandler)
 SwingTimerLib.RegisterCallback(f, "UNIT_SWING_TIMER_CLIPPED", SwingTimerEventHandler)
@@ -27,6 +28,14 @@ SwingTimerLib.RegisterCallback(f, "UNIT_SWING_TIMER_DELTA", SwingTimerEventHandl
 
 ```
 ## API EVENTS
+
+### UNIT_SWING_TIMER_INFO_INITIALIZED
+
+Fired after the initialization of swing information for the unit. The UnitSwingTimerInfo method is only usable after this event.
+
+| Property | Description |  
+| ----------- | ----------- |
+| unitId | string - type of the unit ("player" or "target") |
 
 ### UNIT_SWING_TIMER_START
 
@@ -91,7 +100,7 @@ Fired when delta calculation between MH and OH update
 
 ### UnitSwingTimerInfo(unitId, hand)
 
-Returns the `hand`'s current swing state for the given unit type.
+Returns the `hand`'s current swing state for the given unit type. Can only be used after the UNIT_SWING_TIMER_INFO_INITIALIZED event.
 
 ```
 speed, expirationTime, lastSwing = UnitSwingTimerInfo(unitId, hand)
@@ -113,6 +122,11 @@ speed, expirationTime, lastSwing = UnitSwingTimerInfo(unitId, hand)
 ## API EVENTS Backward compatibility
 
 Maintain backward compatibilit. The following events are still fired only for the player.
+
+
+### SWING_TIMER_INFO_INITIALIZED
+
+Fired after the initialization of the swing information for the player. The SwingTimerInfo method is only usable after this event.
 
 ### SWING_TIMER_START
 
@@ -170,7 +184,7 @@ Fired when delta calculation between MH and OH update
 
 ### API method SwingTimerInfo(hand)
 
-Returns the `hand`'s current swing state for the player unit.
+Returns the `hand`'s current swing state. Can only be used after the SWING_TIMER_INFO_INITIALIZED event.
 
 ```
 speed, expirationTime, lastSwing = SwingTimerInfo(hand)
