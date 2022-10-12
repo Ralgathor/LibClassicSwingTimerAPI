@@ -517,9 +517,8 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, unitType, _, spell)
 		end
 	end	
 	if spell ~= 6603 then -- 6603=Auto Attack prevent set preventSwingReset flag to false when auto attack is toggle on/off
-		self.preventSwingReset = self.auraPreventSwingReset or false
+		unit.preventSwingReset = unit.auraPreventSwingReset or false
 	end
-	unit.preventSwingReset = unit.auraPreventSwingReset or false
 	if unit.casting and spell ~= 6603 then -- 6603=Auto Attack prevent set casting flag to false when auto attack is toggle on
 		unit.casting = false
 	end
@@ -658,6 +657,7 @@ local EventBackwardCompatibility = function(event, ...)
 	end
 end
 
+lib.RegisterCallback(lib, "UNIT_SWING_TIMER_INFO_INITIALIZED", EventBackwardCompatibility)
 lib.RegisterCallback(lib, "UNIT_SWING_TIMER_START", EventBackwardCompatibility)
 lib.RegisterCallback(lib, "UNIT_SWING_TIMER_UPDATE", EventBackwardCompatibility)
 lib.RegisterCallback(lib, "UNIT_SWING_TIMER_CLIPPED", EventBackwardCompatibility)
