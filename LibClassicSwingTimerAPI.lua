@@ -1,4 +1,4 @@
-local MAJOR, MINOR = "LibClassicSwingTimerAPI", 11
+local MAJOR, MINOR = "LibClassicSwingTimerAPI", 12
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then
 	return
@@ -147,14 +147,16 @@ end
 
 function Unit:SwingEnd(hand)
 	if hand == "mainhand" then
-		self.mainTimer:Cancel()
+		if self.mainTimer and not self.mainTimer:IsCancelled() then
+			self.mainTimer:Cancel()
+		end
 		if self.class == "DRUID" and self.skipNextAttackSpeedUpdate then
 			self.skipNextAttackSpeedUpdate = nil
 			lib:UNIT_ATTACK_SPEED(self.GUID)
 		end
-	elseif hand == "offhand" then
+	elseif hand == "offhand" and self.offTimer and not self.offTimer:IsCancelled() then
 		self.offTimer:Cancel()
-	elseif hand == "ranged" then
+	elseif hand == "ranged" and self.rangedTimer and not self.rangedTimer:IsCancelled() then
 		self.rangedTimer:Cancel()
 	end
 	self.callbacks:Fire("UNIT_SWING_TIMER_STOP", self.id, hand)
