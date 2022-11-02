@@ -149,16 +149,16 @@ function lib:SwingStart(hand, startTime, isReset)
 end
 
 function lib:SwingEnd(hand)
-	if hand == "mainhand" then
+	if hand == "mainhand" and self.mainTimer then
 		self.mainTimer:Cancel()
-		if self.class == "DRUID" and self.skipNextAttackSpeedUpdate then
-			self.skipNextAttackSpeedUpdate = nil
-			self:UNIT_ATTACK_SPEED()
-		end
-	elseif hand == "offhand" then
+	elseif hand == "offhand" and self.offTimer then
 		self.offTimer:Cancel()
-	elseif hand == "ranged" then
+	elseif hand == "ranged" and self.rangedTimer then
 		self.rangedTimer:Cancel()
+	end
+	if self.class == "DRUID" and self.skipNextAttackSpeedUpdate then
+		self.skipNextAttackSpeedUpdate = nil
+		self:UNIT_ATTACK_SPEED()
 	end
 	self:Fire("SWING_TIMER_STOP", hand)
 	if (self.casting or self.channeling) and self.isAttacking and hand ~= "ranged" then
