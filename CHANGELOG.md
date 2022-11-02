@@ -30,6 +30,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Backward compatibility of previous API EVENTS with SWING_TIMER_ format for player unit.
 - New api method UnitSwingTimerInfo to get swing informations for a specific unit.
 
+## [1.4.2] - 2022-11-02
+
+### Fixed
+- Added timer nil check for SwingEnd method. Prevent nil value error.
+
 ## [1.4.1] - 2022-10-07
 
 ### Fixed
