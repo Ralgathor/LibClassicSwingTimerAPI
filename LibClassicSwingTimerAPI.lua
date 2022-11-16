@@ -103,6 +103,9 @@ function Unit:SwingStart(hand, startTime, isReset)
 		end
 		self.lastOffSwing = startTime
 		local _, offSpeed = UnitAttackSpeed(self.id)
+		if(self.id == "target" and not self.isPlayer) then
+			offSpeed = UnitAttackSpeed(self.id)
+		end
 		self.offSpeed = offSpeed or 0
 		self.offExpirationTime = self.lastOffSwing + self.offSpeed
 		if self.calculaDeltaTimer then
@@ -263,6 +266,9 @@ function lib:PLAYER_TARGET_CHANGED()
 	self.target.GUID = UnitGUID("target")
 
 	local mainSpeed, offSpeed = UnitAttackSpeed("target")
+	if(not self.isPlayer) then
+		offSpeed = mainSpeed
+	end
 	local now = GetTime()
 
 	self.target.mainSpeed = mainSpeed or 3 -- some dummy non-zero value to prevent infinities
@@ -296,6 +302,7 @@ function lib:PLAYER_TARGET_CHANGED()
 
 	self.target.skipNextAttackSpeedUpdate = nil
 	self.target.skipNextAttackSpeedUpdateCount = 0
+	self.target.isPlayer = UnitIsPlayer("target")
 
 	self.callbacks:Fire("UNIT_SWING_TIMER_INFO_INITIALIZED", self.target.id)
 end
@@ -392,6 +399,9 @@ function lib:UNIT_ATTACK_SPEED(unitGUID)
 		return
 	end
 	local mainSpeedNew, offSpeedNew = UnitAttackSpeed(unit.id)
+	if(unit.id == "target" and not unit.isPlayer) then
+		offSpeed = mainSpeedNew
+	end
 	offSpeedNew = offSpeedNew or 0
 	if mainSpeedNew > 0 and unit.mainSpeed > 0 and mainSpeedNew ~= unit.mainSpeed then
 		if unit.mainTimer then
