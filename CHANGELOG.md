@@ -4,41 +4,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.0.0-beta-1] - 2022-11-16
-
-### Fixed
-* Correctly set value for offhand weapon speed for none player target.
-
-## [2.0.0-alpha-5] - 2022-11-16
-
-### Changed
-* Update support of Retails to Dragonflight.
-
-## [2.0.0-alpha-4] - 2022-10-14
-
-### Fixed
-* Fix swing timer cancellation on SwingEnd method. Prevent LUA error on swingEnd after death of the target unit. 
-
-## [2.0.0-alpha-3] - 2022-10-12
-
-### Added
-* Added Backward compatibility for SWING_TIMER_INFO_INITIALIZED event
-
-### Fixed
-* Correct UNIT_SPELLCAST_SUCCEEDED preventSwingReset flag
-
-## [2.0.0-alpha-2] - 2022-10-10
-
-### Changed
-* Merged 1.4.0 and 1.4.1 fixes.
-
-## [2.0.0-alpha-1] - 2022-09-12
+## [2.0.0] - 2023-01-13
 
 ### Added
 - Added support for target swing timer info.
 - Added API EVENTS that reflect both player and target support with following format UNIT_SWING_TIMER_.
 - Backward compatibility of previous API EVENTS with SWING_TIMER_ format for player unit.
 - New api method UnitSwingTimerInfo to get swing informations for a specific unit.
+- Added Backward compatibility for SWING_TIMER_INFO_INITIALIZED event
+
+### Changed
+* Update support of Retails to Dragonflight.
+* Bump Wraith version to Ulduar patch.
 
 ## [1.4.2] - 2022-11-02
 
