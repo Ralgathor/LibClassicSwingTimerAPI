@@ -453,7 +453,7 @@ function lib:UNIT_SPELLCAST_INTERRUPTED_OR_FAILED(_, unitType, _, spell)
 			self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.mainSpeed, unit.mainExpirationTime, "mainhand")
 			if unit.mainExpirationTime - GetTime() > 0 then
 				unit.mainTimer = C_Timer.NewTimer(unit.mainExpirationTime - GetTime(), function()
-					self:SwingEnd("mainhand")
+					unit:SwingEnd("mainhand")
 				end)
 			end
 		end
@@ -464,7 +464,7 @@ function lib:UNIT_SPELLCAST_INTERRUPTED_OR_FAILED(_, unitType, _, spell)
 			self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.offSpeed, unit.offExpirationTime, "offhand")
 			if unit.offExpirationTime - GetTime() > 0 then
 				unit.offTimer = C_Timer.NewTimer(unit.offExpirationTime - GetTime(), function()
-					self:SwingEnd("offhand")
+					unit:SwingEnd("offhand")
 				end)
 			end
 		end
@@ -512,7 +512,7 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, unitType, _, spell)
 			self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.mainSpeed, unit.mainExpirationTime, "mainhand")
 			if unit.mainExpirationTime - now > 0 then
 				unit.mainTimer = C_Timer.NewTimer(unit.mainExpirationTime - now, function()
-					self:SwingEnd("mainhand")
+					unit:SwingEnd("mainhand")
 				end)
 			end
 		end
@@ -521,7 +521,7 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, unitType, _, spell)
 			self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.offSpeed, unit.offExpirationTime, "offhand")
 			if unit.offExpirationTime - now > 0 then
 				unit.offTimer = C_Timer.NewTimer(unit.offExpirationTime - now, function()
-					self:SwingEnd("offhand")
+					unit:SwingEnd("offhand")
 				end)
 			end
 		end
