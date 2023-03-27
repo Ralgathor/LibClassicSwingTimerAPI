@@ -492,6 +492,8 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, unitType, _, spell)
 	if (spell and reset_swing_spells[spell]) or (unit.casting and not unit.preventSwingReset) then
 		if isRetail then		
 			unit:SwingStart("mainhand", now, true)
+		elseif unit.class == "DRUID" then
+			C_Timer.After(0, function() unit:SwingStart("mainhand", now, true) end)
 		else
 			unit:SwingStart("mainhand", now, true)
 			unit:SwingStart("offhand", now, true)
