@@ -209,18 +209,26 @@ function lib:UnitSwingTimerInfo(unitId, hand)
 	end
 end
 
-function lib:ADDON_LOADED(_, addOnName)
-	if addOnName ~= MAJOR then
-		return
+-- It's possible that this code can be added in PLAYER_ENTERED WORLD.
+local has_initialized = false
+
+function lib:INIT()
+	if has_initialized then 
+		return 
 	end
 
 	self.player = Unit:new({id="player"})
 	self.player.callbacks = self.callbacks
 	self.target = Unit:new({id="target", class="TARGET"})
 	self.target.callbacks = self.callbacks
+	has_initialized = true
 end
 
 function lib:PLAYER_ENTERING_WORLD()
+	-- We initialize here since ADDON_LOADED is not called for
+	-- the lib when it is embedded in another addon.
+	self:INIT()
+
 	self.player.GUID = UnitGUID("player")
 	self.player.class = select(2,GetPlayerInfoByGUID(self.player.GUID))
 
@@ -647,10 +655,11 @@ frame:RegisterUnitEvent("UNIT_SPELLCAST_FAILED", "player", "target")
 frame:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player", "target")
 frame:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_START", "player", "target")
 frame:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_STOP", "player", "target")
-frame:RegisterEvent("ADDON_LOADED")
-
 frame:SetScript("OnEvent", function(_, event, ...)
 	if event == "COMBAT_LOG_EVENT_UNFILTERED" then
+		-- We don't want to process events if we haven't initalized yet,
+		-- since this will cause errors.
+		if not has_initialized then return end
 		lib[event](lib, event, CombatLogGetCurrentEventInfo())
 	else
 		lib[event](lib, event, ...)
