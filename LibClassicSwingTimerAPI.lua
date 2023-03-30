@@ -158,7 +158,7 @@ function Unit:SwingEnd(hand)
 	end
 	if self.class == "DRUID" and self.skipNextAttackSpeedUpdate then
 		self.skipNextAttackSpeedUpdate = nil
-		lib:UNIT_ATTACK_SPEED(self.GUID)
+		lib:UNIT_ATTACK_SPEED(nil, self.GUID)
 	end
 	self.callbacks:Fire("UNIT_SWING_TIMER_STOP", self.id, hand)
 	if (self.casting or self.channeling) and self.isAttacking and hand ~= "ranged" then
@@ -382,7 +382,7 @@ function lib:COMBAT_LOG_EVENT_UNFILTERED(_, ts, subEvent, _, sourceGUID, _, _, _
 	end
 end
 
-function lib:UNIT_ATTACK_SPEED(unitGUID)
+function lib:UNIT_ATTACK_SPEED(_, unitGUID)
 	local unit = lib:getUnit(unitGUID)
 	if not unit then
 		return
@@ -492,9 +492,9 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, unitType, _, spell)
 	if (spell and reset_swing_spells[spell]) or (unit.casting and not unit.preventSwingReset) then
 		if isRetail then		
 			unit:SwingStart("mainhand", now, true)
-		elseif unit.class == "DRUID" then
-			C_Timer.After(0, function() unit:SwingStart("mainhand", now, true) end)
 		else
+			-- Do not skip the attack speed update if we reset the timer
+			unit.skipNextAttackSpeedUpdate = nil
 			unit:SwingStart("mainhand", now, true)
 			unit:SwingStart("offhand", now, true)
 		end
