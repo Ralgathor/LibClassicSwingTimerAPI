@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Fix lib:UNIT_ATTACK_SPEED function unitGUID param.
 - Fix Druid specific UNIT_ATTACK_SPEED handler. Spells that remove a druid form and reset the swing now correctly update the swing information. 
+- Fix lib:ADDON_LOADED function. Allows lib:ADDON_LOADED to correctly initialize when another addon embeds the library.
 
 ## [2.0.1] - 2023-01-18
 

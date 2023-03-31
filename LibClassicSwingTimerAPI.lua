@@ -1,3 +1,5 @@
+-- Get the name of a) this addon loaded seperately, or b) the addon that loaded this as an embedded library
+local loadedAddonName = ... 
 local MAJOR, MINOR = "LibClassicSwingTimerAPI", 16
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then
@@ -210,7 +212,8 @@ function lib:UnitSwingTimerInfo(unitId, hand)
 end
 
 function lib:ADDON_LOADED(_, addOnName)
-	if addOnName ~= MAJOR then
+	-- Check to see if this is the addon that loaded the library
+	if addOnName ~= loadedAddonName then
 		return
 	end
 
