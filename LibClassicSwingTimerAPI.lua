@@ -158,7 +158,7 @@ function Unit:SwingEnd(hand)
 	end
 	if self.class == "DRUID" and self.skipNextAttackSpeedUpdate then
 		self.skipNextAttackSpeedUpdate = nil
-		lib:UNIT_ATTACK_SPEED(nil, self.GUID)
+		lib:UNIT_ATTACK_SPEED('UNIT_ATTACK_SPEED', self.GUID)
 	end
 	self.callbacks:Fire("UNIT_SWING_TIMER_STOP", self.id, hand)
 	if (self.casting or self.channeling) and self.isAttacking and hand ~= "ranged" then
