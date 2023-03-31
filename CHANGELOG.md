@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.2] - 2023-03-31
+
+### Changed
+* Update tocversion support of Retails.
+
 ### Fixed
 - Fix lib:UNIT_ATTACK_SPEED function unitGUID param.
 - Fix Druid specific UNIT_ATTACK_SPEED handler. Spells that remove a druid form and reset the swing now correctly update the swing information. 
