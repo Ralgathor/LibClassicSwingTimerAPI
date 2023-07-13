@@ -938,6 +938,7 @@ elseif isWrath then
 		[5176] = true, [5177] = true, [5178] = true, [5179] = true, [5180] = true, [6780] = true, [8905] = true, [9912] = true, [26984] = true,
 			[26985] = true, [48459] = true, [48461] = true, -- Wrath
 		[53563] = true, -- Beacon of Light
+		[57755] = true, -- Heroic Throw
 	}
 
 	reset_swing_on_channel_stop_spells = {}
