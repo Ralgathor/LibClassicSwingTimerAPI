@@ -1,6 +1,6 @@
 -- Get the name of a) this addon loaded seperately, or b) the addon that loaded this as an embedded library
 local loadedAddonName = ... 
-local MAJOR, MINOR = "LibClassicSwingTimerAPI", 18
+local MAJOR, MINOR = "LibClassicSwingTimerAPI", 19
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then
 	return
@@ -939,6 +939,7 @@ elseif isWrath then
 			[26985] = true, [48459] = true, [48461] = true, -- Wrath
 		[53563] = true, -- Beacon of Light
 		[64382] = true, -- Shattering Throw
+		[57755] = true, -- Heroic Throw
 	}
 
 	reset_swing_on_channel_stop_spells = {}
