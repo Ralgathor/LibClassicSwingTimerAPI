@@ -1,6 +1,6 @@
 -- Get the name of a) this addon loaded seperately, or b) the addon that loaded this as an embedded library
 local loadedAddonName = ... 
-local MAJOR, MINOR = "LibClassicSwingTimerAPI", 20
+local MAJOR, MINOR = "LibClassicSwingTimerAPI", 21
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then
 	return
