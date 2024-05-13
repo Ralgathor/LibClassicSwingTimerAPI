@@ -157,7 +157,7 @@ function Unit:SwingEnd(hand)
 	elseif hand == "ranged" and self.rangedTimer and not self.rangedTimer:IsCancelled() then
 		self.rangedTimer:Cancel()
 	end
-	if self.class == "DRUID" and self.skipNextAttackSpeedUpdate then
+	if (self.class == "DRUID" or self.class == "PALADIN") and self.skipNextAttackSpeedUpdate then
 		self.skipNextAttackSpeedUpdate = nil
 		lib:UNIT_ATTACK_SPEED('UNIT_ATTACK_SPEED', self.GUID)
 	end
@@ -370,7 +370,6 @@ function lib:UNIT_ATTACK_SPEED(_, unitGUID)
 	if not unit then
 		return
 	end
-	if isClassic and unit.class == "PALADIN" then return end -- Ignore UNIT_ATTACK_SPEED on Classic for Paladin. Seal of the Crusader snapshot. No other dynamic speed change.
 	local now = GetTime()
 	if
 		unit.skipNextAttackSpeedUpdate
@@ -695,6 +694,12 @@ if isClassic then
 		[768] = true, -- Cat Form
 		[5487] = true, -- Bear Form
 		[9634] = true, -- Dire Bear Form
+		[21082] = true, -- Seal of the Crusader (Rank 1)
+		[20162] = true, -- Seal of the Crusader (Rank 2)
+		[20305] = true, -- Seal of the Crusader (Rank 3)
+		[20306] = true, -- Seal of the Crusader (Rank 4)
+		[20307] = true, -- Seal of the Crusader (Rank 5)
+		[20308] = true, -- Seal of the Crusader (Rank 6)
 	}
 
 	next_melee_spells = {
