@@ -59,8 +59,6 @@ local Unit = {
 	isAttacking = false,
 	preventSwingReset = false,
 	auraPreventSwingReset = false,
-	skipNextAttack = nil,
-	skipNextAttackCount = 0,
 
 	skipNextAttackSpeedUpdate = nil,
 	skipNextAttackSpeedUpdateCount = 0,
@@ -257,8 +255,6 @@ function lib:PLAYER_ENTERING_WORLD()
 	self.player.isAttacking = false
 	self.player.preventSwingReset = false
 	self.player.auraPreventSwingReset = false
-	self.player.skipNextAttack = nil
-	self.player.skipNextAttackCount = 0
 
 	self.player.skipNextAttackSpeedUpdate = nil
 	self.player.skipNextAttackSpeedUpdateCount = 0
@@ -301,8 +297,6 @@ function lib:PLAYER_TARGET_CHANGED()
 	self.target.isAttacking = false
 	self.target.preventSwingReset = false
 	self.target.auraPreventSwingReset = false
-	self.target.skipNextAttack = nil
-	self.target.skipNextAttackCount = 0
 
 	self.target.skipNextAttackSpeedUpdate = nil
 	self.target.skipNextAttackSpeedUpdateCount = 0
@@ -314,25 +308,10 @@ end
 function lib:COMBAT_LOG_EVENT_UNFILTERED(_, ts, subEvent, _, sourceGUID, _, _, _, destGUID, _, _, _, amount, overkill, _, resisted, _, _, _, _, _, isOffHand)
 	local now = GetTime()
 	local unit = lib:getUnit(sourceGUID)
-	if subEvent == "SPELL_EXTRA_ATTACKS" and unit then
-		unit.skipNextAttack = ts
-		unit.skipNextAttackCount = resisted
-	elseif (subEvent == "SWING_DAMAGE" or subEvent == "SWING_MISSED") and unit then
+	if (subEvent == "SWING_DAMAGE" or subEvent == "SWING_MISSED") and unit then
 		local isOffHand = isOffHand
 		if subEvent == "SWING_MISSED" then
 			isOffHand = overkill
-		end
-		if
-			unit.skipNextAttack ~= nil
-			and tonumber(unit.skipNextAttack)
-			and (ts - unit.skipNextAttack) < 0.04
-			and tonumber(unit.skipNextAttackCount)
-			and not isOffHand
-		then
-			if unit.skipNextAttackCount > 0 then
-				unit.skipNextAttackCount = unit.skipNextAttackCount - 1
-				return false
-			end
 		end
 		if isOffHand then
 			unit.firstOffSwing = true
