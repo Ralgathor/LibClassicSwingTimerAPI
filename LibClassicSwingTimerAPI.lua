@@ -642,22 +642,34 @@ frame:SetScript("OnEvent", function(_, event, ...)
 end)
 
 --[[
-	Backward compatibility continue to fire EVENTS with SWING_TIMER_ format for player unit.
+	Specific event handling
 ]]--
-local EventBackwardCompatibility = function(event, ...)
+local EventHandler = function(event, ...)
+	-- Backward compatibility continue to fire EVENTS with SWING_TIMER_ format for player unit.
 	local unitId = select(1,...)
 	if unitId == "player" then
 		lib.callbacks:Fire(string.gsub(event,"UNIT_",""), select(2,...))
 	end
+	-- Fire EVENTS in Weakauras if the addon is loaded
+	if WeakAuras ~= nil then
+		WeakAuras.ScanEvents(event, select(1,...))
+	end
 end
 
-lib.RegisterCallback(lib, "UNIT_SWING_TIMER_INFO_INITIALIZED", EventBackwardCompatibility)
-lib.RegisterCallback(lib, "UNIT_SWING_TIMER_START", EventBackwardCompatibility)
-lib.RegisterCallback(lib, "UNIT_SWING_TIMER_UPDATE", EventBackwardCompatibility)
-lib.RegisterCallback(lib, "UNIT_SWING_TIMER_CLIPPED", EventBackwardCompatibility)
-lib.RegisterCallback(lib, "UNIT_SWING_TIMER_PAUSED", EventBackwardCompatibility)
-lib.RegisterCallback(lib, "UNIT_SWING_TIMER_STOP", EventBackwardCompatibility)
-lib.RegisterCallback(lib, "UNIT_SWING_TIMER_DELTA", EventBackwardCompatibility)
+lib.RegisterCallback(lib, "UNIT_SWING_TIMER_INFO_INITIALIZED", EventHandler)
+lib.RegisterCallback(lib, "UNIT_SWING_TIMER_START", EventHandler)
+lib.RegisterCallback(lib, "UNIT_SWING_TIMER_UPDATE", EventHandler)
+lib.RegisterCallback(lib, "UNIT_SWING_TIMER_CLIPPED", EventHandler)
+lib.RegisterCallback(lib, "UNIT_SWING_TIMER_PAUSED", EventHandler)
+lib.RegisterCallback(lib, "UNIT_SWING_TIMER_STOP", EventHandler)
+lib.RegisterCallback(lib, "UNIT_SWING_TIMER_DELTA", EventHandler)
+lib.RegisterCallback(lib, "SWING_TIMER_INFO_INITIALIZED", EventHandler)
+lib.RegisterCallback(lib, "SWING_TIMER_START", EventHandler)
+lib.RegisterCallback(lib, "SWING_TIMER_STOP",EventHandler)
+lib.RegisterCallback(lib, "SWING_TIMER_UPDATE", EventHandler)
+lib.RegisterCallback(lib, "SWING_TIMER_CLIPPED", EventHandler)
+lib.RegisterCallback(lib, "SWING_TIMER_DELTA", EventHandler)
+lib.RegisterCallback(lib, "SWING_TIMER_PAUSED", EventHandler)
 
 --[[
 	Set table data based on current game version
