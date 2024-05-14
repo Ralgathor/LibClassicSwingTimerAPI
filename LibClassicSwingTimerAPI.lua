@@ -1097,6 +1097,7 @@ elseif isCata then
 		[774] = true, -- Rejuvenation
 		[467] = true, -- Thorns
 		[5176] = true, -- Wrath
+		[51505] = true, -- Lava Burst
 	}
 
 	reset_swing_on_channel_stop_spells = {}
