@@ -1098,6 +1098,7 @@ elseif isCata then
 		[467] = true, -- Thorns
 		[5176] = true, -- Wrath
 		[51505] = true, -- Lava Burst
+		[51533] = true, -- Feral Spirit
 	}
 
 	reset_swing_on_channel_stop_spells = {}
