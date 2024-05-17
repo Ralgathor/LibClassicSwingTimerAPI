@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+### Changed
+* Improve ranged swing timer accuracy for Classic version. Implemented cast time and retry logic of auto shot.
+
+### Fixed
+* Added missing UNIT_ATTACK_SPEED update for ranged.
+* Fix Autto Attack/Auto Shot interaction for Cataclysm version.
+
 ## [2.1.0] - 2024-05-15
 
 ### Added

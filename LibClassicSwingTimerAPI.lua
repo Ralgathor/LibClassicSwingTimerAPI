@@ -7,8 +7,11 @@ if not lib then
 end
 
 local frame = CreateFrame("Frame")
+local tooltip_name = loadedAddonName .. "Tooltip"
+local tooltip = CreateFrame("GameTooltip", tooltip_name, nil, "GameTooltipTemplate")
+
 local C_Timer, tonumber = C_Timer, tonumber
-local GetSpellInfo, GetTime, CombatLogGetCurrentEventInfo = GetSpellInfo, GetTime, CombatLogGetCurrentEventInfo
+local GetSpellInfo, GetTime, CombatLogGetCurrentEventInfo, GetInventoryItemID = GetSpellInfo, GetTime, CombatLogGetCurrentEventInfo, GetInventoryItemID
 local UnitAttackSpeed, UnitAura, UnitGUID, UnitRangedDamage, GetPlayerInfoByGUID = UnitAttackSpeed, UnitAura, UnitGUID, UnitRangedDamage, GetPlayerInfoByGUID
 
 local isRetail = WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
@@ -36,6 +39,8 @@ local Unit = {
 	mainSpeed = 0,
 	offSpeed = 0,
 	rangedSpeed = 0,
+	rangedBaseSpeed = 1,
+	autoShotCastTime = 0.52,
 
 	lastMainSwing = nil,
 	mainExpirationTime = nil,
@@ -47,6 +52,7 @@ local Unit = {
 
 	lastRangedSwing = nil,
 	rangedExpirationTime = nil,
+	firstRangedSwing = false,
 	feignDeathTimer = nil,
 
 	mainTimer = nil,
@@ -57,11 +63,14 @@ local Unit = {
 	casting = false,
 	channeling = false,
 	isAttacking = false,
+	isShooting = false,
 	preventSwingReset = false,
 	auraPreventSwingReset = false,
 
 	skipNextAttackSpeedUpdate = nil,
 	skipNextAttackSpeedUpdateCount = 0,
+
+	cache = {},
 }
 
 function Unit:new(obj)
@@ -136,9 +145,9 @@ function Unit:SwingStart(hand, startTime, isReset)
 		end
 		self.rangedSpeed = UnitRangedDamage("player") or 0
 		if self.rangedSpeed ~= nil and self.rangedSpeed > 0 then
-			self.rangedSpeed = self.rangedSpeed
 			self.lastRangedSwing = startTime
 			self.rangedExpirationTime = self.lastRangedSwing + self.rangedSpeed
+			self.autoShotCastTime = 0.52 * (self.rangedSpeed / self.rangedBaseSpeed)
 			self.callbacks:Fire("UNIT_SWING_TIMER_START", self.id, self.rangedSpeed, self.rangedExpirationTime, hand)
 			if self.rangedExpirationTime - GetTime() > 0 then
 				self.rangedTimer = C_Timer.NewTimer(self.rangedExpirationTime - GetTime(), function()
@@ -172,6 +181,38 @@ function Unit:SwingEnd(hand)
 			self.callbacks:Fire("UNIT_SWING_TIMER_CLIPPED", self.id, hand)
 		end
 	end
+end
+
+function Unit:GetRangedBaseSpeed()
+	-- Default speed
+	local speed = 1
+	local weapon_id = GetInventoryItemID("player", INVSLOT_RANGED)
+
+	if self.cache[weapon_id] then
+		return self.cache[weapon_id]
+	elseif not weapon_id then
+		return speed
+	end
+
+	local font_string_base = tooltip_name .. "TextRight"
+	local speed_pattern = SPEED .. " (%d%.%d%d)"
+
+	tooltip:ClearLines()
+	tooltip:SetItemByID(weapon_id)
+	for i = 1, tooltip:NumLines() do
+		local fontString = _G[font_string_base .. i]
+		local text = fontString:GetText()
+		if text then
+			local match = text:match(speed_pattern)
+			if match then
+				speed = match
+				break
+			end
+		end
+	end
+
+	self.cache[weapon_id] = speed
+	return speed
 end
 
 lib.callbacks = lib.callbacks or LibStub("CallbackHandler-1.0"):New(lib)
@@ -232,6 +273,8 @@ function lib:PLAYER_ENTERING_WORLD()
 	self.player.mainSpeed = mainSpeed or 3 -- some dummy non-zero value to prevent infinities
 	self.player.offSpeed = offSpeed or 0
 	self.player.rangedSpeed = UnitRangedDamage("player") or 0
+	self.player.rangedBaseSpeed = self.player:GetRangedBaseSpeed()
+	self.player.autoShotCastTime = 0.52 * (self.player.rangedSpeed / self.player.rangedBaseSpeed)
 
 	self.player.lastMainSwing = now
 	self.player.mainExpirationTime = self.player.lastMainSwing + self.player.mainSpeed
@@ -243,6 +286,7 @@ function lib:PLAYER_ENTERING_WORLD()
 
 	self.player.lastRangedSwing = now
 	self.player.rangedExpirationTime = self.player.lastRangedSwing + self.player.rangedSpeed
+	self.player.firstRangedSwing = false
 	self.player.feignDeathTimer = nil
 
 	self.player.mainTimer = nil
@@ -316,13 +360,13 @@ function lib:COMBAT_LOG_EVENT_UNFILTERED(_, ts, subEvent, _, sourceGUID, _, _, _
 		if isOffHand then
 			unit.firstOffSwing = true
 			unit:SwingStart("offhand", now, false)
-			if isWrath then
+			if isWrath or isCata then
 				unit:SwingStart("ranged", now, true)
 			end
 		else
 			unit.firstMainSwing = true
 			unit:SwingStart("mainhand", now, false)
-			if isWrath then
+			if isWrath or isCata then
 				unit:SwingStart("ranged", now, true)
 			end
 		end
@@ -360,6 +404,20 @@ function lib:COMBAT_LOG_EVENT_UNFILTERED(_, ts, subEvent, _, sourceGUID, _, _, _
 				unit:SwingStart("mainhand", GetTime(), true)
 			else
 				unit:SwingStart("ranged", GetTime(), true)
+			end
+		end
+	elseif subEvent == "SPELL_CAST_START" and unit then
+		local spell = amount
+		if isClassic and spell and ranged_swing[spell] then
+			if not unit.firstRangedSwing then
+				unit.firstRangedSwing = true
+				unit.rangedExpirationTime = now + unit.autoShotCastTime
+				unit.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.rangedSpeed, unit.rangedExpirationTime, "ranged")
+				if unit.rangedExpirationTime - now > 0 then
+					unit.rangedTimer = C_Timer.NewTimer(unit.rangedExpirationTime - now, function()
+						unit:SwingEnd("ranged")
+					end)
+				end
 			end
 		end
 	end
@@ -418,6 +476,22 @@ function lib:UNIT_ATTACK_SPEED(_, unitGUID)
 			end)
 		end
 	end
+	local rangedSpeedNew = UnitRangedDamage("player") or 0
+	if rangedSpeedNew > 0 and unit.rangedSpeed > 0 and rangedSpeedNew ~= unit.rangedSpeed then
+		if unit.rangedTimer then
+			unit.rangedTimer:Cancel()
+		end
+		local multiplier = rangedSpeedNew / unit.rangedSpeed
+		local timeLeft = (unit.lastRangedSwing + unit.rangedSpeed - now) * multiplier
+		unit.rangedSpeed = rangedSpeedNew
+		unit.rangedExpirationTime = now + timeLeft
+		self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.rangedSpeed, unit.rangedExpirationTime, "ranged")
+		if unit.rangedSpeed > 0 and unit.rangedExpirationTime - GetTime() > 0 then
+			unit.rangedTimer = C_Timer.NewTimer(unit.rangedExpirationTime - GetTime(), function()
+				unit:SwingEnd("ranged")
+			end)
+		end
+	end
 end
 
 function lib:UNIT_SPELLCAST_INTERRUPTED_OR_FAILED(_, unitType, _, spell)
@@ -467,7 +541,7 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, unitType, _, spell)
 	local now = GetTime()
 	if spell ~= nil and next_melee_spells[spell] then
 		unit:SwingStart("mainhand", now, false)
-		if isWrath then
+		if isWrath or isCata then
 			unit:SwingStart("ranged", now, true)
 		end
 	end
@@ -598,6 +672,9 @@ function lib:PLAYER_EQUIPMENT_CHANGED(_, equipmentSlot)
 		if isClassicOrBCCOrWrathOrCata then
 			self.player:SwingStart("ranged", now, true)
 		end
+		if isClassicOrBCCOrWrathOrCata and equipmentSlot == 18 then
+			self.player.rangedBaseSpeed = self.player:GetRangedBaseSpeed()
+		end
 	end
 end
 
@@ -618,16 +695,47 @@ function lib:PLAYER_LEAVE_COMBAT()
 	self.player.firstOffSwing = false
 end
 
+function lib:START_AUTOREPEAT_SPELL()
+	self.player.isShooting = true
+end
+
+function lib:STOP_AUTOREPEAT_SPELL()
+	self.player.isShooting = false
+	self.player.firstRangedSwing = false
+end
+
+function lib:UNIT_SPELLCAST_FAILED_QUIET(_, unitType, _, spell)
+	local unit = lib:getUnit(unitType)
+	if not unit then
+		return
+	end
+	if isClassic and spell and ranged_swing[spell] and unit.isShooting then
+		if self.player.rangedTimer and not self.player.rangedTimer:IsCancelled() then
+			self.player.rangedTimer:Cancel()
+		end
+		self.player.rangedExpirationTime = GetTime() + 0.5 + self.player.autoShotCastTime
+		self.player.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", self.player.id, self.player.rangedSpeed, self.player.rangedExpirationTime, "ranged")
+		if self.player.rangedExpirationTime - GetTime() > 0 then
+			self.player.rangedTimer = C_Timer.NewTimer(self.player.rangedExpirationTime - GetTime(), function()
+				self.player:SwingEnd("ranged")
+			end)
+		end
+	end
+end
+
 frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
 frame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
 frame:RegisterEvent("PLAYER_ENTER_COMBAT")
 frame:RegisterEvent("PLAYER_LEAVE_COMBAT")
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 frame:RegisterEvent("PLAYER_TARGET_CHANGED")
+frame:RegisterEvent("START_AUTOREPEAT_SPELL")
+frame:RegisterEvent("STOP_AUTOREPEAT_SPELL")
 frame:RegisterUnitEvent("UNIT_ATTACK_SPEED", "player", "target")
 frame:RegisterUnitEvent("UNIT_SPELLCAST_START", "player", "target")
 frame:RegisterUnitEvent("UNIT_SPELLCAST_INTERRUPTED", "player", "target")
 frame:RegisterUnitEvent("UNIT_SPELLCAST_FAILED", "player", "target")
+frame:RegisterUnitEvent("UNIT_SPELLCAST_FAILED_QUIET", "player")
 frame:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player", "target")
 frame:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_START", "player", "target")
 frame:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_STOP", "player", "target")
@@ -640,6 +748,8 @@ frame:SetScript("OnEvent", function(_, event, ...)
 		lib[event](lib, event, ...)
 	end
 end)
+
+tooltip:SetOwner(WorldFrame, "ANCHOR_NONE")
 
 --[[
 	Specific event handling
