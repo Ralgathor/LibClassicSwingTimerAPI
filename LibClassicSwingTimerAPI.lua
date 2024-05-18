@@ -273,8 +273,6 @@ function lib:PLAYER_ENTERING_WORLD()
 	self.player.mainSpeed = mainSpeed or 3 -- some dummy non-zero value to prevent infinities
 	self.player.offSpeed = offSpeed or 0
 	self.player.rangedSpeed = UnitRangedDamage("player") or 0
-	self.player.rangedBaseSpeed = self.player:GetRangedBaseSpeed()
-	self.player.autoShotCastTime = 0.52 * (self.player.rangedSpeed / self.player.rangedBaseSpeed)
 
 	self.player.lastMainSwing = now
 	self.player.mainExpirationTime = self.player.lastMainSwing + self.player.mainSpeed
@@ -697,6 +695,8 @@ end
 
 function lib:START_AUTOREPEAT_SPELL()
 	self.player.isShooting = true
+	self.player.rangedBaseSpeed = self.player:GetRangedBaseSpeed()
+	self.player.autoShotCastTime = 0.52 * (self.player.rangedSpeed / self.player.rangedBaseSpeed)
 end
 
 function lib:STOP_AUTOREPEAT_SPELL()
