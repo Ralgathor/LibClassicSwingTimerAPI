@@ -52,7 +52,6 @@ local Unit = {
 
 	lastRangedSwing = nil,
 	rangedExpirationTime = nil,
-	firstRangedSwing = false,
 	feignDeathTimer = nil,
 
 	mainTimer = nil,
@@ -284,7 +283,6 @@ function lib:PLAYER_ENTERING_WORLD()
 
 	self.player.lastRangedSwing = now
 	self.player.rangedExpirationTime = self.player.lastRangedSwing + self.player.rangedSpeed
-	self.player.firstRangedSwing = false
 	self.player.feignDeathTimer = nil
 
 	self.player.mainTimer = nil
@@ -406,16 +404,13 @@ function lib:COMBAT_LOG_EVENT_UNFILTERED(_, ts, subEvent, _, sourceGUID, _, _, _
 		end
 	elseif subEvent == "SPELL_CAST_START" and unit then
 		local spell = amount
-		if isClassic and spell and ranged_swing[spell] then
-			if not unit.firstRangedSwing then
-				unit.firstRangedSwing = true
-				unit.rangedExpirationTime = now + unit.autoShotCastTime
-				unit.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.rangedSpeed, unit.rangedExpirationTime, "ranged")
-				if unit.rangedExpirationTime - now > 0 then
-					unit.rangedTimer = C_Timer.NewTimer(unit.rangedExpirationTime - now, function()
-						unit:SwingEnd("ranged")
-					end)
-				end
+		if isClassic and spell and ranged_swing[spell] and GetTime() > (unit.rangedExpirationTime - unit.autoShotCastTime) then
+			unit.rangedExpirationTime = now + unit.autoShotCastTime
+			unit.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.rangedSpeed, unit.rangedExpirationTime, "ranged")
+			if unit.rangedExpirationTime - now > 0 then
+				unit.rangedTimer = C_Timer.NewTimer(unit.rangedExpirationTime - now, function()
+					unit:SwingEnd("ranged")
+				end)
 			end
 		end
 	end
@@ -701,7 +696,6 @@ end
 
 function lib:STOP_AUTOREPEAT_SPELL()
 	self.player.isShooting = false
-	self.player.firstRangedSwing = false
 end
 
 function lib:UNIT_SPELLCAST_FAILED_QUIET(_, unitType, _, spell)
