@@ -988,7 +988,9 @@ elseif isBCC then
 		--35474 Drums of Panic DO reset the swing timer, do not add
 	}
 
-	prevent_reset_swing_auras = {}
+	prevent_reset_swing_auras = {
+		[408505] = true, -- Maelstrom Weapon
+	}
 
 	pause_swing_spells = {}
 
