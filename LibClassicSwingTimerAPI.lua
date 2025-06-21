@@ -780,6 +780,7 @@ lib.RegisterCallback(lib, "SWING_TIMER_PAUSED", EventHandler)
 ]]--
 if isClassic then
 	reset_swing_spells = {
+		[11350] = true, -- Oil of Immolation
 		[16589] = true, -- Noggenfogger Elixir
 		[2645] = true, -- Ghost Wolf
 		[5384] = true, -- Feign Death
