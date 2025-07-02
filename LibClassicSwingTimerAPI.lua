@@ -19,6 +19,7 @@ local isClassic = WOW_PROJECT_ID == WOW_PROJECT_CLASSIC
 local isBCC = WOW_PROJECT_ID == WOW_PROJECT_BURNING_CRUSADE_CLASSIC and LE_EXPANSION_LEVEL_CURRENT == LE_EXPANSION_BURNING_CRUSADE
 local isWrath = WOW_PROJECT_ID == WOW_PROJECT_WRATH_CLASSIC and LE_EXPANSION_LEVEL_CURRENT == LE_EXPANSION_WRATH_OF_THE_LICH_KING
 local isCata = WOW_PROJECT_ID == WOW_PROJECT_CATACLYSM_CLASSIC and LE_EXPANSION_LEVEL_CURRENT == LE_EXPANSION_CATACLYSM
+local isMoP = WOW_PROJECT_ID == WOW_PROJECT_MISTS_CLASSIC and LE_EXPANSION_LEVEL_CURRENT == LE_EXPANSION_MISTS_OF_PANDARIA
 local isClassicOrBCCOrWrathOrCata = isClassic or isBCC or isWrath or isCata
 
 local reset_swing_spells = nil
@@ -413,6 +414,12 @@ function lib:COMBAT_LOG_EVENT_UNFILTERED(_, ts, subEvent, _, sourceGUID, _, _, _
 				end)
 			end
 		end
+	elseif unit and unit.class == "DRUID" and subEvent == "SPELL_CAST_SUCCESS" then
+		local spell = amount
+		if(prevent_swing_speed_update[spell]) then
+			unit.skipNextAttackSpeedUpdate = now
+			unit.skipNextAttackSpeedUpdateCount = 2
+		end
 	end
 end
 
@@ -425,7 +432,7 @@ function lib:UNIT_ATTACK_SPEED(_, unitGUID)
 	if
 		unit.skipNextAttackSpeedUpdate
 		and tonumber(unit.skipNextAttackSpeedUpdate)
-		and (now - unit.skipNextAttackSpeedUpdate) < 0.04
+		and (now - unit.skipNextAttackSpeedUpdate) < 0.15
 		and tonumber(unit.skipNextAttackSpeedUpdateCount)
 	then
 		unit.skipNextAttackSpeedUpdateCount = unit.skipNextAttackSpeedUpdateCount - 1
@@ -1280,6 +1287,103 @@ elseif isCata then
 		[75] = true, -- Auto Shot
 		[3018] = true, -- Shoot
 		[2764] = true, -- Throw
+		[5019] = true, -- Shoot Wand
+	}
+
+	reset_ranged_swing = {
+	}
+
+elseif isMoP then
+	reset_swing_spells = {
+		-- need to verify following for Mists
+		[16589] = true, -- Noggenfogger Elixir
+		[2645] = true, -- Ghost Wolf
+		[2764] = true, -- Throw
+		[3018] = true, -- Shoots,
+		[5019] = true, -- Shoot Wand
+		[75] = true, -- Auto Shot
+		[5185] = true, -- Hibernate
+		[2782] = true, -- Remove Corruption
+		[450759] = true, -- Revitalize
+		[50769] = true, -- Revive
+		[2908] = true, -- Soothe
+		[53563] = true, -- Beacon of Light
+		[64382] = true, -- Shattering Throw
+		[57755] = true, -- Heroic Throw
+		[5384] = true, -- Feign Death
+		[339] = true, -- Entangling Roots
+		[770] = true, -- Faerie Fire
+		[33763] = true, -- Lifebloom
+		[1126] = true, -- Mark of the Wild
+		[8921] = true, -- Moonfire
+		[50464] = true, -- Nourish
+		[20484] = true, -- Regrowth
+		[774] = true, -- Rejuvenation
+		[467] = true, -- Thorns
+		[5176] = true, -- Wrath
+		[51505] = true, -- Lava Burst
+		[51533] = true, -- Feral Spirit
+	}
+
+	reset_swing_on_channel_stop_spells = {}
+
+	prevent_swing_speed_update = {
+		[768] = true, -- Cat Form
+		[5487] = true, -- Bear Form
+	}
+
+	-- no next melee spells in Mists
+	next_melee_spells = {}
+
+	-- need to verify these for Mists
+	noreset_swing_spells = {
+		[23063] = true, -- Dense Dynamite
+		[4054] = true, -- Rough Dynamite
+		[4064] = true, -- Rough Copper Bomb
+		[4061] = true, -- Coarse Dynamite
+		[8331] = true, -- Ez-Thro Dynamite
+		[4065] = true, -- Large Copper Bomb
+		[4066] = true, -- Small Bronze Bomb
+		[4062] = true, -- Heavy Dynamite
+		[4067] = true, -- Big Bronze Bomb
+		[4068] = true, -- Iron Grenade
+		[23000] = true, -- Ez-Thro Dynamite II
+		[12421] = true, -- Mithril Frag Bomb
+		[4069] = true, -- Big Iron Bomb
+		[12562] = true, -- The Big One
+		[12543] = true, -- Hi-Explosive Bomb
+		[19769] = true, -- Thorium Grenade
+		[19784] = true, -- Dark Iron Bomb
+		[30216] = true, -- Fel Iron Bomb
+		[19821] = true, -- Arcane Bomb
+		[39965] = true, -- Frost Grenade
+		[30461] = true, -- The Bigger One
+		[30217] = true, -- Adamantite Grenade
+		[35476] = true, -- Drums of Battle
+		[35475] = true, -- Drums of War
+		[35477] = true, -- Drums of Speed
+		[35478] = true, -- Drums of Restoration
+		[19434] = true, -- Aimed Shot (rank 1)
+		[12051] = true, -- Evocation
+		[56641] = true, -- Steady Shot
+		[1464] = true, -- Slam
+		[16914] = true, -- Hurricane
+		-- for Mists: need to retest Drums of Panic 
+		--35474 Drums of Panic DO reset the swing timer in Cata, do not add
+	}
+
+	-- need to verify for Mists
+	prevent_reset_swing_auras = {
+		[53817] = true, -- Maelstrom Weapon
+	}
+
+	pause_swing_spells = {
+	}
+
+	ranged_swing = {
+		[75] = true, -- Auto Shot
+		-- [3018] = true, -- Shoot is no longer available
+		-- [2764] = true, -- Throw is now a 0.5s cast ability given to certain classes
 		[5019] = true, -- Shoot Wand
 	}
 
