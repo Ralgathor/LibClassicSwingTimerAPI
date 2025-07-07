@@ -1,6 +1,6 @@
 -- Get the name of a) this addon loaded seperately, or b) the addon that loaded this as an embedded library
 local loadedAddonName = ... 
-local MAJOR, MINOR = "LibClassicSwingTimerAPI", 29
+local MAJOR, MINOR = "LibClassicSwingTimerAPI", 30
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then
 	return
@@ -19,6 +19,7 @@ local isClassic = WOW_PROJECT_ID == WOW_PROJECT_CLASSIC
 local isBCC = WOW_PROJECT_ID == WOW_PROJECT_BURNING_CRUSADE_CLASSIC and LE_EXPANSION_LEVEL_CURRENT == LE_EXPANSION_BURNING_CRUSADE
 local isWrath = WOW_PROJECT_ID == WOW_PROJECT_WRATH_CLASSIC and LE_EXPANSION_LEVEL_CURRENT == LE_EXPANSION_WRATH_OF_THE_LICH_KING
 local isCata = WOW_PROJECT_ID == WOW_PROJECT_CATACLYSM_CLASSIC and LE_EXPANSION_LEVEL_CURRENT == LE_EXPANSION_CATACLYSM
+local isMists = WOW_PROJECT_ID == WOW_PROJECT_MISTS_CLASSIC and LE_EXPANSION_MISTS_OF_PANDARIA == LE_EXPANSION_MISTS_OF_PANDARIA
 local isClassicOrBCCOrWrathOrCata = isClassic or isBCC or isWrath or isCata
 
 local reset_swing_spells = nil
@@ -172,10 +173,10 @@ function Unit:SwingEnd(hand)
 	self.callbacks:Fire("UNIT_SWING_TIMER_STOP", self.id, hand)
 	if (self.casting or self.channeling) and self.isAttacking and hand ~= "ranged" then
 		local now = GetTime()
-		if isRetail and hand == "mainhand" then		
+		if (isRetail or isMists) and hand == "mainhand" then		
 			self:SwingStart(hand, now, true)
 			self.callbacks:Fire("UNIT_SWING_TIMER_CLIPPED", self.id, hand)
-		elseif isClassicOrBCCOrWrathOrCata then
+		elseif isClassicOrBCCOrWrathOrCata or isMists then
 			self:SwingStart(hand, now, true)
 			self.callbacks:Fire("UNIT_SWING_TIMER_CLIPPED", self.id, hand)
 		end
@@ -348,6 +349,9 @@ end
 function lib:COMBAT_LOG_EVENT_UNFILTERED(_, ts, subEvent, _, sourceGUID, _, _, _, destGUID, _, _, _, amount, overkill, _, resisted, _, _, _, _, _, isOffHand)
 	local now = GetTime()
 	local unit = lib:getUnit(sourceGUID)
+	if not unit then
+		return
+	end
 	if (subEvent == "SWING_DAMAGE" or subEvent == "SWING_MISSED") and unit then
 		local isOffHand = isOffHand
 		if subEvent == "SWING_MISSED" then
@@ -396,7 +400,7 @@ function lib:COMBAT_LOG_EVENT_UNFILTERED(_, ts, subEvent, _, sourceGUID, _, _, _
 	elseif (subEvent == "SPELL_DAMAGE" or subEvent == "SPELL_MISSED") and unit then
 		local spell = amount
 		if reset_ranged_swing[spell] then
-			if isRetail then
+			if (isRetail or isMists) then
 				unit:SwingStart("mainhand", GetTime(), true)
 			else
 				unit:SwingStart("ranged", GetTime(), true)
@@ -549,7 +553,7 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, unitType, _, spell)
 		end
 	end
 	if spell and ranged_swing[spell] then
-		if isRetail then		
+		if (isRetail or isMists) then		
 			unit:SwingStart("mainhand", now, false)
 		else
 			unit:SwingStart("ranged", now, false)
@@ -597,6 +601,14 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, unitType, _, spell)
 				end
 			end
 		end)
+	end
+	if isMists and spell == 114089 then  -- Wind Lash main hand cast
+		unit.firstMainSwing = true
+		unit:SwingStart("mainhand", now, false)
+	end
+	if isMists and spell == 114093 then  -- Wind Lash off-hand cast
+		unit.firstOffSwing = true
+		unit:SwingStart("offhand", now, false)
 	end
 end
 
@@ -1268,6 +1280,117 @@ elseif isCata then
 	}
 
 	-- need to verify for cataclysm
+	prevent_reset_swing_auras = {
+		[53817] = true, -- Maelstrom Weapon
+	}
+
+	pause_swing_spells = {
+		[1464] = true, -- Slam
+	}
+
+	ranged_swing = {
+		[75] = true, -- Auto Shot
+		[3018] = true, -- Shoot
+		[2764] = true, -- Throw
+		[5019] = true, -- Shoot Wand
+	}
+
+	reset_ranged_swing = {
+	}
+elseif isMists then
+	reset_swing_spells = {
+		-- need to verify following
+		[16589] = true, -- Noggenfogger Elixir
+		[2645] = true, -- Ghost Wolf
+		[2764] = true, -- Throw
+		[3018] = true, -- Shoots,
+		[5019] = true, -- Shoot Wand
+		[75] = true, -- Auto Shot
+		[5185] = true, -- Hibernate
+		[2782] = true, -- Remove Corruption
+		[450759] = true, -- Revitalize
+		[50769] = true, -- Revive
+		[2908] = true, -- Soothe
+		[53563] = true, -- Beacon of Light
+		[64382] = true, -- Shattering Throw
+		[57755] = true, -- Heroic Throw
+		[5384] = true, -- Feign Death
+		[339] = true, -- Entangling Roots
+		[770] = true, -- Faerie Fire
+		[33763] = true, -- Lifebloom
+		[1126] = true, -- Mark of the Wild
+		[8921] = true, -- Moonfire
+		[50464] = true, -- Nourish
+		[20484] = true, -- Regrowth
+		[774] = true, -- Rejuvenation
+		[467] = true, -- Thorns
+		[5176] = true, -- Wrath
+		[51505] = true, -- Lava Burst
+		[51533] = true, -- Feral Spirit
+		[124682] = true, -- Enveloping Mist
+		[116670] = true, -- Vivify
+		[115072] = true, -- Expel Harm
+		[115450] = true, -- Detox
+		[115460] = true, -- Healing Sphere
+		[115315] = true, -- Summon Black Ox Statue
+	}
+
+	reset_swing_on_channel_stop_spells = {}
+
+	prevent_swing_speed_update = {
+		[768] = true, -- Cat Form
+		[5487] = true, -- Bear Form
+	}
+
+	-- all next melee spells have been converted to instants in Cataclysm
+	next_melee_spells = {
+	}
+
+	-- need to verify
+	noreset_swing_spells = {
+		[23063] = true, -- Dense Dynamite
+		[4054] = true, -- Rough Dynamite
+		[4064] = true, -- Rough Copper Bomb
+		[4061] = true, -- Coarse Dynamite
+		[8331] = true, -- Ez-Thro Dynamite
+		[4065] = true, -- Large Copper Bomb
+		[4066] = true, -- Small Bronze Bomb
+		[4062] = true, -- Heavy Dynamite
+		[4067] = true, -- Big Bronze Bomb
+		[4068] = true, -- Iron Grenade
+		[23000] = true, -- Ez-Thro Dynamite II
+		[12421] = true, -- Mithril Frag Bomb
+		[4069] = true, -- Big Iron Bomb
+		[12562] = true, -- The Big One
+		[12543] = true, -- Hi-Explosive Bomb
+		[19769] = true, -- Thorium Grenade
+		[19784] = true, -- Dark Iron Bomb
+		[30216] = true, -- Fel Iron Bomb
+		[19821] = true, -- Arcane Bomb
+		[39965] = true, -- Frost Grenade
+		[30461] = true, -- The Bigger One
+		[30217] = true, -- Adamantite Grenade
+		[35476] = true, -- Drums of Battle
+		[35475] = true, -- Drums of War
+		[35477] = true, -- Drums of Speed
+		[35478] = true, -- Drums of Restoration
+		[19434] = true, -- Aimed Shot (rank 1)
+		[12051] = true, -- Evocation
+		[56641] = true, -- Steady Shot
+		[1464] = true, -- Slam
+		[16914] = true, -- Hurricane
+		
+		[12051] = true, -- Evocation
+		[120360] = true, -- Barrage
+		[56641] = true, -- Steady Shot
+		[19434] = true, -- Aimed Shot
+		[113656] = true, -- Fists of Fury
+		[123986] = true, -- Chi Burst	
+		[107270] = true, -- Spinning Crane Kick
+		[119996] = true, -- Transcendence: Transfer
+		[115176] = true, -- Zen Meditation
+	}
+
 	prevent_reset_swing_auras = {
 		[53817] = true, -- Maelstrom Weapon
 	}
