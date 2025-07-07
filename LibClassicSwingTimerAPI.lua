@@ -1313,7 +1313,6 @@ elseif isMists then
 		[2908] = true, -- Soothe
 		[53563] = true, -- Beacon of Light
 		[64382] = true, -- Shattering Throw
-		[57755] = true, -- Heroic Throw
 		[5384] = true, -- Feign Death
 		[339] = true, -- Entangling Roots
 		[770] = true, -- Faerie Fire
