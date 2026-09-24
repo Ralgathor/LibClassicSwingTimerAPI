@@ -5,6 +5,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [2.1.6] - 2026-09-24
+
+### Changed
+
+* Bump build version support of Retails.
+* Bump build version support of Classic.
+* Bump build version support of Burning Crusade Classic.
+* Bump build version support of Wraith.
+* Bump build version support of Mists of Pandaria.
+
+### Fixed
+
+* Fix TBC Steady Shot spell id (34120) in the no-reset swing spell list. Steady Shot no longer resets the melee swing timer on Burning Crusade Classic. Fixes #54.
+* Fix undeclared global in UNIT_ATTACK_SPEED. A non-player target's offhand attack speed now correctly mirrors its mainhand. Fixes #56.
+
 ## [2.1.5] - 2025-07-07
 
 ### Changed
