@@ -5,6 +5,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [Unreleased]
+
+### Fixed
+
+* Fix target unit lookup in `getUnit`: the second branch compared against the player id instead of the target id, so `UnitSwingTimerInfo("target", ...)` never returned data. `getUnit` is also guarded against being called before the units exist at load time.
+* Fix parry haste handling: the PARRY combat-log branch was unreachable, so a defender never had its swing accelerated after a parry. The branch now runs before the source lookup, applies to both player and target, and only modifies an in-flight main-hand swing timer.
+* Fix off-hand speed of player targets: `PLAYER_TARGET_CHANGED` checked a never-assigned `lib.isPlayer` instead of `target.isPlayer`, mirroring the main-hand speed onto the off-hand for every target.
+* Fix off-hand expiration initialization in `PLAYER_ENTERING_WORLD`: it was computed from the main-hand swing and speed.
+* Fix off-hand pause check in `UNIT_SPELLCAST_START`: it compared the main-hand expiration instead of the off-hand expiration.
+* Fix ranged speed reads in `SwingStart` and `UNIT_ATTACK_SPEED`: `UnitRangedDamage` was hardcoded to the player, corrupting the target unit's ranged timer.
+* Fix orphaned ranged timer in the classic `SPELL_CAST_START` handler: the previous timer was not cancelled and could end the fresh timer early.
+* Fix Feign Death watcher ticker: a previous ticker is now cancelled before creating a new one, the ticker is cancelled when its unit is reset, and it gives up after 10 seconds if the cooldown is never observed.
+* Fix `skipNextAttackSpeedUpdateCount` decrementing past zero (`tonumber(0)` is truthy in Lua).
+* `WeakAuras.ScanEvents` now forwards the full event payload instead of only the unit id.
+
+### Changed
+
+* Collapse the duplicate retail/classic clip branches in `SwingEnd` (no behavior change) and document the intended retail main-hand-only clip behavior (in-game verified).
+* Remove the tautological expansion check from Mists of Pandaria detection.
+* Spell tables now default to empty tables, so unknown future client flavors degrade gracefully instead of raising nil-index errors.
+
 ## [2.1.6] - 2026-09-24
 
 ### Changed

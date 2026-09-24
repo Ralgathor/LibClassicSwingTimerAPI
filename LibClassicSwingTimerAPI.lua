@@ -19,18 +19,18 @@ local isClassic = WOW_PROJECT_ID == WOW_PROJECT_CLASSIC
 local isBCC = WOW_PROJECT_ID == WOW_PROJECT_BURNING_CRUSADE_CLASSIC and LE_EXPANSION_LEVEL_CURRENT == LE_EXPANSION_BURNING_CRUSADE
 local isWrath = WOW_PROJECT_ID == WOW_PROJECT_WRATH_CLASSIC and LE_EXPANSION_LEVEL_CURRENT == LE_EXPANSION_WRATH_OF_THE_LICH_KING
 local isCata = WOW_PROJECT_ID == WOW_PROJECT_CATACLYSM_CLASSIC and LE_EXPANSION_LEVEL_CURRENT == LE_EXPANSION_CATACLYSM
-local isMists = WOW_PROJECT_ID == WOW_PROJECT_MISTS_CLASSIC and LE_EXPANSION_MISTS_OF_PANDARIA == LE_EXPANSION_MISTS_OF_PANDARIA
+local isMists = WOW_PROJECT_ID == WOW_PROJECT_MISTS_CLASSIC
 local isClassicOrBCCOrWrathOrCata = isClassic or isBCC or isWrath or isCata
 
-local reset_swing_spells = nil
-local reset_swing_on_channel_stop_spells = nil
-local prevent_swing_speed_update = nil
-local next_melee_spells = nil
-local noreset_swing_spells = nil
-local prevent_reset_swing_auras = nil
-local pause_swing_spells = nil
-local ranged_swing = nil
-local reset_ranged_swing = nil
+local reset_swing_spells = {}
+local reset_swing_on_channel_stop_spells = {}
+local prevent_swing_speed_update = {}
+local next_melee_spells = {}
+local noreset_swing_spells = {}
+local prevent_reset_swing_auras = {}
+local pause_swing_spells = {}
+local ranged_swing = {}
+local reset_ranged_swing = {}
 
 local Unit = {
 	id = nil,
@@ -143,7 +143,7 @@ function Unit:SwingStart(hand, startTime, isReset)
 				self.callbacks:Fire("UNIT_SWING_TIMER_STOP", self.id, hand)
 			end
 		end
-		self.rangedSpeed = UnitRangedDamage("player") or 0
+		self.rangedSpeed = UnitRangedDamage(self.id) or 0
 		if self.rangedSpeed ~= nil and self.rangedSpeed > 0 then
 			self.lastRangedSwing = startTime
 			self.rangedExpirationTime = self.lastRangedSwing + self.rangedSpeed
@@ -172,11 +172,9 @@ function Unit:SwingEnd(hand)
 	end
 	self.callbacks:Fire("UNIT_SWING_TIMER_STOP", self.id, hand)
 	if (self.casting or self.channeling) and self.isAttacking and hand ~= "ranged" then
-		local now = GetTime()
-		if (isRetail or isMists) and hand == "mainhand" then		
-			self:SwingStart(hand, now, true)
-			self.callbacks:Fire("UNIT_SWING_TIMER_CLIPPED", self.id, hand)
-		elseif isClassicOrBCCOrWrathOrCata or isMists then
+		-- Retail clips only the main-hand swing; classic-era clients clip both hands.
+		if (isRetail and hand == "mainhand") or isClassicOrBCCOrWrathOrCata or isMists then
+			local now = GetTime()
 			self:SwingStart(hand, now, true)
 			self.callbacks:Fire("UNIT_SWING_TIMER_CLIPPED", self.id, hand)
 		end
@@ -218,12 +216,13 @@ end
 lib.callbacks = lib.callbacks or LibStub("CallbackHandler-1.0"):New(lib)
 
 function lib:getUnit(unit)
+	if not self.player or not self.target then
+		return nil
+	end
 	if self.player.GUID == unit or self.player.id == unit then
 		return self.player
-	elseif self.target.GUID == unit  or self.player.id == unit then
+	elseif self.target.GUID == unit or self.target.id == unit then
 		return self.target
-	else
-		return nil
 	end
 end
 
@@ -279,11 +278,14 @@ function lib:PLAYER_ENTERING_WORLD()
 	self.player.firstMainSwing = false
 
 	self.player.lastOffSwing = now
-	self.player.offExpirationTime = self.player.lastMainSwing + self.player.mainSpeed
+	self.player.offExpirationTime = self.player.lastOffSwing + self.player.offSpeed
 	self.player.firstOffSwing = false
 
 	self.player.lastRangedSwing = now
 	self.player.rangedExpirationTime = self.player.lastRangedSwing + self.player.rangedSpeed
+	if self.player.feignDeathTimer then
+		self.player.feignDeathTimer:Cancel()
+	end
 	self.player.feignDeathTimer = nil
 
 	self.player.mainTimer = nil
@@ -306,8 +308,9 @@ end
 function lib:PLAYER_TARGET_CHANGED()
 	self.target.GUID = UnitGUID("target")
 
+	self.target.isPlayer = UnitIsPlayer("target")
 	local mainSpeed, offSpeed = UnitAttackSpeed("target")
-	if(not self.isPlayer) then
+	if(not self.target.isPlayer) then
 		offSpeed = mainSpeed
 	end
 	local now = GetTime()
@@ -326,6 +329,9 @@ function lib:PLAYER_TARGET_CHANGED()
 
 	self.target.lastRangedSwing = now
 	self.target.rangedExpirationTime = self.target.lastRangedSwing
+	if self.target.feignDeathTimer then
+		self.target.feignDeathTimer:Cancel()
+	end
 	self.target.feignDeathTimer = nil
 
 	self.target.mainTimer = nil
@@ -341,13 +347,33 @@ function lib:PLAYER_TARGET_CHANGED()
 
 	self.target.skipNextAttackSpeedUpdate = nil
 	self.target.skipNextAttackSpeedUpdateCount = 0
-	self.target.isPlayer = UnitIsPlayer("target")
 
 	self.callbacks:Fire("UNIT_SWING_TIMER_INFO_INITIALIZED", self.target.id)
 end
 
 function lib:COMBAT_LOG_EVENT_UNFILTERED(_, ts, subEvent, _, sourceGUID, _, _, _, destGUID, _, _, _, amount, overkill, _, resisted, _, _, _, _, _, isOffHand)
 	local now = GetTime()
+	-- Parry haste: the defender of a parried attack gets its next main-hand swing sooner.
+	-- Handled before the source lookup so a parry by an untracked attacker still applies.
+	if subEvent == "SWING_MISSED" and amount == "PARRY" then
+		local defender = lib:getUnit(destGUID)
+		if defender and defender.mainTimer and not defender.mainTimer:IsCancelled() then
+			defender.mainTimer:Cancel()
+			-- Reduce the remaining swing by 40% of weapon speed, floored at 20% of weapon speed.
+			local remaining = defender.mainExpirationTime - now - (0.4 * defender.mainSpeed)
+			local min_swing_time = 0.2 * defender.mainSpeed
+			if remaining < min_swing_time then
+				remaining = min_swing_time
+			end
+			defender.mainExpirationTime = now + remaining
+			self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", defender.id, defender.mainSpeed, defender.mainExpirationTime, "mainhand")
+			if defender.mainSpeed > 0 and defender.mainExpirationTime - now > 0 then
+				defender.mainTimer = C_Timer.NewTimer(defender.mainExpirationTime - now, function()
+					defender:SwingEnd("mainhand")
+				end)
+			end
+		end
+	end
 	local unit = lib:getUnit(sourceGUID)
 	if not unit then
 		return
@@ -370,24 +396,6 @@ function lib:COMBAT_LOG_EVENT_UNFILTERED(_, ts, subEvent, _, sourceGUID, _, _, _
 				unit:SwingStart("ranged", now, true)
 			end
 		end
-	elseif subEvent == "SWING_MISSED" and amount ~= nil and amount == "PARRY" and lib:getUnit(destGUID) then
-		unit = lib:getUnit(destGUID)
-		if unit.mainTimer then
-			unit.mainTimer:Cancel()
-		end
-		local swing_timer_reduced_40p = unit.mainExpirationTime - (0.4 * unit.mainSpeed)
-		local min_swing_time = 0.2 * unit.mainSpeed
-		if swing_timer_reduced_40p < min_swing_time then
-			unit.mainExpirationTime = min_swing_time
-		else
-			unit.mainExpirationTime = swing_timer_reduced_40p
-		end
-		self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.mainSpeed, unit.mainExpirationTime, "mainhand")
-		if unit.mainSpeed > 0 and unit.mainExpirationTime - GetTime() > 0 then
-			unit.mainTimer = C_Timer.NewTimer(unit.mainExpirationTime - GetTime(), function()
-				unit:SwingEnd("mainhand")
-			end)
-		end
 	elseif (subEvent == "SPELL_AURA_APPLIED" or subEvent == "SPELL_AURA_REMOVED") and unit then
 		local spell = amount
 		if spell and prevent_swing_speed_update[spell] and (GetTime() < unit.mainExpirationTime) then
@@ -409,6 +417,9 @@ function lib:COMBAT_LOG_EVENT_UNFILTERED(_, ts, subEvent, _, sourceGUID, _, _, _
 	elseif subEvent == "SPELL_CAST_START" and unit then
 		local spell = amount
 		if isClassic and spell and ranged_swing[spell] and GetTime() > (unit.rangedExpirationTime - unit.autoShotCastTime) then
+			if unit.rangedTimer and not unit.rangedTimer:IsCancelled() then
+				unit.rangedTimer:Cancel()
+			end
 			unit.rangedExpirationTime = now + unit.autoShotCastTime
 			unit.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.rangedSpeed, unit.rangedExpirationTime, "ranged")
 			if unit.rangedExpirationTime - now > 0 then
@@ -428,9 +439,8 @@ function lib:UNIT_ATTACK_SPEED(_, unitGUID)
 	local now = GetTime()
 	if
 		unit.skipNextAttackSpeedUpdate
-		and tonumber(unit.skipNextAttackSpeedUpdate)
 		and (now - unit.skipNextAttackSpeedUpdate) < 0.04
-		and tonumber(unit.skipNextAttackSpeedUpdateCount)
+		and unit.skipNextAttackSpeedUpdateCount > 0
 	then
 		unit.skipNextAttackSpeedUpdateCount = unit.skipNextAttackSpeedUpdateCount - 1
 		return
@@ -473,7 +483,7 @@ function lib:UNIT_ATTACK_SPEED(_, unitGUID)
 			end)
 		end
 	end
-	local rangedSpeedNew = UnitRangedDamage("player") or 0
+	local rangedSpeedNew = UnitRangedDamage(unit.id) or 0
 	if rangedSpeedNew > 0 and unit.rangedSpeed > 0 and rangedSpeedNew ~= unit.rangedSpeed then
 		if unit.rangedTimer then
 			unit.rangedTimer:Cancel()
@@ -588,6 +598,10 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, unitType, _, spell)
 		unit.casting = false
 	end
 	if spell == 5384 then -- 5384=Feign Death
+		if unit.feignDeathTimer then
+			unit.feignDeathTimer:Cancel()
+		end
+		local ticks = 0
 		unit.feignDeathTimer = C_Timer.NewTicker(0.1, function() -- Start watching FD CD
 			local start, _, enabled = GetSpellCooldown(spell)
 			if enabled == 1 then -- Reset ranged swing when FD CD start
@@ -597,6 +611,11 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, unitType, _, spell)
 					unit:SwingStart("ranged", start, true)
 				end
 				if unit.feignDeathTimer then
+					unit.feignDeathTimer:Cancel()
+				end
+			else
+				ticks = ticks + 1
+				if ticks >= 100 then -- Give up after 10 s if the FD cooldown is never observed
 					unit.feignDeathTimer:Cancel()
 				end
 			end
@@ -630,7 +649,7 @@ function lib:UNIT_SPELLCAST_START(_, unitType, _, spell)
 					unit.mainTimer:Cancel()
 				end
 			end
-			if unit.offSpeed > 0 and unit.mainExpirationTime > now then
+			if unit.offSpeed > 0 and unit.offExpirationTime > now then
 				self.callbacks:Fire("UNIT_SWING_TIMER_PAUSED", unit.id, "offhand")
 				if unit.offTimer then
 					unit.offTimer:Cancel()
@@ -768,7 +787,7 @@ local EventHandler = function(event, ...)
 	end
 	-- Fire EVENTS in Weakauras if the addon is loaded
 	if WeakAuras ~= nil then
-		WeakAuras.ScanEvents(event, select(1,...))
+		WeakAuras.ScanEvents(event, ...)
 	end
 end
 
