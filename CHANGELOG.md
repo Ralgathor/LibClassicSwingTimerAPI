@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+* Collapse the duplicate retail/classic clip branches in `SwingEnd` (no behavior change) and document the intended retail main-hand-only clip behavior (in-game verified).
+* Remove the tautological expansion check from Mists of Pandaria detection.
+* Spell tables now default to empty tables, so unknown future client flavors degrade gracefully instead of raising nil-index errors.
+* Internal cleanup, no behavior change: drop the unused `tonumber`/`GetSpellInfo` upvalues and the dead `GetSpellInfo` call in `UNIT_SPELLCAST_START`, remove redundant `and unit` guards after the early return in the combat-log handler, hoist the duplicated ranged-swing start out of the `SWING_DAMAGE` branches, and remove duplicate Mists spell entries.
+
 ### Fixed
 
 * Fix target unit lookup in `getUnit`: the second branch compared against the player id instead of the target id, so `UnitSwingTimerInfo("target", ...)` never returned data. `getUnit` is also guarded against being called before the units exist at load time.
@@ -19,12 +26,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Fix Feign Death watcher ticker: a previous ticker is now cancelled before creating a new one, the ticker is cancelled when its unit is reset, and it gives up after 10 seconds if the cooldown is never observed.
 * Fix `skipNextAttackSpeedUpdateCount` decrementing past zero (`tonumber(0)` is truthy in Lua).
 * `WeakAuras.ScanEvents` now forwards the full event payload instead of only the unit id.
-
-### Changed
-
-* Collapse the duplicate retail/classic clip branches in `SwingEnd` (no behavior change) and document the intended retail main-hand-only clip behavior (in-game verified).
-* Remove the tautological expansion check from Mists of Pandaria detection.
-* Spell tables now default to empty tables, so unknown future client flavors degrade gracefully instead of raising nil-index errors.
 
 ## [2.1.6] - 2026-09-24
 

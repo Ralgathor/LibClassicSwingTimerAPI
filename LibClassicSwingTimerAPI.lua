@@ -10,8 +10,8 @@ local frame = CreateFrame("Frame")
 local tooltip_name = loadedAddonName .. "Tooltip"
 local tooltip = CreateFrame("GameTooltip", tooltip_name, nil, "GameTooltipTemplate")
 
-local C_Timer, tonumber = C_Timer, tonumber
-local GetSpellInfo, GetTime, CombatLogGetCurrentEventInfo, GetInventoryItemID = GetSpellInfo, GetTime, CombatLogGetCurrentEventInfo, GetInventoryItemID
+local C_Timer = C_Timer
+local GetTime, CombatLogGetCurrentEventInfo, GetInventoryItemID = GetTime, CombatLogGetCurrentEventInfo, GetInventoryItemID
 local UnitAttackSpeed, UnitAura, UnitGUID, UnitRangedDamage, GetPlayerInfoByGUID = UnitAttackSpeed, UnitAura, UnitGUID, UnitRangedDamage, GetPlayerInfoByGUID
 
 local isRetail = WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
@@ -95,7 +95,7 @@ function Unit:SwingStart(hand, startTime, isReset)
 			end
 		end
 		self.lastMainSwing = startTime
-		local mainSpeed, _ = UnitAttackSpeed(self.id)
+		local mainSpeed = UnitAttackSpeed(self.id)
 		self.mainSpeed = mainSpeed
 		self.mainExpirationTime = self.lastMainSwing + self.mainSpeed
 		self.callbacks:Fire("UNIT_SWING_TIMER_START", self.id, self.mainSpeed, self.mainExpirationTime, hand)
@@ -144,7 +144,7 @@ function Unit:SwingStart(hand, startTime, isReset)
 			end
 		end
 		self.rangedSpeed = UnitRangedDamage(self.id) or 0
-		if self.rangedSpeed ~= nil and self.rangedSpeed > 0 then
+		if self.rangedSpeed > 0 then
 			self.lastRangedSwing = startTime
 			self.rangedExpirationTime = self.lastRangedSwing + self.rangedSpeed
 			self.autoShotCastTime = 0.52 * (self.rangedSpeed / self.rangedBaseSpeed)
@@ -168,7 +168,7 @@ function Unit:SwingEnd(hand)
 	end
 	if (self.class == "DRUID" or self.class == "PALADIN") and self.skipNextAttackSpeedUpdate then
 		self.skipNextAttackSpeedUpdate = nil
-		lib:UNIT_ATTACK_SPEED('UNIT_ATTACK_SPEED', self.GUID)
+		lib:UNIT_ATTACK_SPEED("UNIT_ATTACK_SPEED", self.GUID)
 	end
 	self.callbacks:Fire("UNIT_SWING_TIMER_STOP", self.id, hand)
 	if (self.casting or self.channeling) and self.isAttacking and hand ~= "ranged" then
@@ -378,25 +378,21 @@ function lib:COMBAT_LOG_EVENT_UNFILTERED(_, ts, subEvent, _, sourceGUID, _, _, _
 	if not unit then
 		return
 	end
-	if (subEvent == "SWING_DAMAGE" or subEvent == "SWING_MISSED") and unit then
-		local isOffHand = isOffHand
+	if (subEvent == "SWING_DAMAGE" or subEvent == "SWING_MISSED") then
 		if subEvent == "SWING_MISSED" then
 			isOffHand = overkill
 		end
 		if isOffHand then
 			unit.firstOffSwing = true
 			unit:SwingStart("offhand", now, false)
-			if isWrath or isCata then
-				unit:SwingStart("ranged", now, true)
-			end
 		else
 			unit.firstMainSwing = true
 			unit:SwingStart("mainhand", now, false)
-			if isWrath or isCata then
-				unit:SwingStart("ranged", now, true)
-			end
 		end
-	elseif (subEvent == "SPELL_AURA_APPLIED" or subEvent == "SPELL_AURA_REMOVED") and unit then
+		if isWrath or isCata then
+			unit:SwingStart("ranged", now, true)
+		end
+	elseif (subEvent == "SPELL_AURA_APPLIED" or subEvent == "SPELL_AURA_REMOVED") then
 		local spell = amount
 		if spell and prevent_swing_speed_update[spell] and (GetTime() < unit.mainExpirationTime) then
 			unit.skipNextAttackSpeedUpdate = now
@@ -405,7 +401,7 @@ function lib:COMBAT_LOG_EVENT_UNFILTERED(_, ts, subEvent, _, sourceGUID, _, _, _
 		if spell and prevent_reset_swing_auras[spell] then
 			unit.auraPreventSwingReset = subEvent == "SPELL_AURA_APPLIED"
 		end
-	elseif (subEvent == "SPELL_DAMAGE" or subEvent == "SPELL_MISSED") and unit then
+	elseif (subEvent == "SPELL_DAMAGE" or subEvent == "SPELL_MISSED") then
 		local spell = amount
 		if reset_ranged_swing[spell] then
 			if (isRetail or isMists) then
@@ -638,10 +634,9 @@ function lib:UNIT_SPELLCAST_START(_, unitType, _, spell)
 	end
 	if spell then
 		local now = GetTime()
-		local name, rank, icon, castTime, minRange, maxRange, spellId = GetSpellInfo(spell)
 		unit.casting = true
 		unit.preventSwingReset = unit.auraPreventSwingReset or noreset_swing_spells[spell]
-		if spell and pause_swing_spells[spell] then
+		if pause_swing_spells[spell] then
 			unit.pauseSwingTime = now
 			if unit.mainSpeed > 0 and unit.mainExpirationTime > now then
 				self.callbacks:Fire("UNIT_SWING_TIMER_PAUSED", unit.id, "mainhand")
@@ -781,7 +776,7 @@ tooltip:SetOwner(WorldFrame, "ANCHOR_NONE")
 ]]--
 local EventHandler = function(event, ...)
 	-- Backward compatibility continue to fire EVENTS with SWING_TIMER_ format for player unit.
-	local unitId = select(1,...)
+	local unitId = ...
 	if unitId == "player" then
 		lib.callbacks:Fire(string.gsub(event,"UNIT_",""), select(2,...))
 	end
@@ -800,7 +795,7 @@ lib.RegisterCallback(lib, "UNIT_SWING_TIMER_STOP", EventHandler)
 lib.RegisterCallback(lib, "UNIT_SWING_TIMER_DELTA", EventHandler)
 lib.RegisterCallback(lib, "SWING_TIMER_INFO_INITIALIZED", EventHandler)
 lib.RegisterCallback(lib, "SWING_TIMER_START", EventHandler)
-lib.RegisterCallback(lib, "SWING_TIMER_STOP",EventHandler)
+lib.RegisterCallback(lib, "SWING_TIMER_STOP", EventHandler)
 lib.RegisterCallback(lib, "SWING_TIMER_UPDATE", EventHandler)
 lib.RegisterCallback(lib, "SWING_TIMER_CLIPPED", EventHandler)
 lib.RegisterCallback(lib, "SWING_TIMER_DELTA", EventHandler)
@@ -1398,10 +1393,7 @@ elseif isMists then
 		[1464] = true, -- Slam
 		[16914] = true, -- Hurricane
 		
-		[12051] = true, -- Evocation
 		[120360] = true, -- Barrage
-		[56641] = true, -- Steady Shot
-		[19434] = true, -- Aimed Shot
 		[113656] = true, -- Fists of Fury
 		[123986] = true, -- Chi Burst	
 		[107270] = true, -- Spinning Crane Kick
