@@ -437,7 +437,7 @@ function lib:UNIT_ATTACK_SPEED(_, unitGUID)
 	end
 	local mainSpeedNew, offSpeedNew = UnitAttackSpeed(unit.id)
 	if(unit.id == "target" and not unit.isPlayer) then
-		offSpeed = mainSpeedNew
+		offSpeedNew = mainSpeedNew
 	end
 	offSpeedNew = offSpeedNew or 0
 	if mainSpeedNew > 0 and unit.mainSpeed > 0 and mainSpeedNew ~= unit.mainSpeed then
@@ -987,7 +987,7 @@ elseif isBCC then
 		[35475] = true, -- Drums of War
 		[35477] = true, -- Drums of Speed
 		[35478] = true, -- Drums of Restoration
-		[56641] = true, -- Steady Shot (rank 1)
+		[34120] = true, -- Steady Shot
 		[27012] = true, -- Hurricane (rank 4)
 		[17402] = true, -- Hurricane (rank 3)
 		[17401] = true, -- Hurricane (rank 2)
