@@ -496,6 +496,39 @@ confirms whether retail 12.x has it).
 
 ### 8.9 In-game verification checklist (blocking for release)
 
+**Progress 2026-09-25 (library build from feature/forever-support, live on the
+beta):** loads and initializes on Forever (LibStub instance, `SwingTimerInfo`
+returns sane speed/expiration/lastSwing with correct expiry arithmetic). Core
+swing loop verified (START/STOP per cycle, correct payloads). Cast-reset verified
+through the library (FoL mid-cycle: STOP+START at cast completion, expiry =
+completion + weapon speed). Instant no-reset verified (Judgement: cadence
+undisturbed). SotC mid-swing verified: in-flight swing completed on the old
+schedule, NO mid-swing UPDATE (rescale gate works), completing swing reported
+the new speed 1.714, new cadence from the next swing. Weapon-swap reset verified
+(STOP + fresh START with the new weapon speed 3.4, expiry = swap time + new
+speed). `issecretvalue(nil)` verified `false` — the ResolveSecret assumption
+holds. Hunter ranged verified live: correct speed 2.091, START/STOP per shot,
+and the FAILED_QUIET movement-cancel UPDATE chain works. **Found and fixed during
+test 8: double ranged anchor** — the same Auto Shot fired both `PLAYER_SWING`
+and SUCCEEDED 75, producing identical STOP/START pairs per shot (state-safe but
+would double-count for consumers edge-detecting STOP). Fix: `ranged_swing`
+SUCCEEDED anchor gated off on Forever (`and not isForever`) — `PLAYER_SWING` owns
+the ranged cycle, `FAILED_QUIET` owns movement cancels. Caveat to watch: wand
+users (`Shoot Wand 5019`) — assumed covered by PLAYER_SWING type 2 like other
+ranged attacks; verify at convenience.
+**Recast-after-FAILED_QUIET measured on the beta (2026-09-25):** the engine
+retries the auto shot every ~0.5s while moving (consecutive FAILED_QUIET events
+0.43–0.56s apart), and the shot lands ~0.5s after the last cancel (measured
+0.43s and 0.54s in two clean trials) — NOT the classic `0.5 + castTime` model
+(≈0.87s for a 2.091 bow). Auto shot casts fire no UNIT_SPELLCAST_START on this
+client (engine-internal). **Fix applied:** the FAILED_QUIET handler predicts
+`now + 0.5` on Forever and keeps `now + 0.5 + autoShotCastTime` on classic
+flavors. Re-test: after a movement cancel the UPDATE expiration should now
+match the real shot landing (~0.5s).
+**Remaining: dungeon mid-fight (secret guards under load), hunter re-test after
+the anchor fix (expect one START per shot), dual-wield off-hand, Classic Era
+regression.**
+
 1. Classic Era regression: melee a dummy — timers behave exactly as 2.1.6.
 2. Forever open world: swings fire `UNIT_SWING_TIMER_START` with correct
    speed/expiration; hunter Auto Shot drives the ranged bar (`swingType=2`).

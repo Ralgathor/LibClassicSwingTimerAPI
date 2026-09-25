@@ -639,7 +639,9 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, unitType, _, spell)
 			unit:SwingStart("offhand", now, true)
 		end
 	end
-	if spell and ranged_swing[spell] then
+	-- On WoW: Forever the native PLAYER_SWING is the ranged anchor; the SUCCEEDED
+	-- anchor would double-fire every shot (identical STOP/START pairs per arrow).
+	if spell and ranged_swing[spell] and not isForever then
 		if (isRetail or isMists) then		
 			unit:SwingStart("mainhand", now, false)
 		else
@@ -816,7 +818,15 @@ function lib:UNIT_SPELLCAST_FAILED_QUIET(_, unitType, _, spell)
 		if self.player.rangedTimer and not self.player.rangedTimer:IsCancelled() then
 			self.player.rangedTimer:Cancel()
 		end
-		self.player.rangedExpirationTime = GetTime() + 0.5 + self.player.autoShotCastTime
+		-- Recast delay after a movement cancel. Classic-era clients: 0.5s retry
+		-- plus the auto shot cast time. WoW: Forever (measured on the beta): the
+		-- engine retries every ~0.5s while moving and the shot lands ~0.5s after
+		-- the last cancel, so the cast time is not added there.
+		local recastDelay = 0.5
+		if not isForever then
+			recastDelay = recastDelay + self.player.autoShotCastTime
+		end
+		self.player.rangedExpirationTime = GetTime() + recastDelay
 		self.player.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", self.player.id, self.player.rangedSpeed, self.player.rangedExpirationTime, "ranged")
 		if self.player.rangedExpirationTime - GetTime() > 0 then
 			self.player.rangedTimer = C_Timer.NewTimer(self.player.rangedExpirationTime - GetTime(), function()
