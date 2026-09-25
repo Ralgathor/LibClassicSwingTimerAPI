@@ -7,8 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+* WoW: Forever support — detected via the interface build range (`WOW_PROJECT_ID` is unreliable there), routed to the Classic-era spell tables and swing behavior. Swing detection uses the native `PLAYER_SWING` event (payload verified readable in restricted content, where `UnitAttackSpeed` returns secret values); CLEU is not registered because the client refuses it. Target swing tracking has no Forever data source and is unsupported; parry haste is reflected at the next swing rather than mid-swing, pending a dedicated API (request filed with Blizzard).
+
 ### Changed
 
+* Guarded all weapon-speed reads with `issecretvalue()` (12.x restriction system): when values are secret mid-combat, the library keeps the last cached speed instead of erroring. On WoW: Forever, `UNIT_ATTACK_SPEED` changes never rescale an in-flight swing (the engine applies new speeds at the next swing), so the rescale is skipped there.
+* Feign Death watcher now uses a `GetSpellCooldown` / `C_Spell.GetSpellCooldown` compatibility shim (the old global was removed in retail 11.0) and anchors to `GetTime()` when the cooldown start is a secret value. Fixes a hard Lua error on first Feign Death cast on retail 11.x+ and WoW: Forever.
+* The `UNIT_SPELLCAST_FAILED_QUIET` ranged handling now also runs on WoW: Forever (verified event and spell IDs), and the `channeling` flag is cleared on interrupts, fails and combat enter as hardening (movement-cancelled channels can end silently on 12.x clients).
 * Collapse the duplicate retail/classic clip branches in `SwingEnd` (no behavior change) and document the intended retail main-hand-only clip behavior (in-game verified).
 * Remove the tautological expansion check from Mists of Pandaria detection.
 * Spell tables now default to empty tables, so unknown future client flavors degrade gracefully instead of raising nil-index errors.

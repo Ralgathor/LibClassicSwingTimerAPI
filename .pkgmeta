@@ -6,6 +6,7 @@ externals:
 
 ignore:
   - README.md
+  - docs
 
 manual-changelog:
   filename: CHANGELOG.md

@@ -46,11 +46,12 @@ The library runs on Retail, Classic Era, BCC, Wrath, Cata, and Mists, detected v
 
 ### Versioning
 
-A release touches three places, in this order:
+Version **numbers** are a release-time step: the LibStub `MINOR` and the TOC `## Version` are bumped together, once, during release preparation — never while developing or reviewing changes. `CHANGELOG.md` entries are written **with the change**, in the `[Unreleased]` section, as part of normal development — do not hold them back for release. (The `## Interface-*` build numbers are not versioning — update them whenever Blizzard bumps client builds, they are required for the addon to load.)
 
-1. `local MAJOR, MINOR = "LibClassicSwingTimerAPI", N` in the Lua file — the LibStub minor version. Bump `N` for **any** change to the library file, or LibStub will not reload it for addons that embed it.
+Release preparation touches two places, in this order:
+
+1. `local MAJOR, MINOR = "LibClassicSwingTimerAPI", N` in the Lua file — the LibStub minor version. Bump `N` for **any** change to the library file since the last release, or LibStub will not reload it for addons that embed it.
 2. `## Version: x.y.z` in the `.toc`.
-3. `CHANGELOG.md` entries with `### Changed` / `### Fixed` / `### Added`.
 
 **Changelog convention:** new entries go only under a `## [Unreleased]` section at the top of `CHANGELOG.md`. Do not append changes to an existing versioned release block (e.g. `## [2.1.5] - 2025-07-07`). Moving `[Unreleased]` entries into a versioned block (renaming the section, adding the version and date, and creating a fresh empty `[Unreleased]`) is a deliberate release action, not part of routine fix or feature work. Pre-existing versioned sections predate this convention — leave them as they are.
 

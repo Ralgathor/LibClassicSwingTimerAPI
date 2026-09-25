@@ -14,13 +14,45 @@ local C_Timer = C_Timer
 local GetTime, CombatLogGetCurrentEventInfo, GetInventoryItemID = GetTime, CombatLogGetCurrentEventInfo, GetInventoryItemID
 local UnitAttackSpeed, UnitAura, UnitGUID, UnitRangedDamage, GetPlayerInfoByGUID = UnitAttackSpeed, UnitAura, UnitGUID, UnitRangedDamage, GetPlayerInfoByGUID
 
-local isRetail = WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
+local issecretvalue = issecretvalue -- present on 12.x clients and WoW: Forever; nil on classic clients
+
+-- Secret values cannot be compared or used in arithmetic by tainted code; when a
+-- fresh read comes back secret (mid-combat on 12.x clients), fall back to the last
+-- cached plain value instead of erroring. No-op on classic clients.
+local function ResolveSecret(value, fallback)
+	if issecretvalue and issecretvalue(value) then
+		return fallback
+	end
+	return value
+end
+
+-- The GetSpellCooldown global was removed from 11.x+ clients (retail and WoW: Forever).
+-- Fall back to C_Spell.GetSpellCooldown (table return) where the old global no longer exists.
+local GetSpellCooldownCompat
+if GetSpellCooldown then
+	GetSpellCooldownCompat = GetSpellCooldown
+elseif C_Spell and C_Spell.GetSpellCooldown then
+	GetSpellCooldownCompat = function(spell)
+		local info = C_Spell.GetSpellCooldown(spell)
+		if not info then
+			return nil, nil, nil
+		end
+		return info.startTime, info.duration, info.isEnabled and 1 or 0
+	end
+end
+
+-- WoW: Forever shares the mainline client (WOW_PROJECT_ID == 1) but runs Classic rules.
+-- The project id cannot distinguish it; use the interface build range instead.
+local _, _, _, interface = GetBuildInfo()
+local isForever = interface >= 16000 and interface < 20000
+
+local isRetail = WOW_PROJECT_ID == WOW_PROJECT_MAINLINE and not isForever
 local isClassic = WOW_PROJECT_ID == WOW_PROJECT_CLASSIC
 local isBCC = WOW_PROJECT_ID == WOW_PROJECT_BURNING_CRUSADE_CLASSIC and LE_EXPANSION_LEVEL_CURRENT == LE_EXPANSION_BURNING_CRUSADE
 local isWrath = WOW_PROJECT_ID == WOW_PROJECT_WRATH_CLASSIC and LE_EXPANSION_LEVEL_CURRENT == LE_EXPANSION_WRATH_OF_THE_LICH_KING
 local isCata = WOW_PROJECT_ID == WOW_PROJECT_CATACLYSM_CLASSIC and LE_EXPANSION_LEVEL_CURRENT == LE_EXPANSION_CATACLYSM
 local isMists = WOW_PROJECT_ID == WOW_PROJECT_MISTS_CLASSIC
-local isClassicOrBCCOrWrathOrCata = isClassic or isBCC or isWrath or isCata
+local isClassicOrBCCOrWrathOrCata = isClassic or isBCC or isWrath or isCata or isForever
 
 local reset_swing_spells = {}
 local reset_swing_on_channel_stop_spells = {}
@@ -95,7 +127,7 @@ function Unit:SwingStart(hand, startTime, isReset)
 			end
 		end
 		self.lastMainSwing = startTime
-		local mainSpeed = UnitAttackSpeed(self.id)
+		local mainSpeed = ResolveSecret(UnitAttackSpeed(self.id), self.mainSpeed)
 		self.mainSpeed = mainSpeed
 		self.mainExpirationTime = self.lastMainSwing + self.mainSpeed
 		self.callbacks:Fire("UNIT_SWING_TIMER_START", self.id, self.mainSpeed, self.mainExpirationTime, hand)
@@ -116,7 +148,7 @@ function Unit:SwingStart(hand, startTime, isReset)
 		if(self.id == "target" and not self.isPlayer) then
 			offSpeed = UnitAttackSpeed(self.id)
 		end
-		self.offSpeed = offSpeed or 0
+		self.offSpeed = ResolveSecret(offSpeed, self.offSpeed) or 0
 		self.offExpirationTime = self.lastOffSwing + self.offSpeed
 		if self.calculaDeltaTimer then
 			self.calculaDeltaTimer:Cancel()
@@ -143,7 +175,7 @@ function Unit:SwingStart(hand, startTime, isReset)
 				self.callbacks:Fire("UNIT_SWING_TIMER_STOP", self.id, hand)
 			end
 		end
-		self.rangedSpeed = UnitRangedDamage(self.id) or 0
+		self.rangedSpeed = ResolveSecret(UnitRangedDamage(self.id), self.rangedSpeed) or 0
 		if self.rangedSpeed > 0 then
 			self.lastRangedSwing = startTime
 			self.rangedExpirationTime = self.lastRangedSwing + self.rangedSpeed
@@ -267,11 +299,14 @@ function lib:PLAYER_ENTERING_WORLD()
 	self.player.class = select(2,GetPlayerInfoByGUID(self.player.GUID))
 
 	local mainSpeed, offSpeed = UnitAttackSpeed("player")
+	if issecretvalue and (issecretvalue(mainSpeed) or issecretvalue(offSpeed)) then
+		mainSpeed, offSpeed = nil, nil
+	end
 	local now = GetTime()
 
 	self.player.mainSpeed = mainSpeed or 3 -- some dummy non-zero value to prevent infinities
 	self.player.offSpeed = offSpeed or 0
-	self.player.rangedSpeed = UnitRangedDamage("player") or 0
+	self.player.rangedSpeed = ResolveSecret(UnitRangedDamage("player"), self.player.rangedSpeed) or 0
 
 	self.player.lastMainSwing = now
 	self.player.mainExpirationTime = self.player.lastMainSwing + self.player.mainSpeed
@@ -310,6 +345,9 @@ function lib:PLAYER_TARGET_CHANGED()
 
 	self.target.isPlayer = UnitIsPlayer("target")
 	local mainSpeed, offSpeed = UnitAttackSpeed("target")
+	if issecretvalue and (issecretvalue(mainSpeed) or issecretvalue(offSpeed)) then
+		mainSpeed, offSpeed = nil, nil
+	end
 	if(not self.target.isPlayer) then
 		offSpeed = mainSpeed
 	end
@@ -317,7 +355,7 @@ function lib:PLAYER_TARGET_CHANGED()
 
 	self.target.mainSpeed = mainSpeed or 3 -- some dummy non-zero value to prevent infinities
 	self.target.offSpeed = offSpeed or 0
-	self.target.rangedSpeed = UnitRangedDamage("target") or 0
+	self.target.rangedSpeed = ResolveSecret(UnitRangedDamage("target"), self.target.rangedSpeed) or 0
 
 	self.target.lastMainSwing = now
 	self.target.mainExpirationTime = self.target.lastMainSwing
@@ -427,6 +465,46 @@ function lib:COMBAT_LOG_EVENT_UNFILTERED(_, ts, subEvent, _, sourceGUID, _, _, _
 	end
 end
 
+--[[	WoW: Forever native swing event (registered on Forever only).
+	Payload verified on the beta: swingDuration is the weapon swing speed as a
+	plain number (readable even in restricted content, where UnitAttackSpeed
+	returns secret values); swingType is Enum.PlayerSwingType
+	(MainHand=0, OffHand=1, Ranged=2). ]]
+function lib:PLAYER_SWING(_, swingDuration, swingType)
+	if not isForever then
+		return
+	end
+	if issecretvalue and issecretvalue(swingDuration) then
+		return -- swing anchor without a usable duration; do not guess one
+	end
+	local hand
+	if swingType == 0 then
+		hand = "mainhand"
+	elseif swingType == 1 then
+		hand = "offhand"
+	elseif swingType == 2 then
+		hand = "ranged"
+	else
+		return
+	end
+	local unit = self.player
+	if not unit then
+		return
+	end
+	-- Cache the event-provided speed first so the UnitAttackSpeed reads inside
+	-- SwingStart fall back to it when they return secret values.
+	if hand == "mainhand" then
+		unit.firstMainSwing = true
+		unit.mainSpeed = swingDuration
+	elseif hand == "offhand" then
+		unit.firstOffSwing = true
+		unit.offSpeed = swingDuration
+	else
+		unit.rangedSpeed = swingDuration
+	end
+	unit:SwingStart(hand, GetTime(), false)
+end
+
 function lib:UNIT_ATTACK_SPEED(_, unitGUID)
 	local unit = lib:getUnit(unitGUID)
 	if not unit then
@@ -442,11 +520,13 @@ function lib:UNIT_ATTACK_SPEED(_, unitGUID)
 		return
 	end
 	local mainSpeedNew, offSpeedNew = UnitAttackSpeed(unit.id)
+	mainSpeedNew = ResolveSecret(mainSpeedNew, unit.mainSpeed)
+	offSpeedNew = ResolveSecret(offSpeedNew, unit.offSpeed)
 	if(unit.id == "target" and not unit.isPlayer) then
 		offSpeedNew = mainSpeedNew
 	end
 	offSpeedNew = offSpeedNew or 0
-	if mainSpeedNew > 0 and unit.mainSpeed > 0 and mainSpeedNew ~= unit.mainSpeed then
+	if mainSpeedNew > 0 and unit.mainSpeed > 0 and mainSpeedNew ~= unit.mainSpeed and not isForever then
 		if unit.mainTimer then
 			unit.mainTimer:Cancel()
 		end
@@ -461,7 +541,7 @@ function lib:UNIT_ATTACK_SPEED(_, unitGUID)
 			end)
 		end
 	end
-	if offSpeedNew > 0 and unit.offSpeed > 0 and offSpeedNew ~= unit.offSpeed then
+	if offSpeedNew > 0 and unit.offSpeed > 0 and offSpeedNew ~= unit.offSpeed and not isForever then
 		if unit.offTimer then
 			unit.offTimer:Cancel()
 		end
@@ -479,8 +559,8 @@ function lib:UNIT_ATTACK_SPEED(_, unitGUID)
 			end)
 		end
 	end
-	local rangedSpeedNew = UnitRangedDamage(unit.id) or 0
-	if rangedSpeedNew > 0 and unit.rangedSpeed > 0 and rangedSpeedNew ~= unit.rangedSpeed then
+	local rangedSpeedNew = ResolveSecret(UnitRangedDamage(unit.id), unit.rangedSpeed) or 0
+	if rangedSpeedNew > 0 and unit.rangedSpeed > 0 and rangedSpeedNew ~= unit.rangedSpeed and not isForever then
 		if unit.rangedTimer then
 			unit.rangedTimer:Cancel()
 		end
@@ -503,6 +583,7 @@ function lib:UNIT_SPELLCAST_INTERRUPTED_OR_FAILED(_, unitType, _, spell)
 		return
 	end
 	unit.casting = false
+	unit.channeling = false
 	if spell and pause_swing_spells[spell] and unit.pauseSwingTime then
 		unit.pauseSwingTime = nil
 		if unit.mainSpeed > 0 then
@@ -599,8 +680,9 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, unitType, _, spell)
 		end
 		local ticks = 0
 		unit.feignDeathTimer = C_Timer.NewTicker(0.1, function() -- Start watching FD CD
-			local start, _, enabled = GetSpellCooldown(spell)
+			local start, _, enabled = GetSpellCooldownCompat and GetSpellCooldownCompat(spell)
 			if enabled == 1 then -- Reset ranged swing when FD CD start
+				start = ResolveSecret(start, GetTime()) -- cooldown startTime is secret in restricted content
 				unit:SwingStart("mainhand", start, true)
 				unit:SwingStart("offhand", start, true)
 				if isClassicOrBCCOrWrathOrCata then
@@ -700,6 +782,7 @@ end
 function lib:PLAYER_ENTER_COMBAT()
 	local now = GetTime()
 	self.player.isAttacking = true
+	self.player.channeling = false -- hardening: channels may end silently on 12.x clients
 	if now > (self.player.offExpirationTime - (self.player.offSpeed / 2)) then
 		if self.player.offTimer then
 			self.player.offTimer:Cancel()
@@ -729,7 +812,7 @@ function lib:UNIT_SPELLCAST_FAILED_QUIET(_, unitType, _, spell)
 	if not unit then
 		return
 	end
-	if isClassic and spell and ranged_swing[spell] and unit.isShooting then
+	if (isClassic or isForever) and spell and ranged_swing[spell] and unit.isShooting then
 		if self.player.rangedTimer and not self.player.rangedTimer:IsCancelled() then
 			self.player.rangedTimer:Cancel()
 		end
@@ -743,7 +826,14 @@ function lib:UNIT_SPELLCAST_FAILED_QUIET(_, unitType, _, spell)
 	end
 end
 
-frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+-- WoW: Forever refuses CLEU registration silently and only exposes swings through
+-- its native event; it is unknown whether PLAYER_SWING exists on retail 12.x.
+if not isForever then
+	frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+end
+if isForever then
+	frame:RegisterEvent("PLAYER_SWING")
+end
 frame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
 frame:RegisterEvent("PLAYER_ENTER_COMBAT")
 frame:RegisterEvent("PLAYER_LEAVE_COMBAT")
@@ -804,7 +894,7 @@ lib.RegisterCallback(lib, "SWING_TIMER_PAUSED", EventHandler)
 --[[
 	Set table data based on current game version
 ]]--
-if isClassic then
+if isClassic or isForever then
 	reset_swing_spells = {
 		[16589] = true, -- Noggenfogger Elixir
 		[2645] = true, -- Ghost Wolf
