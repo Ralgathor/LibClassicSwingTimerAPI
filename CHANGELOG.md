@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.0-beta1] - 2026-09-28
+
+Known unverified in this beta: off-hand anchoring on WoW: Forever (dual-wield `PLAYER_SWING`) and the Classic Era regression pass - feedback welcome.
+
 ### Added
 
 * WoW: Forever support — detected via the interface build range (`WOW_PROJECT_ID` is unreliable there), routed to the Classic-era spell tables and swing behavior. Swing detection uses the native `PLAYER_SWING` event (payload verified readable in restricted content, where `UnitAttackSpeed` returns secret values); CLEU is not registered because the client refuses it. Target swing tracking has no Forever data source and is unsupported; parry haste is reflected at the next swing rather than mid-swing, pending a dedicated API (request filed with Blizzard).
