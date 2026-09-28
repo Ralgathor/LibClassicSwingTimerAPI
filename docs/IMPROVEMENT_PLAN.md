@@ -166,7 +166,7 @@ behavior as fallback. Constraints:
 
 | Item | Verdict | Reason |
 |---|---|---|
-| Range state (`PLAYER_SWING_RANGE_UPDATE` / `C_SwingTimer.IsTargetWithinSwingRange`) | Blocked upstream | §4.4: the event fires exactly once, at the `EnableRangeCheck` call — `(0, false, false)` — then never again; range transitions produce nothing; the query returned nil without a target. Broken beta wiring; in-game report filed. Revisit when Blizzard acts. |
+| Range state (`PLAYER_SWING_RANGE_UPDATE` / `C_SwingTimer.IsTargetWithinSwingRange`) | Blocked upstream | §4.4: the event fires exactly once, at the `EnableRangeCheck` call — `(0, false, false)` — then never again; range transitions produce nothing; the query returned nil without a target and - probe 2026-09-28 - nil with a target in melee range AND out of range after EnableRangeCheck(0, true): the query path is dead too. Broken beta wiring; in-game report filed. Revisit when Blizzard acts. |
 | `C_Spell.IsCurrentSpell` queue-state exposure | Deferred | New permanent public API surface (needs a maintainer decision on shape); unprobed on Forever (may be restriction-affected). The `next_melee_spells` tables stay regardless — they anchor swings, a different job. |
 | Periodic sanity resync ticker (SuperSwingTimer's 0.10 s / 1.0 s speed polls) | Deferred | Polling against the library's event-driven design; on Forever the rescale is intentionally disabled (§9 item 16, verified no-rescale); on classic flavors `UNIT_ATTACK_SPEED` fires reliably. |
 | Registration gating (register events only when needed, per Blizzard's manager) | Rejected | The library is always "enabled"; consumers depend on events firing unconditionally. Gating changes library semantics for zero measured gain. |
