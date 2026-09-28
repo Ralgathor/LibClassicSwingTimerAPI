@@ -1218,6 +1218,34 @@ was never formally run** — it is the foundation of the correlation filter.
       switches and parry/dodge at the duplicate moments. The gate is retained
       either way — it is harmless and correct if `PLAYER_SWING` anchors
       special swings (the pre-fix identical-expiry pair proves it does).
+      **Gate verified in live combat 2026-09-28 (probe capture, post-burst
+      section): 10 consecutive swings, one `PS` raw event per swing, lib START
+      expiry = event time + weapon speed exactly, single anchor per event,
+      clean ~1.6 s cadence — the `2fda7e8` gate does not disturb normal
+      anchoring.** Two revisions follow from the same capture:
+      - **The observed "duplicates" may be OCR artifacts.** The image-attachment
+        transcription garbles digits (burst-section expiry integer parts are
+        off by 1–2 with sub-second parts matching `PS + speed` exactly;
+        earlier captures show digit noise like `2.091000C0801086`). The
+        "identical-expiry duplicate START" pairs in earlier captures are
+        consistent with mis-transcribed lines and have never appeared in a
+        raw screenshot. Treat item 17's duplicate as UNCONFIRMED; re-open only
+        if a real duplicate appears in an unmodified screenshot.
+      - **The gate's premise is now unverified and must be probed.** The gate
+        is correct only if `PLAYER_SWING` fires for a swing that consumes a
+        queued next-melee ability (Raptor Strike/Heroic Strike). If it does
+        not, the gate DROPS the anchor for those swings on Forever — a
+        regression. Decisive probe (before any release): queue Raptor Strike
+        with the §6c `PS2` spellcast listener and the raw `SW` listener
+        active — `SUCCEEDED 2973` at consumption with a matching `PS` event
+        = gate correct, keep; `SUCCEEDED 2973` with NO `PS` = revert the
+        gate (the spellcast anchor is the only one for special swings).
+        Capture as an unmodified screenshot, not a transcription.
+      - **Open engine question from the same capture:** five `PLAYER_SWING`
+        events ~0.2 s apart (all with the player's 1.6 weapon speed, each
+        anchored cleanly by the lib) — not auto-attack cadence. Unknown
+        trigger (instant abilities? extra attacks? multi-mob parry haste?).
+        Record what was happening when captured.
       **Probe result 2026-09-28 (raw-event listener + lib listener, pure
       auto-attack, 14 swings): NO duplicates at any level.** Exactly one
       `PS 0 1.6 <t>` raw event per swing (cadence ~1.59–1.62 s, no double-fire
