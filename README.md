@@ -2,6 +2,16 @@
 
 There is no relevant WOW API to have an easily accessible state of the swing timer. This library fires custom EVENTS that can be used in other ADDONs to produce swing timer information.
 
+## WoW: Forever
+
+The library runs on WoW: Forever (the Classic-rule-set mainline client) and fires the same events as on Classic Era:
+
+* Swing detection uses the native `PLAYER_SWING` event (the client refuses the combat log there). The player's main-hand, off-hand and ranged swings are all anchored by it, including in restricted content where weapon-speed APIs return secret values.
+* Cast-completion resets, instant-with-reset spells and no-reset exceptions follow the Classic Era spell tables — the client reuses classic-era spell IDs.
+* Parry haste and mid-swing haste changes are reflected at the next swing rather than mid-swing (no addon-facing event exists; report filed with Blizzard).
+* Target swing tracking is unsupported on WoW: Forever — `UnitSwingTimerInfo("target", ...)` returns no data there.
+* The game's own swing timer bars (controlled by the `showSwingTimer` CVar) coexist with this library's events; disable the CVar if you only want addon-driven bars.
+
 ## Usage example:
 
 #### Use in Addon

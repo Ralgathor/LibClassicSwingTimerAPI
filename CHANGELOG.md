@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+* Bump TOC interface builds: Retail 12.1.0 and 12.1.5 (120100, 120105), Classic Era 1.15.9 (11509).
 * On WoW: Forever, ranged weapon speed is now read from the third `UnitAttackSpeed` return (probe-verified: equal to `UnitRangedDamage` and the `PLAYER_SWING` payload where readable) with `UnitRangedDamage` as fallback, matching the source Blizzard's own swing timer uses. Classic clients keep `UnitRangedDamage` unchanged.
 * Harden the WoW: Forever `PLAYER_SWING` payload check: reject non-number, NaN, non-positive and infinite swing durations in addition to secret values, so a malformed payload cannot be cached as a weapon speed.
 * Guarded all weapon-speed reads with `issecretvalue()` (12.x restriction system): when values are secret mid-combat, the library keeps the last cached speed instead of erroring. On WoW: Forever, `UNIT_ATTACK_SPEED` changes never rescale an in-flight swing (the engine applies new speeds at the next swing), so the rescale is skipped there.
