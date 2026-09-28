@@ -1246,6 +1246,24 @@ was never formally run** — it is the foundation of the correlation filter.
         anchored cleanly by the lib) — not auto-attack cadence. Unknown
         trigger (instant abilities? extra attacks? multi-mob parry haste?).
         Record what was happening when captured.
+      **CLOSED 2026-09-28 (millisecond-counter probe, clean data):** the
+      decisive Raptor Strike capture shows both consumptions (`SC 2973` at
+      counter 592789 and 599221) each accompanied by a `PS 0` at the
+      IDENTICAL counter value — `PLAYER_SWING` fires for the swing that
+      consumes a queued next-melee ability, dispatched in the same frame as
+      the `UNIT_SPELLCAST_SUCCEEDED`. The gate's premise is CONFIRMED;
+      `2fda7e8` ships. This also confirms the original duplicate was real
+      (two anchors in one frame → identical expiry); the later "residual"
+      noise was transcription/OCR artifacts. Item 17 closed.
+      **New finding from the same capture:** the auto-attack toggle on
+      Forever fires `UNIT_SPELLCAST_SUCCEEDED 6803` (observed at attack
+      start, 133 ms before the first swing) — NOT classic's 6603. The
+      library's two `spell ~= 6603` guards in `UNIT_SPELLCAST_SUCCEEDED`
+      therefore do not protect the toggle on Forever: toggling auto-attack
+      during a cast would clear `unit.casting` prematurely and skip the
+      reset on that cast's completion. Candidate fix: treat 6803 as the
+      attack-toggle ID on Forever (`isForever and spell == 6803`),
+      classic clients keep 6603 untouched.
       **Probe result 2026-09-28 (raw-event listener + lib listener, pure
       auto-attack, 14 swings): NO duplicates at any level.** Exactly one
       `PS 0 1.6 <t>` raw event per swing (cadence ~1.59–1.62 s, no double-fire
