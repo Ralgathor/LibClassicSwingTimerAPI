@@ -645,7 +645,10 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, unitType, _, spell)
 		return
 	end
 	local now = GetTime()
-	if spell ~= nil and next_melee_spells[spell] then
+	-- On WoW: Forever the native PLAYER_SWING anchors the consumed swing as well
+	-- (verified: a queued next-melee ability double-anchored with identical expiry),
+	-- so the SUCCEEDED anchor is skipped there like the ranged Auto Shot one.
+	if spell ~= nil and next_melee_spells[spell] and not isForever then
 		unit:SwingStart("mainhand", now, false)
 		if isWrath or isCata then
 			unit:SwingStart("ranged", now, true)

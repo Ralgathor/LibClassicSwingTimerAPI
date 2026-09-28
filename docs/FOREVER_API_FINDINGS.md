@@ -1182,26 +1182,31 @@ was never formally run** — it is the foundation of the correlation filter.
     **Patch change: the proportional rescale in `UNIT_ATTACK_SPEED` (`:459+`) must
     be disabled on Forever** — the handler should not rescale; `PLAYER_SWING`
     re-anchors at the new speed. Add to spec section 8.5.
-17. **Two state-safe anomalies observed in the 2026-09-28 death-test capture
-    (hunter, Forever; not release-blockers, recorded for the next pass):**
-    - **Duplicate next-melee anchor.** One melee cycle printed
-      `START(1.6, 12975.248)` / `STOP` / `START(1.6, 12975.248)` — two
-      `SwingStart` calls at the same instant with identical expiry. Likely a
-      Raptor Strike (2973, in `next_melee_spells`) consumed on the swing: the
-      `UNIT_SPELLCAST_SUCCEEDED` anchor and the `PLAYER_SWING` anchor for the
-      same special swing both fire — the melee analog of the ranged
-      double-anchor fixed in `d044c05` (where the `ranged_swing` SUCCEEDED
-      anchor was gated off on Forever). Confirm with the IMPROVEMENT_PLAN §6c
-      `PS2` probe while using Raptor Strike: if `SUCCEEDED 2973` and a
-      `PLAYER_SWING` both arrive for one swing, gate the `next_melee_spells`
-      anchor off on Forever the same way.
-    - **Extra ranged STOPs during movement-delayed cycles.** Some ranged gaps
-      show 2–3 `STOP`s between `START`s: our `C_Timer` expiry fires
-      `SwingEnd`→STOP, then the later `PLAYER_SWING` reaches `SwingStart`,
-      whose cancel branch fires a second STOP (a fired timer still reports
-      not-cancelled to `IsCancelled`). State-safe — timer and expiry are
-      correct — but noisy for consumers edge-detecting STOP. Optional fix:
-      a "fired" flag on the unit, or accept as documented behavior.
+17. **Two behaviors observed in the 2026-09-28 death-test capture (hunter,
+    Forever):**
+    - **Duplicate next-melee anchor — FIXED 2026-09-28.** Melee cycles with a
+      queued ability printed `START(1.6, 12975.248)` / `STOP` /
+      `START(1.6, 12975.248)` — two `SwingStart` calls at the same instant
+      with identical expiry (a second duplicate in the post-res capture sits
+      8.01 s after the first, matching an ability cooldown — Raptor Strike
+      2973). The `UNIT_SPELLCAST_SUCCEEDED` anchor and the `PLAYER_SWING`
+      anchor for the same special swing both fire — the melee analog of the
+      ranged double-anchor fixed in `d044c05`. The identical expiry proves
+      `PLAYER_SWING` anchors the consumed swing, so the `next_melee_spells`
+      SUCCEEDED anchor is now gated off on Forever (`and not isForever` in
+      `UNIT_SPELLCAST_SUCCEEDED`), mirroring the ranged gate. Confirm in the
+      next session: single START per swing while using Raptor Strike, and the
+      IMPROVEMENT_PLAN §6c `PS2` probe should show `SUCCEEDED 2973` arriving
+      alongside the swing without producing a second anchor.
+    - **Extra ranged STOPs during movement-delayed cycles — NOT A DEFECT
+      (diagnosis corrected 2026-09-28).** The initial hypothesis (a fired
+      timer re-triggering the cancel branch) is impossible:
+      `SwingEnd` cancels its own timer, so `IsCancelled()` reads true
+      afterwards and `SwingStart` cannot double-fire. The observed 2–3 STOPs
+      per movement gap are the designed retry chain: each `FAILED_QUIET`
+      retry schedules a predicted expiry, each missed prediction fires
+      `SwingEnd`→STOP, and the UPDATE reschedules — the bar draining to zero
+      and re-scheduling while moving, which is correct behavior. No action.
 
 ## 10. Appendix — probe macros (each fits the 255-char macro limit)
 

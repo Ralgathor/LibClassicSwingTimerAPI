@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* Fix duplicate melee swing anchor on WoW: Forever: a consumed next-melee ability (Heroic Strike, Cleave, Raptor Strike, Maul) fired the swing-timer START twice — once from the spellcast event and once from the native `PLAYER_SWING` anchor of the same swing. The spellcast anchor is now skipped on WoW: Forever, mirroring the ranged Auto Shot fix.
 * Swing timers now stop on player death: `PLAYER_DEAD` cancels each active hand timer, fires `UNIT_SWING_TIMER_STOP` for it and clears cast/channel/attack state, on every client. Previously the bars sat stale after an in-place resurrection, which does not fire `PLAYER_ENTERING_WORLD`.
 * Fix target unit lookup in `getUnit`: the second branch compared against the player id instead of the target id, so `UnitSwingTimerInfo("target", ...)` never returned data. `getUnit` is also guarded against being called before the units exist at load time.
 * Fix parry haste handling: the PARRY combat-log branch was unreachable, so a defender never had its swing accelerated after a parry. The branch now runs before the source lookup, applies to both player and target, and only modifies an in-flight main-hand swing timer.
