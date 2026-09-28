@@ -8,15 +8,10 @@ blocked "Range state" entry in IMPROVEMENT_PLAN.md section 4.
 Filed in two forms: the in-game bug reporter (character-limited) and the full
 forum / WoW UI Discord version below.
 
-## In-game short form (fits the reporter's limit)
+## In-game short form (254 characters - the in-game reporter caps at 255)
 
 ```
-SWING TIMER RANGE APIs DEAD (build 70009): C_SwingTimer.IsTargetWithinSwingRange
-returns nil with a target in melee range AND out of range, after
-EnableRangeCheck(0,true). PLAYER_SWING_RANGE_UPDATE fires only once, at the
-EnableRangeCheck call (payload 0,false,false), never again on range changes.
-The native swing timer's out-of-range dimming cannot function either.
-PLAYER_SWING itself works fine, so only the range subsystem seems unwired.
+SWING TIMER RANGE DEAD (b70009): IsTargetWithinSwingRange=nil in+out of range w/target after EnableRangeCheck(0,true); PLAYER_SWING_RANGE_UPDATE fires once at enable(0,false,false), never again. Native swing timer dim broken too. PLAYER_SWING works fine.
 ```
 
 ## Full version (forum / dev thread)
