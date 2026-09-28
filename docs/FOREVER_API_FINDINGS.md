@@ -1004,7 +1004,7 @@ was never formally run** — it is the foundation of the correlation filter.
     `ShouldCooldownsBeSecret()` true, identical to dungeon combat. Additionally,
     `IsCombatLogRestricted()` reads `true` even out of combat in the open world —
     the combat-log restriction is always-on in this beta build (see 4.2).
-2. `UnitRangedDamage` with a ranged weapon equipped (non-zero speed), same contexts.
+2. ~~`UnitRangedDamage` with a ranged weapon equipped (non-zero speed), same contexts.~~ — **resolved (2026-09-28, open-world probe; dungeon not retested, not needed for the Phase 2 decision):** hunter with bow, open world. Out of combat: third `UnitAttackSpeed` return = `UnitRangedDamage` = 2.0910000801086, both plain, both equal to the live `PLAYER_SWING` type-2 duration. Mid-fight (`ShouldCooldownsBeSecret()` = true, confirmed live): swing payload stays plain 2.091 on every shot; both API reads flag secret in most samples (one plain sample at a combat boundary — the two-tier restriction flip, section 3). No secrecy advantage for either source; the third return is a valid ranged-speed source on Forever and the Phase 2 switch (IMPROVEMENT_PLAN.md §2) is confirmed and applied. Side finding: `print()` displays the underlying number even when `issecretvalue()` flags the value secret — display is not blocked, only comparison/arithmetic is.
 3. ~~Does `UNIT_ATTACK_SPEED` still fire in combat when speeds are secret?~~ —
    **verified: fires** (weapon swap and Seal of the Crusader haste change, live in
    combat, plain unit payloads; fired for multiple units under unfiltered

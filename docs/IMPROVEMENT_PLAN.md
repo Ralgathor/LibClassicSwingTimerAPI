@@ -1,9 +1,11 @@
 # Swing Timer Improvement Plan
 
-Status: Phase 1 APPLIED 2026-09-28 (`PLAYER_SWING` payload validation +
-all-client `PLAYER_DEAD` reset; changelog entries under `[Unreleased]`; see
-section 1). Phases 2–3 remain spec only, not applied — Phase 2 is gated on the
-probe extending §9 item 2, Phase 3 is a separate branch. Working tree: branch
+Status: Phases 1 and 2 APPLIED 2026-09-28. Phase 1: `PLAYER_SWING` payload
+validation + all-client `PLAYER_DEAD` reset. Phase 2: Forever ranged reads
+switched to the third `UnitAttackSpeed` return (probe-verified 2026-09-28,
+open world; see §2). Changelog entries under `[Unreleased]`. Phase 3 remains
+spec only, not applied (separate branch). The BCC min-damage divergence guard
+(§2) is deferred pending the BCC probe. Working tree: branch
 `feature/forever-support`; version numbers bump at release preparation, per
 AGENTS.md.
 
@@ -104,7 +106,7 @@ in-place resurrection — expect one `UNIT_SWING_TIMER_STOP` per active hand at
 death, no Lua errors, and a clean `START` on the next swing. Run once on Classic
 Era (all-client change) and once on Forever.
 
-## 2. Phase 2 — Forever ranged-speed source (probe-gated; this branch)
+## 2. Phase 2 — Forever ranged-speed source (probe-gated; this branch) — APPLIED 2026-09-28
 
 Blizzard's native bar and EllesmereUI #2128 both read ranged speed from the
 third `UnitAttackSpeed` return; this library reads `UnitRangedDamage` (call
@@ -124,6 +126,20 @@ the Forever ranged reads to it with `UnitRangedDamage` as fallback, and add the
 min-damage divergence guard for BCC (fresh plain read wildly divergent from the
 cached speed → keep the cached value). If the probe is inconclusive, ship nothing
 and record the result here.
+
+**Gate resolved 2026-09-28 — CONFIRMED (open-world probe, hunter with bow;
+dungeon not retested — §4.2 already documents instanced mid-fight secrecy and
+the switch does not change mid-combat behavior):** out of combat, the third
+return = `UnitRangedDamage` = the live `PLAYER_SWING` type-2 duration
+(2.0910000801086, plain). Mid-fight, both API reads flag secret together while
+the swing payload stays plain — no secrecy advantage either way. Applied as a
+`GetRangedSpeed(unitId, fallback)` helper (Forever reads the third return
+first, falls back to `UnitRangedDamage`; classic clients keep
+`UnitRangedDamage` byte-identically) at all four ranged-read call sites:
+`Unit:SwingStart`, `PLAYER_ENTERING_WORLD`, `PLAYER_TARGET_CHANGED`,
+`UNIT_ATTACK_SPEED`. **The BCC divergence guard remains deferred** — the BCC
+sub-test was not run (the submitted captures were all Forever-client); add it
+only after probing a BCC character with a bow equipped.
 
 ## 3. Phase 3 — classic ranged accuracy via Auto Shot cooldown (separate branch)
 

@@ -54,6 +54,22 @@ local isCata = WOW_PROJECT_ID == WOW_PROJECT_CATACLYSM_CLASSIC and LE_EXPANSION_
 local isMists = WOW_PROJECT_ID == WOW_PROJECT_MISTS_CLASSIC
 local isClassicOrBCCOrWrathOrCata = isClassic or isBCC or isWrath or isCata or isForever
 
+-- Ranged speed source. On WoW: Forever the third UnitAttackSpeed return is the
+-- ranged attack speed (probe-verified on the beta: equal to UnitRangedDamage
+-- and to the PLAYER_SWING payload where readable; secret in combat exactly
+-- like UnitRangedDamage) and is what the built-in swing timer reads. Classic
+-- clients return only main/off-hand speeds there, so they keep UnitRangedDamage.
+local function GetRangedSpeed(unitId, fallback)
+	local speed
+	if isForever then
+		speed = ResolveSecret(select(3, UnitAttackSpeed(unitId)), nil)
+	end
+	if not speed or speed <= 0 then
+		speed = ResolveSecret(UnitRangedDamage(unitId), fallback)
+	end
+	return speed
+end
+
 local reset_swing_spells = {}
 local reset_swing_on_channel_stop_spells = {}
 local prevent_swing_speed_update = {}
@@ -175,7 +191,7 @@ function Unit:SwingStart(hand, startTime, isReset)
 				self.callbacks:Fire("UNIT_SWING_TIMER_STOP", self.id, hand)
 			end
 		end
-		self.rangedSpeed = ResolveSecret(UnitRangedDamage(self.id), self.rangedSpeed) or 0
+		self.rangedSpeed = GetRangedSpeed(self.id, self.rangedSpeed) or 0
 		if self.rangedSpeed > 0 then
 			self.lastRangedSwing = startTime
 			self.rangedExpirationTime = self.lastRangedSwing + self.rangedSpeed
@@ -306,7 +322,7 @@ function lib:PLAYER_ENTERING_WORLD()
 
 	self.player.mainSpeed = mainSpeed or 3 -- some dummy non-zero value to prevent infinities
 	self.player.offSpeed = offSpeed or 0
-	self.player.rangedSpeed = ResolveSecret(UnitRangedDamage("player"), self.player.rangedSpeed) or 0
+	self.player.rangedSpeed = GetRangedSpeed("player", self.player.rangedSpeed) or 0
 
 	self.player.lastMainSwing = now
 	self.player.mainExpirationTime = self.player.lastMainSwing + self.player.mainSpeed
@@ -355,7 +371,7 @@ function lib:PLAYER_TARGET_CHANGED()
 
 	self.target.mainSpeed = mainSpeed or 3 -- some dummy non-zero value to prevent infinities
 	self.target.offSpeed = offSpeed or 0
-	self.target.rangedSpeed = ResolveSecret(UnitRangedDamage("target"), self.target.rangedSpeed) or 0
+	self.target.rangedSpeed = GetRangedSpeed("target", self.target.rangedSpeed) or 0
 
 	self.target.lastMainSwing = now
 	self.target.mainExpirationTime = self.target.lastMainSwing
@@ -565,7 +581,7 @@ function lib:UNIT_ATTACK_SPEED(_, unitGUID)
 			end)
 		end
 	end
-	local rangedSpeedNew = ResolveSecret(UnitRangedDamage(unit.id), unit.rangedSpeed) or 0
+	local rangedSpeedNew = GetRangedSpeed(unit.id, unit.rangedSpeed) or 0
 	if rangedSpeedNew > 0 and unit.rangedSpeed > 0 and rangedSpeedNew ~= unit.rangedSpeed and not isForever then
 		if unit.rangedTimer then
 			unit.rangedTimer:Cancel()
