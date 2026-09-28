@@ -566,6 +566,16 @@ optional wand check.**
     in-place resurrection — `PLAYER_DEAD` should fire `UNIT_SWING_TIMER_STOP` once
     per active hand and the next swing should start a clean cycle. Run on Classic
     Era (all-client change) and on Forever.
+    **Forever verified 2026-09-28 (hunter, listener macro on the lib callbacks):**
+    died mid-swing-cycle (mainhand START at t=12978.4 on a 1.6 s dagger, ~0.3 s
+    into the swing) — `[You died.]` followed immediately by a single
+    `UNIT_SWING_TIMER_STOP player mainhand`; the ranged timer had already expired
+    ~11 s earlier and correctly produced no second STOP. Post-resurrection
+    combat (t=13059+) shows clean ranged cycles (2.091 speed, expiry = start +
+    speed) and clean melee cycles (~1.55–1.6 s cadence), no visible Lua errors.
+    This capture also closes the Phase 2 ranged-sanity glance (bar unchanged,
+    correct 2.091 anchors after the source switch). **Remaining: Classic Era
+    death-reset run + Classic Era regression.**
 
 ### 8.10 Parry haste on Forever (decision: B + D — passive self-correction plus the
 API request; option A/E remains available as an opt-in if real-time haste is wanted
@@ -1172,6 +1182,26 @@ was never formally run** — it is the foundation of the correlation filter.
     **Patch change: the proportional rescale in `UNIT_ATTACK_SPEED` (`:459+`) must
     be disabled on Forever** — the handler should not rescale; `PLAYER_SWING`
     re-anchors at the new speed. Add to spec section 8.5.
+17. **Two state-safe anomalies observed in the 2026-09-28 death-test capture
+    (hunter, Forever; not release-blockers, recorded for the next pass):**
+    - **Duplicate next-melee anchor.** One melee cycle printed
+      `START(1.6, 12975.248)` / `STOP` / `START(1.6, 12975.248)` — two
+      `SwingStart` calls at the same instant with identical expiry. Likely a
+      Raptor Strike (2973, in `next_melee_spells`) consumed on the swing: the
+      `UNIT_SPELLCAST_SUCCEEDED` anchor and the `PLAYER_SWING` anchor for the
+      same special swing both fire — the melee analog of the ranged
+      double-anchor fixed in `d044c05` (where the `ranged_swing` SUCCEEDED
+      anchor was gated off on Forever). Confirm with the IMPROVEMENT_PLAN §6c
+      `PS2` probe while using Raptor Strike: if `SUCCEEDED 2973` and a
+      `PLAYER_SWING` both arrive for one swing, gate the `next_melee_spells`
+      anchor off on Forever the same way.
+    - **Extra ranged STOPs during movement-delayed cycles.** Some ranged gaps
+      show 2–3 `STOP`s between `START`s: our `C_Timer` expiry fires
+      `SwingEnd`→STOP, then the later `PLAYER_SWING` reaches `SwingStart`,
+      whose cancel branch fires a second STOP (a fired timer still reports
+      not-cancelled to `IsCancelled`). State-safe — timer and expiry are
+      correct — but noisy for consumers edge-detecting STOP. Optional fix:
+      a "fired" flag on the unit, or accept as documented behavior.
 
 ## 10. Appendix — probe macros (each fits the 255-char macro limit)
 
