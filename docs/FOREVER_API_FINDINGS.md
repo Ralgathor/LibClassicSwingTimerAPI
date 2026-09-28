@@ -1218,6 +1218,22 @@ was never formally run** — it is the foundation of the correlation filter.
       switches and parry/dodge at the duplicate moments. The gate is retained
       either way — it is harmless and correct if `PLAYER_SWING` anchors
       special swings (the pre-fix identical-expiry pair proves it does).
+      **Probe result 2026-09-28 (raw-event listener + lib listener, pure
+      auto-attack, 14 swings): NO duplicates at any level.** Exactly one
+      `PS 0 1.6 <t>` raw event per swing (cadence ~1.59–1.62 s, no double-fire
+      at the same `GetTime()`), lib output a clean 1:1 START/STOP alternation
+      with expiry = event time + duration. Conclusion: the engine does not
+      double-fire `PLAYER_SWING` during plain auto-attacks, and the lib anchors
+      exactly once per event. The earlier residual duplicates are therefore
+      trigger-dependent (ability use or a cast completing on a swing frame) —
+      the cast-completion coincidence hypothesis (§9 item 15's hold
+      interaction: a held swing's `PLAYER_SWING` landing in the same frame as
+      the completing cast's reset anchor) is now the leading candidate.
+      Remaining reproduction: same setup WITH abilities used (Raptor Strike
+      queued, any cast) and the `PS2` spellcast listener active — the raw
+      prints at the duplicate moment (two `PS` = engine; one `PS` + `SC` =
+      cast coincidence; one `PS` alone = lib-side) settle the mechanism and
+      the fix point.
     - **Extra ranged STOPs during movement-delayed cycles — NOT A DEFECT
       (diagnosis corrected 2026-09-28).** The initial hypothesis (a fired
       timer re-triggering the cancel branch) is impossible:
