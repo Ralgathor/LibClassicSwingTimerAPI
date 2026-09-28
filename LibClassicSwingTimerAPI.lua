@@ -695,10 +695,13 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, unitType, _, spell)
 			end
 		end
 	end	
-	if spell ~= 6603 then -- 6603=Auto Attack prevent set preventSwingReset flag to false when auto attack is toggle on/off
+	-- The auto-attack toggle must not clear the cast-state flags. Classic clients
+	-- fire the toggle as 6603; WoW: Forever fires it as 6803 (verified in-game).
+	local isAttackToggle = spell == 6603 or (isForever and spell == 6803)
+	if not isAttackToggle then
 		unit.preventSwingReset = unit.auraPreventSwingReset or false
 	end
-	if unit.casting and spell ~= 6603 then -- 6603=Auto Attack prevent set casting flag to false when auto attack is toggle on
+	if unit.casting and not isAttackToggle then
 		unit.casting = false
 	end
 	if spell == 5384 then -- 5384=Feign Death

@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* Fix the auto-attack toggle guard on WoW: Forever: the client fires the toggle as spell 6803 instead of classic's 6603, so the cast-state guards did not protect it — toggling auto-attack during a cast cleared the casting flag prematurely and skipped that cast's swing reset. Both toggle IDs are now recognized, with 6803 only on WoW: Forever.
 * Fix duplicate melee swing anchor on WoW: Forever: a consumed next-melee ability (Heroic Strike, Cleave, Raptor Strike, Maul) fired the swing-timer START twice — once from the spellcast event and once from the native `PLAYER_SWING` anchor of the same swing. The spellcast anchor is now skipped on WoW: Forever, mirroring the ranged Auto Shot fix.
 * Swing timers now stop on player death: `PLAYER_DEAD` cancels each active hand timer, fires `UNIT_SWING_TIMER_STOP` for it and clears cast/channel/attack state, on every client. Previously the bars sat stale after an in-place resurrection, which does not fire `PLAYER_ENTERING_WORLD`.
 * Fix target unit lookup in `getUnit`: the second branch compared against the player id instead of the target id, so `UnitSwingTimerInfo("target", ...)` never returned data. `getUnit` is also guarded against being called before the units exist at load time.

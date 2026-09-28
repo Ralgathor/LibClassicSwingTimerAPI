@@ -1261,9 +1261,13 @@ was never formally run** — it is the foundation of the correlation filter.
       library's two `spell ~= 6603` guards in `UNIT_SPELLCAST_SUCCEEDED`
       therefore do not protect the toggle on Forever: toggling auto-attack
       during a cast would clear `unit.casting` prematurely and skip the
-      reset on that cast's completion. Candidate fix: treat 6803 as the
-      attack-toggle ID on Forever (`isForever and spell == 6803`),
-      classic clients keep 6603 untouched.
+      reset on that cast's completion. **FIXED 2026-09-28:** both guards in
+      `UNIT_SPELLCAST_SUCCEEDED` now use a shared
+      `isAttackToggle = spell == 6603 or (isForever and spell == 6803)` —
+      classic clients keep 6603 untouched, 6803 is recognized on Forever
+      only. Verification item for the next session: toggle auto-attack
+      during a Slam-style cast on Forever and confirm the cast completion
+      still resets the swing.
       **Probe result 2026-09-28 (raw-event listener + lib listener, pure
       auto-attack, 14 swings): NO duplicates at any level.** Exactly one
       `PS 0 1.6 <t>` raw event per swing (cadence ~1.59–1.62 s, no double-fire
