@@ -1020,8 +1020,51 @@ was never formally run** — it is the foundation of the correlation filter.
    next-melee coincidence (Heroic Strike `78`) — all plain, classic-era IDs. Only
    sub-case left: `CHANNEL_STOP` on a movement-cancelled channel (one silent
    capture, may be truncated; the channeling-flag hardening covers it either way).
-5. Identify `1282503` and other new Classic+ spell IDs relevant to swing mechanics
-   (next-melee-style abilities, FD-class resets).
+5. ~~Identify `1282503` and other new Classic+ spell IDs relevant to swing mechanics
+   (next-melee-style abilities, FD-class resets).~~ — **resolved (2026-09-28, external
+   datamine research; in-game confirmation pending). Sources: Daybreak Forever
+   (daybreakforever.com/skills, build 1.60.1.70009), TheWoWDB `wow-forever`
+   database, Wowhead Forever, wowforevertalents.com (48 new abilities across all
+   nine classes), classicwow.gg class guides.** Findings:
+
+   - `1282503` = **Blazewind Blast** — an *item effect* (requires level 55,
+     instant, 30 yd, Holy+Nature "Holystorm" hybrid school, 3x damage to Wolves
+     and Worgen). Not a class ability; instant with no cast time, so it needs no
+     table entry — it appeared in the §4.3 capture because
+     `UNIT_SPELLCAST_SUCCEEDED` fires for all units (likely a mob's or another
+     player's item proc/use).
+   - **Slam is new to the Forever trainer** (Fury school, Rank 1 at level 20,
+     1.5 s cast, 18 s cooldown — the cooldown is a Forever addition). The
+     Era-routed tables have no Slam handling (`pause_swing_spells` empty — the
+     §8.12 acknowledged gap), so the library currently treats a Forever Slam
+     cast as a plain cast → reset on completion.
+   - **Improved Slam (spell 12862)** — Forever talent: "Slam no longer
+     interrupts or delays your melee swing". Swing behavior is
+     talent-conditional; base Slam presumably still delays the swing. Needs
+     in-game verification (which START/SUCCEEDED events fire, with and without
+     the talent) before any table entry — spec in IMPROVEMENT_PLAN.md §6.
+   - **Maelstrom Weapon is a new-in-Forever Enhancement talent** (5 ranks; melee
+     damage stacks cast-time/mana reduction on the next Lightning Bolt; a
+     five-stack bolt at rank 5 is instant). The Era-routed
+     `prevent_reset_swing_auras` is empty, so a 5-stack instant Lightning Bolt
+     would wrongly reset the swing — and the flag mechanism itself is CLEU-based
+     (dead on Forever, §4.1), so even with the buff ID the current path cannot
+     set the flag; a `UnitAura`-based detection is required. The Forever buff
+     spell ID is not yet identified (capture in-game with the IMPROVEMENT_PLAN
+     §6 probe).
+   - **No new** next-melee-style abilities, FD-class instant resets, or
+     channeled noreset-class spells in the 48 new abilities: they are talents
+     and trainer skills with no swing-timer interaction (cross-class "Eureka!"
+     buff 1259812/1259813/1259817/1259821/1259823, hunter Strider Kick 1317257
+     and Hydra Shot 1293020, warrior Spearing Strike 1310222, paladin Twist of
+     Light 1310735 — instants or passives needing no table entries).
+   - Engineering: new Forever bombs (if any) are unaudited; a missing
+     `noreset` entry only causes a one-cycle transient that self-corrects at
+     the next swing. Optional follow-up.
+   - ID ranges observed for Classic+ additions: talents ~1222xxx–1223xxx and
+     1310xxx; item effects ~127xxxx–130xxxx; trainer/rune spells ~1259xxx–1281xxx.
+     Classic-era IDs are reused where the spell exists in classic data (Slam
+     1464, Judgement of Fury 20411, Improved Distract 14084).
 6. Retail 12.x: confirm the same guards behave there (the fix should be shared).
 7. Pre-existing classic-era gap surfaced by the probe: the Classic `reset_swing_spells`
    table contains no paladin casts (Flash of Light `19750`, Holy Light, Judgement

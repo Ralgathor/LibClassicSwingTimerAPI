@@ -5,7 +5,9 @@ validation + all-client `PLAYER_DEAD` reset. Phase 2: Forever ranged reads
 switched to the third `UnitAttackSpeed` return (probe-verified 2026-09-28,
 open world; see §2). Changelog entries under `[Unreleased]`. Phase 3 remains
 spec only, not applied (separate branch). The BCC min-damage divergence guard
-(§2) is deferred pending the BCC probe. Working tree: branch
+(§2) is deferred pending the BCC probe. Section 6 (Classic+ spell coverage) is
+researched but pending in-game verification — no table entries applied. Working
+tree: branch
 `feature/forever-support`; version numbers bump at release preparation, per
 AGENTS.md.
 
@@ -214,3 +216,64 @@ behavior as fallback. Constraints:
   library's Forever output coexists with (and duplicates) the native bars. If
   users report double bars, a README note on the `showSwingTimer` CVar is the
   cheap fix.
+
+## 6. Classic+ spell coverage (researched 2026-09-28; in-game verification pending)
+
+Sources and full findings: FOREVER_API_FINDINGS.md §9 item 5 (Daybreak Forever
+datamine, TheWoWDB `wow-forever`, Wowhead Forever, wowforevertalents.com — 48 new
+Forever abilities swept across all nine classes). **No table changes applied** —
+both candidates below are blocked on in-game verification per AGENTS.md (a wrong
+guess ships a broken release to every downstream addon).
+
+### 6a. Slam pause (candidate: `pause_swing_spells`, Forever)
+
+Slam is new to the Forever trainer (Rank 1 at level 20, 1.5 s cast, 18 s
+cooldown); base Slam presumably delays the melee swing, and the Improved Slam
+talent (spell 12862) removes the delay entirely ("Slam no longer interrupts or
+delays your melee swing"). The Era-routed `pause_swing_spells` is empty, so today
+a Forever Slam cast resets the swing on completion — wrong both with and without
+the talent. Gate: verify in-game which cast events fire for Slam (probe below),
+with and without Improved Slam talented, and whether the observed `PLAYER_SWING`
+anchors match the pause model or the reset model. Design question for the
+maintainer: talent-conditional behavior cannot live in a static table — either
+model the no-talent default (pause) and accept a one-cycle transient for
+Improved Slam players, or detect the talent (no obvious 12.x talent-inspection
+API) and skip.
+
+### 6b. Maelstrom Weapon aura (candidate: `prevent_reset_swing_auras`, Forever)
+
+Maelstrom Weapon is a new-in-Forever Enhancement talent; a five-stack Lightning
+Bolt at rank 5 is instant and must not reset the swing (the exact case the
+`prevent_reset_swing_auras` mechanism exists for — BCC 408505, Wrath 53817). Two
+gaps stack on the Forever path: the Era-routed table is empty, and the flag
+mechanism is CLEU-based (`SPELL_AURA_APPLIED`/`REMOVED` — dead on Forever, §4.1),
+so a Forever fix needs `UnitAura`-based detection (the library already upvalues
+`UnitAura`). Gate: capture the Maelstrom Weapon buff spell ID in-game (probe
+below), then confirm a 5-stack instant Lightning Bolt fires
+`UNIT_SPELLCAST_SUCCEEDED` that would otherwise reset the timer.
+
+### 6c. Probes (add to the next in-game session)
+
+```lua
+-- Slam: which cast events fire, with and without Improved Slam talented
+-- (cast Slam mid-swing-cycle; record START/SUCCEEDED spell IDs; compare
+--  against PLAYER_SWING anchors from the FOREVER_API_FINDINGS appendix listener)
+/run PS2=PS2 or CreateFrame("Frame") PS2:RegisterEvent("UNIT_SPELLCAST_START") PS2:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED") PS2:SetScript("OnEvent",function(_,_,e,u,_,s) if u=="player" then print(e,s) end end)
+
+-- Maelstrom Weapon buff spell ID while stacks are up (Enhancement shaman)
+/run local t={} for i=1,40 do local n,_,_,_,_,_,_,_,_,sid=UnitAura("player",i) if n then t[#t+1]=n.."="..sid end end print(table.concat(t,", "))
+
+-- Slam rank spell IDs straight from the spellbook (Forever may differ from
+-- classic-era 1464+ even though Wowhead's Forever page resolves 1464)
+/run local n,_,_,_,_,_,id=GetSpellInfo("Slam") print(n,id)
+```
+
+### 6d. Cleared by the sweep (no action needed)
+
+`1282503` = Blazewind Blast — an instant *item effect*, no table entry (appeared
+in the §4.3 capture only because `UNIT_SPELLCAST_SUCCEEDED` fires for all
+units). The other 47 new Forever abilities are instants or passives with no
+swing-timer interaction: Eureka! (1259812/13/17/21/23), Strider Kick (1317257),
+Hydra Shot (1293020), Spearing Strike (1310222), Twist of Light (1310735), and
+the talent/passive set. New Forever engineering bombs are unaudited (optional
+follow-up; a missing `noreset` entry self-corrects at the next swing).
