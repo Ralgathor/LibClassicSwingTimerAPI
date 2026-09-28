@@ -1198,6 +1198,26 @@ was never formally run** — it is the foundation of the correlation filter.
       next session: single START per swing while using Raptor Strike, and the
       IMPROVEMENT_PLAN §6c `PS2` probe should show `SUCCEEDED 2973` arriving
       alongside the swing without producing a second anchor.
+      **Post-fix capture (same day, ~7 min later): most melee cycles anchor
+      once, but two identical-expiry duplicates remain (START/STOP/START at
+      13454.718 and 13461.126 — same signature and roughly the same rate as
+      pre-fix). Unresolved: either the capture predates the gate's build
+      (`GetTime` survives `/reload`, so timestamps cannot confirm), or the
+      duplicates were never (only) the next-melee anchor. Post-gate the only
+      non-reset mainhand anchor is `PLAYER_SWING`, so a residual duplicate
+      means either two `PLAYER_SWING` events in one frame (engine-side
+      double-fire) or a reset anchor (cast completion, `isReset=true`) landing
+      in the same frame as the held swing's `PLAYER_SWING` — the classic
+      cast-completion/hold interaction of §9 item 15 makes the latter
+      plausible. Next probe (raw events, distinguishes all three): a
+      bare `PLAYER_SWING` listener printing `GetTime()` alongside the §6c
+      `PS2` spellcast listener — two `PS` prints at the same instant =
+      engine double-fire; one `PS` plus an `SC` = cast-coincidence; one `PS`
+      alone with a lib double-print = lib-side. Run pure auto-attack first
+      (no abilities), then with Raptor Strike queued; note kill blows, target
+      switches and parry/dodge at the duplicate moments. The gate is retained
+      either way — it is harmless and correct if `PLAYER_SWING` anchors
+      special swings (the pre-fix identical-expiry pair proves it does).
     - **Extra ranged STOPs during movement-delayed cycles — NOT A DEFECT
       (diagnosis corrected 2026-09-28).** The initial hypothesis (a fired
       timer re-triggering the cancel branch) is impossible:
