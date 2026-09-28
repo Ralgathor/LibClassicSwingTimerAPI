@@ -529,6 +529,16 @@ match the real shot landing (~0.5s).
 the anchor fix (expect one START per shot), dual-wield off-hand, Classic Era
 regression.**
 
+**Dungeon mid-fight verified (2026-09-25):** timers ran accurately through a full
+pull where `UnitAttackSpeed` is secret — steady 2.428s cadence from the
+`PLAYER_SWING` cache, zero errors (the ResolveSecret guard surface held under
+load). The capture also verified mid-combat: a cast reset (one 1.45s gap =
+mid-cycle completion restarting a full weapon speed out) and a weapon swap
+(speed 2.428 → 3.400 with the new cadence from the next swing). Hunter re-test
+after the anchor/recast fixes verified (single anchors, ~0.5s recast model,
+8 measurements). **Remaining: dual-wield off-hand, Classic Era regression,
+optional wand check.**
+
 1. Classic Era regression: melee a dummy — timers behave exactly as 2.1.6.
 2. Forever open world: swings fire `UNIT_SWING_TIMER_START` with correct
    speed/expiration; hunter Auto Shot drives the ranged bar (`swingType=2`).
@@ -1152,3 +1162,13 @@ was never formally run** — it is the foundation of the correlation filter.
 -- GetCurrentCombatTextEventInfo payload per combat text type (inspect with /dump CTI after a fight)
 /run CI=CI or CreateFrame("Frame") CI:RegisterEvent("COMBAT_TEXT_UPDATE") CI:SetScript("OnEvent",function(_,_,t) CTI=CTI or {} CTI[t]={pcall(GetCurrentCombatTextEventInfo)} end)
 ```
+
+## 11. Follow-up improvement plan (moved to its own document)
+
+The improvement plan derived from external-reference analysis — the all-client
+`PLAYER_DEAD` reset, `PLAYER_SWING` payload hardening, the Forever ranged-speed
+source probe, the Auto Shot cooldown anchor for the classic flavors, the
+rejected/deferred options table and the reference index — is maintained in
+`docs/IMPROVEMENT_PLAN.md`. Kept separate because its scope (all clients plus
+classic flavors) exceeds this document's Forever/Midnight investigation record.
+Section references of the form §N in that document point back into this file.
