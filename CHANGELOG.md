@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+* Harden the WoW: Forever `PLAYER_SWING` payload check: reject non-number, NaN, non-positive and infinite swing durations in addition to secret values, so a malformed payload cannot be cached as a weapon speed.
 * Guarded all weapon-speed reads with `issecretvalue()` (12.x restriction system): when values are secret mid-combat, the library keeps the last cached speed instead of erroring. On WoW: Forever, `UNIT_ATTACK_SPEED` changes never rescale an in-flight swing (the engine applies new speeds at the next swing), so the rescale is skipped there.
 * Feign Death watcher now uses a `GetSpellCooldown` / `C_Spell.GetSpellCooldown` compatibility shim (the old global was removed in retail 11.0) and anchors to `GetTime()` when the cooldown start is a secret value. Fixes a hard Lua error on first Feign Death cast on retail 11.x+ and WoW: Forever.
 * The `UNIT_SPELLCAST_FAILED_QUIET` ranged handling now also runs on WoW: Forever (verified event and spell IDs), and the `channeling` flag is cleared on interrupts, fails and combat enter as hardening (movement-cancelled channels can end silently on 12.x clients).
@@ -23,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* Swing timers now stop on player death: `PLAYER_DEAD` cancels each active hand timer, fires `UNIT_SWING_TIMER_STOP` for it and clears cast/channel/attack state, on every client. Previously the bars sat stale after an in-place resurrection, which does not fire `PLAYER_ENTERING_WORLD`.
 * Fix target unit lookup in `getUnit`: the second branch compared against the player id instead of the target id, so `UnitSwingTimerInfo("target", ...)` never returned data. `getUnit` is also guarded against being called before the units exist at load time.
 * Fix parry haste handling: the PARRY combat-log branch was unreachable, so a defender never had its swing accelerated after a parry. The branch now runs before the source lookup, applies to both player and target, and only modifies an in-flight main-hand swing timer.
 * Fix off-hand speed of player targets: `PLAYER_TARGET_CHANGED` checked a never-assigned `lib.isPlayer` instead of `target.isPlayer`, mirroring the main-hand speed onto the off-hand for every target.

@@ -1,10 +1,11 @@
 # Swing Timer Improvement Plan
 
-Status: design spec only — documented 2026-09-28, NOT applied. Nothing in this
-document has been applied to `LibClassicSwingTimerAPI.lua`; the working tree
-remains the implementation described in `docs/FOREVER_API_FINDINGS.md` §8
-(MINOR 32, branch `feature/forever-support`). Changelog entries land WITH each
-change when applied (per AGENTS.md) — none are written for this spec.
+Status: Phase 1 APPLIED 2026-09-28 (`PLAYER_SWING` payload validation +
+all-client `PLAYER_DEAD` reset; changelog entries under `[Unreleased]`; see
+section 1). Phases 2–3 remain spec only, not applied — Phase 2 is gated on the
+probe extending §9 item 2, Phase 3 is a separate branch. Working tree: branch
+`feature/forever-support`; version numbers bump at release preparation, per
+AGENTS.md.
 
 Companion document to `docs/FOREVER_API_FINDINGS.md`: that file is the
 Forever / Midnight API investigation record; this one holds the forward-looking
@@ -18,7 +19,7 @@ Sources analyzed (2026-09-28): Blizzard's own `Blizzard_SwingTimer.lua`
 v0.2.3 (`SuperSwingTimer_State.lua`); Conceal issue #28
 (joaoc-pires/wow-addon-conceal). Full index in section 5.
 
-## 1. Phase 1 — hardening, low risk (approved scope)
+## 1. Phase 1 — hardening, low risk (approved scope) — APPLIED 2026-09-28
 
 **Decision recorded 2026-09-28: the `PLAYER_DEAD` reset applies to ALL clients**
 (maintainer decision), not Forever-only. Classic Era must re-run the regression

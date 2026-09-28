@@ -562,6 +562,10 @@ optional wand check.**
 10. One-liner: `/run print(issecretvalue(nil))` — must print `false` (the
     `ResolveSecret` helper and the dual guards rely on nil not being secret;
     section 8.5).
+11. Death reset (Phase 1, applied 2026-09-28): die in the open world, accept an
+    in-place resurrection — `PLAYER_DEAD` should fire `UNIT_SWING_TIMER_STOP` once
+    per active hand and the next swing should start a clean cycle. Run on Classic
+    Era (all-client change) and on Forever.
 
 ### 8.10 Parry haste on Forever (decision: B + D — passive self-correction plus the
 API request; option A/E remains available as an opt-in if real-time haste is wanted

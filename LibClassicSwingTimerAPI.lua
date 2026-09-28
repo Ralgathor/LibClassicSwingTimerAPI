@@ -477,6 +477,12 @@ function lib:PLAYER_SWING(_, swingDuration, swingType)
 	if issecretvalue and issecretvalue(swingDuration) then
 		return -- swing anchor without a usable duration; do not guess one
 	end
+	if type(swingDuration) ~= "number"
+		or swingDuration ~= swingDuration -- NaN
+		or swingDuration <= 0
+		or swingDuration == math.huge then
+		return -- malformed payload; do not cache it as a weapon speed
+	end
 	local hand
 	if swingType == 0 then
 		hand = "mainhand"
@@ -799,6 +805,36 @@ function lib:PLAYER_LEAVE_COMBAT()
 	self.player.firstOffSwing = false
 end
 
+-- An in-place resurrection does not fire PLAYER_ENTERING_WORLD, so without
+-- this the timers would sit stale until the next swing.
+function lib:PLAYER_DEAD()
+	local unit = self.player
+	if not unit then
+		return
+	end
+	if unit.mainTimer and not unit.mainTimer:IsCancelled() then
+		unit.mainTimer:Cancel()
+		self.callbacks:Fire("UNIT_SWING_TIMER_STOP", unit.id, "mainhand")
+	end
+	if unit.offTimer and not unit.offTimer:IsCancelled() then
+		unit.offTimer:Cancel()
+		self.callbacks:Fire("UNIT_SWING_TIMER_STOP", unit.id, "offhand")
+	end
+	if unit.rangedTimer and not unit.rangedTimer:IsCancelled() then
+		unit.rangedTimer:Cancel()
+		self.callbacks:Fire("UNIT_SWING_TIMER_STOP", unit.id, "ranged")
+	end
+	unit.casting = false
+	unit.channeling = false
+	unit.isAttacking = false
+	unit.preventSwingReset = false
+	unit.auraPreventSwingReset = false
+	if unit.feignDeathTimer then
+		unit.feignDeathTimer:Cancel()
+	end
+	unit.feignDeathTimer = nil
+end
+
 function lib:START_AUTOREPEAT_SPELL()
 	self.player.isShooting = true
 	self.player.rangedBaseSpeed = self.player:GetRangedBaseSpeed()
@@ -847,6 +883,7 @@ end
 frame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
 frame:RegisterEvent("PLAYER_ENTER_COMBAT")
 frame:RegisterEvent("PLAYER_LEAVE_COMBAT")
+frame:RegisterEvent("PLAYER_DEAD")
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 frame:RegisterEvent("PLAYER_TARGET_CHANGED")
 frame:RegisterEvent("START_AUTOREPEAT_SPELL")
