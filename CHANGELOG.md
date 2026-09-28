@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [2.2.0-beta1] - 2026-09-28
+## [2.2.0-beta2] - 2026-09-28
 
 Known unverified in this beta: off-hand anchoring on WoW: Forever (dual-wield `PLAYER_SWING`) and the Classic Era regression pass - feedback welcome.
 
