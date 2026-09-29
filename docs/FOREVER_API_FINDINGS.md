@@ -143,6 +143,24 @@ Key conclusions:
   The Forever path should reuse the Classic-era spell tables, not the retail ones.
 - New Classic+ spells (e.g. `1282503`) have no entries yet and need identification.
 
+**Correction (2026-09-29, live bug report):** the "spell IDs are plain" conclusion
+is not universal. Mid-fight in restricted content, the target unit's
+`UNIT_SPELLCAST_START` spell ID came back **SECRET** (BugSack locals showed
+`spell=<secret number>`; the handler's `noreset_swing_spells[spell]` lookup raised
+"attempted to index a table that cannot be indexed with secret keys"). The 4.3
+probe only listened to `UNIT_SPELLCAST_SUCCEEDED` during one player run — payload
+secrecy differs per event and/or per unit: at minimum `START` on the target is
+secret mid-fight while `SUCCEEDED` read plain in the earlier session (the player's
+`SUCCEEDED` may stay plain, matching the two-tier pattern in 4.2; unverified).
+
+All `UNIT_SPELLCAST_*` handlers now route the payload spell ID through
+`ResolveSecret(spell, nil)` (no cached fallback exists for an event payload):
+a secret ID degrades to "unknown spell" — cast-state flags still update
+(`casting` is hoisted out of the spell guard in `UNIT_SPELLCAST_START` so the
+cast-based swing reset still fires), the spell-ID list lookups are skipped.
+Re-probe: run the 4.3 listener against `UNIT_SPELLCAST_START` for both `player`
+and `target`, mid-fight and out, and record which event/unit pairs go secret.
+
 ### 4.4 Native swing timer APIs (C_SwingTimer) — discovered via `/api search swing`
 
 **Recheck 2026-09-25 (pre-filing verification):** `/dump C_SwingTimer` shows exactly
@@ -240,7 +258,7 @@ needed. The secret guards (section 8) remain as crash-proofing for the legacy
 | `lib:UNIT_ATTACK_SPEED` | 430–498 | Same — every comparison/multiplier against fresh reads errors when secret |
 | `lib:PLAYER_TARGET_CHANGED` | 308–353 | `UnitAttackSpeed("target")` errors on mid-fight retarget in instances |
 | Feign Death watcher | 601–609 | Calls nil global `GetSpellCooldown` → hard Lua error on first FD cast (any flavor path, retail 11.x+ and Forever) |
-| `UNIT_SPELLCAST_*` handlers | 539–745 | **Functional** — events fire, spell IDs plain; next-melee spells (`next_melee_spells` → `SwingStart` at `:545`) still anchor swings |
+| `UNIT_SPELLCAST_*` handlers | 539–745 | Events fire, but the payload spell ID can be **secret** mid-fight (2026-09-29 live error, target `UNIT_SPELLCAST_START`); handlers now guard the spell ID — see the 4.3 correction. Next-melee anchoring via `next_melee_spells` still works when the ID is readable |
 | `PLAYER_ENTER_COMBAT` offhand start | 700–710 | Functional; uses cached/secret-guarded reads needed |
 | Tooltip ranged-speed scan | 184–216 | Item data is not combat info; expected to remain plain (unverified in combat) |
 | `WeakAuras.ScanEvents` forwarding | ~763–789 | WeakAuras halted development before Midnight; moot on Forever |

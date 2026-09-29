@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+* Fix a hard Lua error in the `UNIT_SPELLCAST_*` handlers in restricted content on WoW: Forever and 12.x clients: the event payload's spell ID can be a secret value, and indexing the spell-ID tables with it raised "attempted to index a table that cannot be indexed with secret keys" (observed mid-fight on the target unit's `UNIT_SPELLCAST_START` on WoW: Forever). Spell IDs from spellcast events are now routed through the `issecretvalue` guard; a secret ID degrades to "unknown spell" — cast-state flags still update (including `casting` on `UNIT_SPELLCAST_START`, hoisted out of the spell guard so the cast-based swing reset still fires), while the spell-ID list lookups and spell-specific special cases (Feign Death watcher, pause/next-melee/ranged lists) are skipped for the unreadable ID.
+
 ## [2.2.0-beta2] - 2026-09-28
 
 Known unverified in this beta: off-hand anchoring on WoW: Forever (dual-wield `PLAYER_SWING`) and the Classic Era regression pass - feedback welcome.

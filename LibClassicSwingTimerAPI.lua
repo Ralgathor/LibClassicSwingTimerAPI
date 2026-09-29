@@ -604,6 +604,7 @@ function lib:UNIT_SPELLCAST_INTERRUPTED_OR_FAILED(_, unitType, _, spell)
 	if not unit then
 		return
 	end
+	spell = ResolveSecret(spell, nil)
 	unit.casting = false
 	unit.channeling = false
 	if spell and pause_swing_spells[spell] and unit.pauseSwingTime then
@@ -644,6 +645,13 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, unitType, _, spell)
 	if not unit then
 		return
 	end
+	-- UNIT_SPELLCAST_* payloads can carry secret spell IDs in restricted
+	-- content (observed on the target unit mid-fight on WoW: Forever); secret
+	-- values cannot be compared or used as table keys, and there is no cached
+	-- fallback for an event payload. A secret spell ID degrades to "unknown
+	-- spell": the cast-state logic below still runs, the spell-ID list
+	-- lookups are skipped.
+	spell = ResolveSecret(spell, nil)
 	local now = GetTime()
 	-- On WoW: Forever the native PLAYER_SWING anchors the consumed swing as well
 	-- (verified: a queued next-melee ability double-anchored with identical expiry),
@@ -744,9 +752,10 @@ function lib:UNIT_SPELLCAST_START(_, unitType, _, spell)
 	if not unit then
 		return
 	end
+	spell = ResolveSecret(spell, nil)
+	unit.casting = true
 	if spell then
 		local now = GetTime()
-		unit.casting = true
 		unit.preventSwingReset = unit.auraPreventSwingReset or noreset_swing_spells[spell]
 		if pause_swing_spells[spell] then
 			unit.pauseSwingTime = now
@@ -771,6 +780,7 @@ function lib:UNIT_SPELLCAST_CHANNEL_START(_, unitType, _, spell)
 	if not unit then
 		return
 	end
+	spell = ResolveSecret(spell, nil)
 	unit.casting = true
 	unit.channeling = true
 	unit.preventSwingReset = unit.auraPreventSwingReset or noreset_swing_spells[spell]
@@ -781,6 +791,7 @@ function lib:UNIT_SPELLCAST_CHANNEL_STOP(_, unitType, _, spell)
 	if not unit then
 		return
 	end
+	spell = ResolveSecret(spell, nil)
 	local now = GetTime()
 	unit.channeling = false
 	unit.preventSwingReset = unit.auraPreventSwingReset or false
@@ -872,6 +883,7 @@ function lib:UNIT_SPELLCAST_FAILED_QUIET(_, unitType, _, spell)
 	if not unit then
 		return
 	end
+	spell = ResolveSecret(spell, nil)
 	if (isClassic or isForever) and spell and ranged_swing[spell] and unit.isShooting then
 		if self.player.rangedTimer and not self.player.rangedTimer:IsCancelled() then
 			self.player.rangedTimer:Cancel()
