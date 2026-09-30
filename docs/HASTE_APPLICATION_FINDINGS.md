@@ -315,6 +315,55 @@ yet exercised in-game.
 
 ## 7. Open items
 
+### 7.1 Aura access — source-level analysis and the per-spell secrecy path
+(2026-09-30, follow-up to "can we access aura information anyway?")
+
+Side channels assessed against the retail UI source
+(`Gethe/wow-ui-source`, `Blizzard_AuraContainer/Blizzard_AuraContainerUtil.lua`
+— Forever runs this architecture):
+
+- **Reading the stock buff frame is closed by design**: the Blizzard UI
+  applies auras to its own buttons via `texture:SetTexture(secretwrap(icon))`
+  and `fontString:SetText(secretwrap(name))` — icon paths and spell names
+  are themselves wrapped, so scanning `BuffFrame` children for texture
+  paths cannot recover identity mid-combat.
+- **Aura secrecy is per-spell policy, not a blanket block**: the stock code
+  calls `C_Secrets.GetSpellAuraSecrecy(auraData.spellId)` and compares
+  against `Enum.SecrecyLevel.NeverSecret` — spells classified never-secret
+  are readable and filterable even mid-combat (the source cites
+  Exhaustion/Sated as examples). So the question for any specific aura is
+  its classification, probe-able out of combat:
+  `/dump Enum.SecrecyLevel` then
+  `/run print(C_Secrets.GetSpellAuraSecrecy(5171), C_Secrets.GetSpellAuraSecrecy(20162), C_Secrets.GetSpellAuraSecrecy(20128))`.
+- **Retail runs a community-request whitelist process** (12.0 planned API
+  changes): Maelstrom Weapon, Skyriding spells, the GCD spell and
+  combat-res spells received aura/cooldown secrecy exemptions on request;
+  `SecureAuraHeaderTemplate` improvements are planned; player secondary
+  resources (combo points) are being unsecreted; `C_UnitAuras` APIs are
+  being replaced by duration objects as the sanctioned path.
+
+Consequences:
+
+1. **The durable fix is now a concrete ask**: request NeverSecret
+   classification (or a swing-timer carve-out) for the player's own
+   haste auras on WoW: Forever — Slice and Dice, Flurry — citing the
+   Maelstrom Weapon precedent. This slots into the existing Blizzard API
+   report alongside the haste-application-event ask.
+2. **Probes to run** (in addition to the secrecy-classification one-liners
+   above): `GetComboPoints("player","target")` mid-combat with combo
+   points up (if secondary resources are unsecreted here, SnD expiry
+   becomes schedulable from the cast timestamp — duration is a known
+   function of combo points, 9–21 s — closing the expiry gap with no
+   aura data at all); the `COMBAT_TEXT_UPDATE` `AURA` payload
+   (`GetCurrentCombatTextEventInfo()` returned nil for PARRY; AURA is a
+   different message type and untested); `COMBAT_LOG_EVENT_BASIC` is
+   **confirmed nonexistent** (registration throws "unknown event" —
+   distinct from the silent-false refusal of restricted events).
+3. Flurry's remaining non-aura path stays the outgoing-crit trigger
+   (`UNIT_COMBAT` `WOUND CRITICAL` on target tokens, rank factor from
+   the talent tree read out of combat) — bounded machinery, implementable
+   without any new API, pending a Flurry capture at a higher level cap.
+
 1. SnD rank 2 (6774) haste factor; other dynamic-family sources on Forever
    (haste potions, procs, Classic+ 7-digit spells).
 2. ~~Flurry surfacing question~~ — **resolved 2026-09-30 by the Redoubt
