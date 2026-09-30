@@ -92,7 +92,7 @@ With and without Improved Slam talented (talent 12862: removes the delay):
    (the lib would then model the delay as an engine deviation). Beta report
    drafted in FOREVER_API_FINDINGS section 8.10.
 5. Verbatim capture for the floor question (fifth capture flagged it):
-   enable /chatlog (the client writes every print to LogsWoWChatLog.txt in
+   enable /chatlog (the client writes every print to Logs\WoWChatLog.txt in
    the game folder), run the PA2 probe, tank a few minutes, then read the
    parry->landing offsets straight from the file. Every directly measured
    offset so far (0.301, 0.456, 0.116) lands below the 20% floor and fits
