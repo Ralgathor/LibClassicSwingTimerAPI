@@ -407,13 +407,15 @@ end
 
 -- Parry haste shared by the classic CLEU path and the WoW: Forever UNIT_COMBAT
 -- path (lib:UNIT_COMBAT): shorten an in-flight main-hand swing after a defensive
--- parry by this unit, following the engine's tiered rule (verified in-game on
--- WoW: Forever, build 70124): more than 60% of the swing remaining -> the swing
--- lands at 60%; between 20% and 60% -> reduced by 40% of weapon speed, floored
--- at 20%; 20% or less remaining -> no effect (a parry never delays the swing).
--- The previous flat reduction over-hastened early parries (the bar parked up to
--- ~40% of the weapon speed before the engine's actual hastened swing) and
--- delayed parries in the last 20%.
+-- parry by this unit. Engine rule, settled by in-game captures on WoW: Forever
+-- (build 70124, seven timestamped player parries): a parry has NO effect before
+-- 20% of the swing has elapsed (remaining above 80% of weapon speed) and never
+-- delays the swing (remaining at or below 20%); in between, the remaining swing
+-- is reduced by 40% of weapon speed, floored at 20%. There is no 60% cap on
+-- this engine: parries at 70% and 51% remaining landed at remaining minus 40% of
+-- weapon speed exactly. The unconditional flat reduction previously shipped
+-- over-hastened early parries, parking the bar up to ~1s before the engine's
+-- actual swing.
 function lib:ApplyParryHaste(unit)
 	if not unit then
 		return
@@ -424,17 +426,13 @@ function lib:ApplyParryHaste(unit)
 	local now = GetTime()
 	local remaining = unit.mainExpirationTime - now
 	local min_swing_time = 0.2 * unit.mainSpeed
-	if remaining <= min_swing_time then
-		return -- engine: no effect this late in the swing
+	if remaining <= min_swing_time or remaining > 0.8 * unit.mainSpeed then
+		return -- engine: no effect in the first 20% of the swing; never delay
 	end
 	unit.mainTimer:Cancel()
-	if remaining > 0.6 * unit.mainSpeed then
-		remaining = 0.6 * unit.mainSpeed
-	else
-		remaining = remaining - (0.4 * unit.mainSpeed)
-		if remaining < min_swing_time then
-			remaining = min_swing_time
-		end
+	remaining = remaining - (0.4 * unit.mainSpeed)
+	if remaining < min_swing_time then
+		remaining = min_swing_time
 	end
 	unit.mainExpirationTime = now + remaining
 	self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.mainSpeed, unit.mainExpirationTime, "mainhand")

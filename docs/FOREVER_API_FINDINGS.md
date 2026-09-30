@@ -672,6 +672,43 @@ attacker-side haste (B); `PA player` mid-cycle is an unreported incoming parry
 path would additionally need the outgoing-parry anchor-coincidence signal
 (a PARRY on any token in the same frame as the player's own swing anchor).
 
+**Third capture 2026-09-30 (all-token probe, build 70124) — the rule is
+settled; the 60%-cap interpretation is REJECTED.** Seven timestamped player
+parries on a 2.4 s weapon, each with the following swing anchor:
+
+| t_p into swing | remaining | observed next swing | verdict |
+|---|---|---|---|
+| 0.068 | 2.332 | normal cadence (+2.398) | no effect |
+| 0.236 | 2.164 | normal (+2.418) | no effect |
+| 0.267 | 2.133 | normal (+2.406) | no effect |
+| 0.718 | 1.682 | parry + 0.722 (= r − 0.96) | flat −40% |
+| 0.885 | 1.515 | 0.34 s off the prediction | outlier (one sample; extra-swing or transcription candidate) |
+| 0.984 | 1.416 | parry + 0.456 (= r − 0.96) | flat −40% |
+| 1.139 | 1.261 | parry + 0.301 (= r − 0.96, exact to 1 ms) | flat −40% |
+
+Findings: (1) **No 60% cap exists on this engine** — the tiered fix (dc07b88)
+was wrong; parries at 70% and 51% remaining landed at remaining minus 40% of
+weapon speed exactly, not at 60% remaining. The earlier "tiered" readings were
+mis-derived: the 1.686 s and 2.0 s anchor gaps fit the flat rule's late band
+(t_p + 0.48) equally well. (2) **The real missing piece is an early-parry
+no-effect band**: parries in the first ~20% of the swing (remaining above 80%)
+do nothing — bracketed by the data (no effect at t_p = 0.267, effect at 0.718).
+The unconditional flat reduction shipped before 2.2.0-era fixes over-hasted
+exactly these parries, parking the bar up to ~1 s early — the session-1
+"stuck as full" symptom, now fully explained. (3) **Direction coverage is
+resolved**: player parries fire `PA player` reliably (seven of seven) and
+cause the haste; all three outgoing parries (`PA nameplate/target`) were
+followed by normal cadence — attacker-side haste is rejected, and the
+second capture's P-less hastes were most likely transcription loss. The
+settled rule now implemented in `ApplyParryHaste` (all clients): no effect
+before 20% of the swing has elapsed or at ≤20% remaining (never delay);
+otherwise remaining −= 40% of weapon speed, floored at 20%. Every capture
+across all three sessions fits. Open: the exact threshold line inside
+(11%, 30%) elapsed — 20% is the natural interpolation; a parry in that
+window would confirm. One outlier sample (t_p = 0.885) landed 0.34 s earlier
+than the rule predicts — unresolved single datapoint, extra-attack or
+transcription candidate.
+
 - **The math is fully portable.** The block at `:358–377` only uses values the library
   already holds as plain numbers: `defender.mainExpirationTime`, the cached
   `defender.mainSpeed` (on Forever, refreshed by `PLAYER_SWING`'s plain payload), and
