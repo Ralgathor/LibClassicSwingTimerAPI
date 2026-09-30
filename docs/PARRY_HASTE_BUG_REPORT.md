@@ -62,3 +62,8 @@ Related observation (one line): separately, ~2–5% of swing cycles in the
 traces land early (at 60% of the swing time, or 0.69–0.86 of it) with no
 parry event at all — possibly the same mechanism dropping events, possibly
 unrelated; happy to share the trace data.
+Another observation from the same join: the swing's damage lands a constant
+0.660 s AFTER the PLAYER_SWING event (median of 489 swings; 0.66 = 27.5% of
+the 2.4 s weapon, possibly weapon-speed-proportional). PLAYER_SWING appears
+to be a pre-attack event rather than the attack resolution - it would help
+addon authors to know what it is supposed to represent.
