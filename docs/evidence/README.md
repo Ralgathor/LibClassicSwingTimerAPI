@@ -40,9 +40,9 @@ Line formats:
 - `LIB_UNIT_SWING_TIMER_UPDATE <GetTime> player <speed> <expiry> mainhand`
 - `SESSION <GetTime> <version> <buildNumber> <wall-clock date>`
 
-## Files: haste-application captures (2026-09-30 15:41 SnD, 15:55 SotC)
+## Files: haste-application captures (2026-09-30: 15:41 SnD, 15:55 SotC, 16:47 Redoubt proxy)
 
-Backs `HASTE_APPLICATION_FINDINGS.md`. Two sessions in one client run:
+Backs `HASTE_APPLICATION_FINDINGS.md`. Three sessions in one client run:
 
 - SnD session (15:41): rogue `Rolhgar` (GUID `Player-4620-011E60D2`),
   dual-wield (mainhand 1.683, offhand 1.782), Slice and Dice rank 1 (5171,
@@ -51,6 +51,9 @@ Backs `HASTE_APPLICATION_FINDINGS.md`. Two sessions in one client run:
   `Player-4620-0095BF89`), one 3.4 two-hander, Seal of the Crusader rank 2
   (20162, 3.400→2.428, x1.4003), removed mid-swing by casting Seal of
   Righteousness (seals replace each other).
+- Redoubt proxy session (16:47): the paladin, 1 point in Redoubt, fighting
+  attacking melee mobs — answers whether a talent-proc aura fires
+  `UNIT_SPELLCAST_SUCCEEDED` (it does not; aura spell ID 20128).
 
 Both files are verbatim copies from the live beta client.
 
@@ -147,6 +150,14 @@ minus trace GetTime).
 - **Player UNIT_SPELLCAST_SUCCEEDED spell IDs stay plain mid-combat** (all
   19 SnD casts and all SotC/SoR/Judgement casts recorded readable in
   open-world fighting).
+- **Talent-proc auras do NOT fire `UNIT_SPELLCAST_SUCCEEDED`** (Redoubt
+  proxy session): four Redoubt applications (spell 20128 — two APPLIED,
+  two REFRESH on re-proc, with REMOVED_DOSE per block consumed) produced
+  no SUCCEEDED event on any spell ID at the proc instants, in the trace or
+  the combat log; the spell appears only in AURA events. The procs follow
+  ordinary non-critical incoming WOUND events — the rewritten Forever
+  trigger (10% per damaging melee hit) verified live. Consequence: Flurry
+  (same mechanism class) cannot ride the library's cast-success trigger.
 - The library's `not isForever` rescale gate held throughout both sessions
   (zero mainhand mid-swing UPDATEs) — correct for SotC by design, but it
   means the bar lagged the engine on every SnD cast, which is the reported

@@ -162,32 +162,33 @@ with the classic taxonomy the library encodes:
   log identifies 8617 as Skinning, a real cast with a progress bar (the
   `CastBar-` tag marks bar casts, not engine-internal applications);
   647 appears nowhere in the combat log and is unidentified. The question
-  is open with no supporting evidence either way. **Flurry is rebalanced on
-  Forever** (client-read tooltips, wowforevertalents.com, build 70124):
+  is open with no supporting evidence either way. **Closed by proxy capture
+  (2026-09-30 16:47, Redoubt): NO — a talent-proc aura does not fire
+  `UNIT_SPELLCAST_SUCCEEDED` on this client.** Four Redoubt applications
+  (aura spell ID 20128; two `SPELL_AURA_APPLIED`, two
+  `SPELL_AURA_REFRESH` on re-proc; 5 dose-charges consumed per block via
+  `SPELL_AURA_REMOVED_DOSE`, expiry at 10 s) produced no SUCCEEDED event on
+  any spell ID at the proc instants — the trace's SUCCEEDED channel
+  demonstrably works (it recorded the session's real casts: Seal of Fury,
+  Judgement, the attack toggle), and the combat log has no
+  `SPELL_CAST_SUCCESS` with 20128; the spell appears only in AURA events.
+  The capture also verifies the rewritten trigger live: the procs follow
+  ordinary non-critical incoming WOUND events, not crits — matching the
+  Forever tooltip (10% per damaging melee hit). **Flurry therefore cannot
+  ride the shipped trigger and stays at next-swing correction** (bar long
+  for the in-flight swing after each crit, correct for the rest of the
+  proc; both hands are re-anchored by `PLAYER_SWING`). The only theoretical
+  alternative remains the `UNIT_COMBAT`-crit machinery (talent detection
+  plus uncorrectable 3-charge tracking), which is not recommended;
+  a Blizzard API (haste-application event or unhidden aura presence)
+  remains the long-term path. **Flurry is rebalanced on Forever**
+  (client-read tooltips, wowforevertalents.com, build 70124):
   trigger unchanged (procs on dealing a melee critical strike, next 3
   swings) but values lowered — warrior and shaman rank 1 is +5% (Classic
-  +10%), rank 5 is +25% (Classic +30%). Consequence: any future
-  `dynamic_haste_spells` entries for Flurry are per-rank (factors 1.05 to
-  1.25) and must be measured by capture; the Classic +30% expectation does
-  not apply on this client. **Proxy test at the level cap (20): Redoubt**
-  (paladin Protection tier 1) — same mechanism class as Flurry: a
-  talent-triggered proc aura with no player cast. Note Forever rewrote
-  Redoubt's trigger too: it no longer procs on being critically struck —
-  "Damaging melee attacks against you have a 10% chance to increase your
-  chance to block by 6%. Lasts 10 sec or 5 blocks" — which makes the proxy
-  EASIER: any attacking melee mob procs it at ~10% per incoming hit, no
-  crit dependency. Protocol: one point in Redoubt, fight attacking melee
-  mobs around your level (dummies do not attack), trace on. Analysis: at
-  each Redoubt proc (correlated with incoming `UNIT_COMBAT player WOUND`
-  events in the trace), check whether SUCCEEDED fired with the Redoubt
-  spell ID, and read the aura's spell ID from the log's
-  `SPELL_AURA_APPLIED`. This answers only the surfacing question —
-  Redoubt is a block aura with no swing effect, so Flurry's family (M2?)
-  and rank factors still need a Flurry capture when the cap rises. Neither
-  is in `dynamic_haste_spells`, so the shipped trigger ignores them during
-  the test. Until answered, Flurry applications
-  self-correct at the next `PLAYER_SWING` anchor (bar long for the
-  in-flight swing after each crit, correct for the rest of the proc).
+  +10%), rank 5 is +25% (Classic +30%). If coverage ever becomes
+  possible, `dynamic_haste_spells` entries are per-rank (factors 1.05 to
+  1.25) and must be measured by capture; the Classic +30% expectation
+  does not apply on this client.
 - **Druid form switches (Cat/Bear/Dire Bear): snapshot family.** Confirms
   the existing classification. No change needed on either path: the forms
   are in `prevent_swing_speed_update` on classic, and on Forever absence
@@ -316,14 +317,13 @@ yet exercised in-game.
 
 1. SnD rank 2 (6774) haste factor; other dynamic-family sources on Forever
    (haste potions, procs, Classic+ 7-digit spells).
-2. Flurry surfacing question, proxied by Redoubt at the level cap (beta is
-   capped at 20; Flurry is unreachable — 15-point Fury/Enhancement): does a
-   talent-proc aura application fire `UNIT_SPELLCAST_SUCCEEDED` on this
-   client? Redoubt protocol in section 3.2. If yes, the shipped trigger
-   covers Flurry once a Flurry capture supplies the spell ID and factor
-   (classic +30%) and the guard is reworked to per-spell flags. If no, the
-   decision is next-swing correction (default) versus the
-   `UNIT_COMBAT`-crit machinery (not recommended).
+2. ~~Flurry surfacing question~~ — **resolved 2026-09-30 by the Redoubt
+   proxy capture: proc auras do NOT fire
+   `UNIT_SPELLCAST_SUCCEEDED`** (section 3.2). Flurry stays at
+   next-swing correction; revisit only if Blizzard exposes a
+   haste-application event or unhidden aura presence. If a Flurry capture
+   ever runs at a higher level cap, it would still be recorded for the
+   taxonomy (family confirmation + per-rank factors 1.05-1.25).
 3. The 4453 expiry overshoot (+0.085 over full new speed, single occurrence).
 4. `UNIT_ATTACK_SPEED` fire behavior on Forever (does the event fire at all
    when speeds change?).
