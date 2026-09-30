@@ -883,6 +883,41 @@ or two mobs present, ~2% of cycles this session. No player-parry, cast, or
 outgoing correlation; one cycle contained a player HEAL. Identification
 remains open.
 
+**Fourth verbatim trace 2026-09-30 (combat-log JOIN, build 70124) — the
+combat log works on the beta; PLAYER_SWING precedes the attack by a constant
+0.66 s; UNIT_COMBAT drops nothing; the anomaly is extra-swing-free and
+seal-proc-free; the early band is back in question.** `/combatlog` writes a
+full advanced combat log on the beta client (Logs\WoWCombatLog-*.txt,
+COMBAT_LOG_VERSION 22, full GUIDs and names) — the M1 B3 item 7 probe
+resolved; join offsets refined to constants (parries: trace GetTime +
+31075.643 = log wall time; swings: +0.660 more). Findings: (1) **PLAYER_SWING
+↔ swing damage 1:1** — 489 PLAYER_SWING events match 489 combat-log swing
+attempts (LANDED + MISSED, deduped); no silent swings, no extra swings
+without PLAYER_SWING. (2) **A constant +0.66 s pipeline**: the swing's
+damage lands 0.660 s after PLAYER_SWING (median of 489; on a 2.4 s weapon
+that is 27.5% of the swing — possibly weapon-speed-proportional,
+unverified). PLAYER_SWING is therefore a pre-attack event, not the attack
+resolution; the engine's true swing timeline is shifted, which matters for
+interpreting the parry threshold (a parry at PLAYER_SWING-t_p sits at
+engine-elapsed ≈ t_p + 0.66). (3) **UNIT_COMBAT coverage complete**: 64/66
+parries reported on time, 2/66 delayed by ~0.83 s (not dropped); the haste
+math is time-invariant, so a late application still predicts the correct
+landing. (4) **The rule verifies again**: 16 more in-band parries land at
+parry + (remaining − 0.4w) within tolerance, deep band included.
+(5) **The anomaly persists unexplained**: ~25–49 early landings
+(classification precision is offset-limited) with NO parry in either source
+— not extra swings (1:1), not seal procs (zero 1311656 spell-damage events
+in the log), not spell parries (none). (6) **The early band is back in
+question**: 9 early-band parries (t_p 0.017–0.673, several combat-log-timed)
+were followed by 1.44-family landings, against earlier sessions' ~14 clean
+no-effects at the same t_p range — either the threshold is lower and noisy,
+or these are anomaly coincidences (the anomaly rate this session was 5–10%,
+so ~4–5 of the 9 could be chance; 9 observed is mildly enriched, not
+conclusive). Next probes: a join session with parries against a mob that
+never attacks from the front (isolates anomaly-vs-parry), and aligning on a
+fast shared event (a spellcast GUID) to shrink the ±0.1 s offset error
+before trusting boundary classifications.
+
 - **The math is fully portable.** The block at `:358–377` only uses values the library
   already holds as plain numbers: `defender.mainExpirationTime`, the cached
   `defender.mainSpeed` (on Forever, refreshed by `PLAYER_SWING`'s plain payload), and
