@@ -1680,3 +1680,32 @@ rejected/deferred options table and the reference index — is maintained in
 `docs/IMPROVEMENT_PLAN.md`. Kept separate because its scope (all clients plus
 classic flavors) exceeds this document's Forever/Midnight investigation record.
 Section references of the form §N in that document point back into this file.
+
+**Fifth verbatim trace 2026-09-30 (3.4 s weapon join, build 70124) — the rule
+scales with weapon speed and verifies completely; the pipeline delay is
+absolute; the anomaly scales with the cycle and remains unidentified.**
+264 anchors, 42 parries, W = 3.4 s. (1) **The shipped rule verifies at a
+second weapon speed**: threshold 0.7w = 2.38 (all clean no-effect samples
+above it), reduction 0.4w = 1.36 (in-band landings at parry + (r − 1.36) to
+milliseconds), deep parries clamp-0 (r 0.09–0.39 fired the swing in the
+parry's frame, +0.10–0.15). With the 2.4 s sessions, the formula is now
+verified at two weapon speeds — weapon-proportional throughout.
+(2) **The PLAYER_SWING → damage pipeline is ABSOLUTE, not
+weapon-proportional**: median 0.649 s at 3.4 (vs 0.660 at 2.4; proportional
+would be 0.935). A fixed ~0.65 s pre-attack lead. (3) **The anomaly family
+scales with the cycle**: the no-parry early landings sit at ratios
+0.69–0.91 of the cycle at 3.4, matching the 0.69–0.86 ratios at 2.4 — a
+swing-cycle-relative mechanism, not a fixed-time proc.
+(4) **Blazewind Blast (item 1282503) is RULED OUT as the anomaly trigger**:
+a context scan suggested it (9/12 anomaly cycles showed a cast in-window),
+but the baseline disproves causation — the item is used in 15% of normal
+cycles vs 14% of anomaly cycles, and only 9% of Blazewind-containing cycles
+land off-cadence, indistinguishable from the baseline anomaly rate. False
+positive caught by the baseline check. (5) The anomaly remains unidentified:
+not parries (either channel), not extra swings (1:1 again at 3.4), not
+casts (Blazewind baseline), not seal procs. Residual candidates: outgoing
+miss interactions (two anomaly cycles had the anchor swing parried/missed
+at the +0.6 pipeline point) — unconfirmed. The early-band "full-cut" readings
+(five 0.6w landings after early-band parries this session) remain confounded
+with the 0.6w anomaly shape. No code change: the shipped rule verified in
+every band at both weapon speeds.
