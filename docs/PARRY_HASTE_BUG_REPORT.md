@@ -64,7 +64,7 @@ full cut and the tail should respect the 20% floor.
 Related observation (one line): separately, ~2–5% of swing cycles in the
 traces land early (at 60% of the swing time, or 0.69–0.86 of it) with no
 parry event at all — possibly the same mechanism dropping events, possibly
-unrelated; happy to share the trace data.
+unrelated; the raw captures are in docs/evidence/ in the library repository.
 Another observation from the same join: the swing's damage lands a constant
 0.65 s AFTER the PLAYER_SWING event (median; 0.660 s over 489 swings at
 2.4 s weapon speed and 0.649 s over 264 swings at 3.4 s - the delay is
