@@ -342,6 +342,12 @@ Side channels assessed against the retail UI source
   mechanism exists in this client but nothing probed populates it on this
   build — readable out of combat only, hidden whenever restrictions are
   active. That is the factual basis for the request below.
+  **Functionally confirmed mid-combat (build 70124): with Devotion Aura
+  active, `C_UnitAuras.GetPlayerAuraBySpellID(10290)` returns nil during
+  combat** — the ContextuallySecret classification is behaviorally
+  verified, not just reported by the classification query. The aura-access
+  investigation is closed: no aura channel exists mid-combat on this
+  client, for any aura class probed.
 - **Retail runs a community-request whitelist process** (12.0 planned API
   changes): Maelstrom Weapon, Skyriding spells, the GCD spell and
   combat-res spells received aura/cooldown secrecy exemptions on request;
