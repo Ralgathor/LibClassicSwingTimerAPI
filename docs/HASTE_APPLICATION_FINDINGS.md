@@ -156,15 +156,17 @@ with the classic taxonomy the library encodes:
   `prevent_swing_speed_update` and rides the generic rescale. **Design gap
   on Forever**: Flurry is a crit-proc aura — its application fires no
   `UNIT_SPELLCAST_SUCCEEDED`, so the shipped cast-success trigger cannot
-  cover it. Flurry applications currently self-correct at the next
+  cover it. An aura-presence trigger (the natural fit, which would also
+  have covered Flurry's charge expiry and SnD expiry) was probed and is
+  **ruled out**: aura data is blocked mid-combat on this client (section
+  4). Flurry applications currently self-correct at the next
   `PLAYER_SWING` anchor (bar long for the in-flight swing after each crit,
-  correct for the rest of the proc). Mid-swing coverage would need: a
-  warrior/shaman capture confirming Flurry is M2 on Forever and identifying
-  the application signal (candidate: `UNIT_COMBAT` `CRITICAL` flags on the
-  player's outgoing melee — the trace rig already records them), talent
-  detection, charge tracking (3 charges consumed per swing, refreshed on
-  crits), and the guard reworked from the single `dynamicHasteActive` slot
-  to per-spell flags. Nothing built speculatively — capture first.
+  correct for the rest of the proc). The only remaining candidate signal
+  is `UNIT_COMBAT` `CRITICAL` flags on the player's outgoing melee — which
+  would additionally require talent detection and full 3-charge tracking
+  with no aura ground truth to correct against. Left at next-swing
+  correction unless a capture shows the crit signal is reliable enough to
+  justify that machinery.
 - **Druid form switches (Cat/Bear/Dire Bear): snapshot family.** Confirms
   the existing classification. No change needed on either path: the forms
   are in `prevent_swing_speed_update` on classic, and on Forever absence
@@ -184,6 +186,22 @@ combat is a different event/unit pair and stayed plain here.)
 Still unprobed: whether player `SUCCEEDED` stays plain in restricted instanced
 content, and whether `UNIT_ATTACK_SPEED` fires at all on Forever (its payload
 is secret mid-combat either way, so it cannot drive the rescale).
+
+**Aura APIs are blocked mid-combat (probe 2026-09-30, follow-up to the
+dynamic-haste work):** with SnD actively hasting the swings, open-world
+combat, `C_UnitAuras.GetPlayerAuraBySpellID(5171)` returns nil, and
+`C_UnitAuras.GetAuraDataByIndex("player", "HELPFUL", i)` raises
+"GetAuraDataByIndex(): Auras cannot be accessed when secret while tainted
+by '*** ForceTaint_Strong ***'". `UNIT_AURA` itself fires fine (probe
+listener confirmed) and `C_UnitAuras.GetPlayerAuraBySpellID` exists — the
+data behind them is what is hidden. This is the aura-secrecy branch of the
+Midnight restriction system (`C_Secrets.ShouldUnitAuraInstanceBeSecret`
+exists on the client) enforced in ordinary open-world combat on the beta,
+not just in restricted content. Consequences: aura presence cannot drive
+any mid-combat logic on this client, `UNIT_SPELLCAST_SUCCEEDED` remains
+the only plain dynamic-haste signal, and the M1 script B2 aura probe
+(`UnitAura` with Maelstrom stacks up) will error mid-combat on Forever —
+run it out of combat.
 
 ## 5. What this means for the rescale gate
 
@@ -222,9 +240,11 @@ Forever regardless of the gate.
   the SotC control shows the library's next-swing re-anchoring is exactly
   right for this family in both directions, so absence from the table is
   the whole mechanism.
-- Expiry: no plain removal signal verified (`UNIT_AURA` secrecy unprobed),
-  so expiry lengthening cannot be mirrored yet — accept one-swing lag on
-  expiry, self-corrected at the next `PLAYER_SWING` anchor. Documented.
+- Expiry: **no removal signal exists** — aura data is blocked mid-combat
+  (section 4), so expiry lengthening cannot be mirrored; accept one-swing
+  lag on expiry, self-corrected at the next `PLAYER_SWING` anchor.
+  Documented. (A Blizzard API ask remains the long-term path: expose
+  haste-application events or unhide aura presence for the player.)
 - Stacking haste (SnD + proc auras) is unprobed; the table starts with
   verified spells only and grows by capture. Two simultaneous dynamic auras
   would share the single guard flag — rework to per-spell flags before
@@ -275,13 +295,12 @@ yet exercised in-game.
 
 1. SnD rank 2 (6774) haste factor; other dynamic-family sources on Forever
    (haste potions, procs, Classic+ 7-digit spells).
-2. Flurry capture (warrior or shaman, Forever): confirm the dynamic family
-   mid-swing, measure the factor (classic +30%), and identify the
-   application signal — the rig's `UNIT_COMBAT` `CRITICAL` records are the
-   candidate trigger. Also settles whether the anchor payload stream tracks
-   the 3-charge consumption cleanly. Prerequisite for any Flurry rescale
-   code: the single `dynamicHasteActive` guard must become per-spell flags
-   first.
+2. Flurry coverage decision: aura presence is ruled out (section 4); the
+   only remaining signal is `UNIT_COMBAT` `CRITICAL` on outgoing melee,
+   which would need talent detection and uncorrectable 3-charge tracking.
+   Default: leave Flurry at next-swing correction. A warrior/shaman capture
+   (M2 confirmation + factor, classic +30%) is still worth having for the
+   findings record regardless of the implementation decision.
 3. The 4453 expiry overshoot (+0.085 over full new speed, single occurrence).
 4. `UNIT_ATTACK_SPEED` fire behavior on Forever (does the event fire at all
    when speeds change?).

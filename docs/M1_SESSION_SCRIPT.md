@@ -62,6 +62,11 @@ With and without Improved Slam talented (talent 12862: removes the delay):
 
 ### B2. Maelstrom Weapon (candidate prevent_reset_swing_auras, Forever) - Enhancement shaman
 
+Caveat (2026-09-30 probe): aura data is blocked mid-combat on WoW: Forever -
+UnitAura/C_UnitAuras error with "Auras cannot be accessed when secret". Run
+this probe out of combat, or read the aura spell ID from the combat log's
+SPELL_AURA_APPLIED records instead (docs/HASTE_APPLICATION_FINDINGS.md s4).
+
 1. `/run local t={} for i=1,40 do local n,_,_,_,_,_,_,_,_,sid=UnitAura("player",i) if n then t[#t+1]=n.."="..sid end end print(table.concat(t,", "))`
    with stacks up - capture the aura spell ID.
 2. Cast Lightning Bolt at 5 stacks (instant at rank 5): confirm it fires
