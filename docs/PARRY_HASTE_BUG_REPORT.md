@@ -79,10 +79,10 @@ in the library repository (LibClassicSwingTimerAPI).
 # AMENDMENT (2026-09-30, later analysis): the earlier report was wrong - the
 engine implements the classic rule exactly; the real issue is event timing
 
-## In-game short form (242 characters - self-contained; the in-game triager reads only this, so no references to prior reports, repos, or Discord)
+## In-game short form (218 characters - self-contained; the in-game triager reads only this - no internal build shorthands, no repo, no prior-report references)
 
 ```
-Swing event timing: PLAYER_SWING fires ~0.45s before the attack resolves; UNIT_COMBAT PARRY trails the real parry by 0.1-0.3s (vs combat log, b70124). Addons correlating them get skewed swing timers. Document intended timing, or align events?
+PLAYER_SWING fires ~0.45s before the attack resolves; UNIT_COMBAT PARRY trails the real parry by 0.1-0.3s (vs combat log). Addons correlating them get skewed swing timers. Document intended timing, or align the events?
 ```
 
 ## Full amendment (forum / dev thread)
