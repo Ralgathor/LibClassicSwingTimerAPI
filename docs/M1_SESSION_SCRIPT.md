@@ -9,6 +9,12 @@ Client: WoW: Forever beta. Suggested: loglevel 2 + BugSack, and install the
 current 4everSwingTimer build (it doubles as the test rig - its bars surface
 exactly the library events under test).
 
+LibStub minor is equal (34) on the 2.2.0-beta2 release and the
+feature/forever-support build with the parry fix, so load order decides
+which library copy wins: replace the embedded LibClassicSwingTimerAPI.lua
+inside 4everSwingTimer's Libs/ with the fix-candidate build for the parry
+items; do not rely on a second copy loading later.
+
 ## Part A - library §8.9 remainders
 
 ### A1. Dual-wield off-hand on Forever (never verified)
@@ -78,8 +84,11 @@ With and without Improved Slam talented (talent 12862: removes the delay):
    (amber); sustained strafe holds amber until standing (recast signature).
 2. Cast mid-swing: interrupt treatment - red fill + red pip + outer halo +
    shake, then restart.
-3. Parry: green stack (fill + spark + halo + pop) only on real parries -
-   ordinary swings stay quiet (frame-race fix).
+3. Parry: green stack (fill + spark + halo + pop) on real parries only.
+   With the parry-fix library loaded the stack fires in real time at the
+   parry (mid-swing UNIT_SWING_TIMER_UPDATE) and the landing stays quiet;
+   on the beta2 library it fires at the hastened landing (early-landing
+   fallback) and ordinary swings stay quiet (frame-race fix).
 4. Dungeon pull mid-fight: no Lua errors, bars accurate (restricted content).
 5. Reload: settings, position, palette persist.
 
