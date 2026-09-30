@@ -40,36 +40,50 @@ Line formats:
 - `LIB_UNIT_SWING_TIMER_UPDATE <GetTime> player <speed> <expiry> mainhand`
 - `SESSION <GetTime> <version> <buildNumber> <wall-clock date>`
 
-## Files: SnD mid-swing haste capture (2026-09-30 15:41)
+## Files: haste-application captures (2026-09-30 15:41 SnD, 15:55 SotC)
 
-Backs `HASTE_APPLICATION_FINDINGS.md`. Rogue `Rolhgar`
-(GUID `Player-4620-011E60D2`), dual-wield (mainhand 1.683, offhand 1.782),
-Slice and Dice rank 1 (5171, +20% measured: 1.683→1.403 / 1.782→1.485).
+Backs `HASTE_APPLICATION_FINDINGS.md`. Two sessions in one client run:
+
+- SnD session (15:41): rogue `Rolhgar` (GUID `Player-4620-011E60D2`),
+  dual-wield (mainhand 1.683, offhand 1.782), Slice and Dice rank 1 (5171,
+  +20% measured: 1.683→1.403 / 1.782→1.485).
+- SotC control session (15:55): paladin `Ralgathor` (GUID
+  `Player-4620-0095BF89`), one 3.4 two-hander, Seal of the Crusader rank 2
+  (20162, 3.400→2.428, x1.4003), removed mid-swing by casting Seal of
+  Righteousness (seals replace each other).
+
 Both files are verbatim copies from the live beta client.
 
-### `4everSwingTimer-2026-09-30-snd.lua` (1.0 MB)
+### `4everSwingTimer-2026-09-30.lua` (1.0 MB)
 
 The full accumulated `FourEverSwingTimerTrace` SavedVariables table at the
-end of the session (all earlier sessions included; the SnD session is the
-segment after the `SESSION 4318.226 ... 15:41:29` marker — its GetTime range
-numerically overlaps the file's first paladin session, so analysis must
-select by file position, not by GetTime value). The SnD session records 121
-mainhand and 106 offhand PLAYER_SWING anchors, 19 SnD and 20 Sinister Strike
-`UNIT_SPELLCAST_SUCCEEDED` casts, and 17 offhand combat-start
+end of the SotC session (all earlier sessions included; the SnD session is
+the segment after the `SESSION 4318.226 ... 15:41:29` marker, the SotC
+session after `SESSION 5170.413 ... 15:55:41` — both segments' GetTime
+ranges numerically overlap the file's first paladin session, so analysis
+must select by file position, not by GetTime value). The SnD session records
+121 mainhand and 106 offhand PLAYER_SWING anchors, 19 SnD and 20 Sinister
+Strike `UNIT_SPELLCAST_SUCCEEDED` casts, and 17 offhand combat-start
 `LIB_UNIT_SWING_TIMER_UPDATE` anchors (zero mainhand mid-swing updates —
-the rescale gate held throughout).
+the rescale gate held throughout). The SotC session records 13 mainhand
+anchors, 4 SotC casts and 3 seal-replacement removals in swing windows.
 
-### `WoWCombatLog-093026_154137.txt` (250 KB)
+### `WoWCombatLog-093026_154137.txt` (300 KB)
 
-The client's advanced combat log for the SnD session. Player-attributed
-swing attempts: `SWING_DAMAGE_LANDED` + `SWING_MISSED` (source = player
-GUID; 157 landed + 70 missed = 227 = the trace's 121 + 106 anchors).
-SnD appears as `SPELL_AURA_APPLIED`/`SPELL_AURA_REMOVED` 5171 (15 each —
-recasts replace the aura), with `SPELL_AURA_APPLIED` landing 4 ms after the
-matching `SPELL_CAST_SUCCESS` in the same channel. Note for parsing: unit
-names contain spaces inside quotes ("Ornery Galestrider"), so
-whitespace-based field splitting corrupts combat-log lines — split on
-commas only.
+The client's advanced combat log, append-mode across BOTH sessions (SnD
+first, SotC after the 15:55 boundary — split there for per-session analysis).
+Player-attributed swing attempts: `SWING_DAMAGE_LANDED` + `SWING_MISSED`
+(source = player GUID). SnD session: 157 landed + 70 missed = 227 = the
+trace's 121 + 106 anchors. SotC session: 12 landed + 1 missed = 13 = the
+trace's 13 anchors, with one continuous 37–815 damage profile across both
+speed windows (single weapon — the 2.428 anchors are the SotC-hasted value,
+not a second weapon). SnD appears as `SPELL_AURA_APPLIED`/`REMOVED` 5171
+(15 each — recasts replace the aura), with `SPELL_AURA_APPLIED` landing
+4 ms after the matching `SPELL_CAST_SUCCESS` in the same channel; the SotC
+timeline shows each `SPELL_AURA_REMOVED` 20162 at the same instant as the
+replacing SoR `SPELL_AURA_APPLIED`. Note for parsing: unit names contain
+spaces inside quotes ("Ornery Galestrider"), so whitespace-based field
+splitting corrupts combat-log lines — split on commas only.
 
 ## How to reproduce the join
 
@@ -116,20 +130,27 @@ minus trace GetTime).
   parry with a log record; the earlier "2/66 delayed ~0.83 s" reading was
   the dispatch lag seen through a tight join window).
 
-## What the SnD capture establishes (see HASTE_APPLICATION_FINDINGS.md)
+## What the haste captures establish (see HASTE_APPLICATION_FINDINGS.md)
 
 - **Dynamic-family haste applies mid-swing on Forever**: SnD rescales the
   in-flight swing's remaining time proportionally (13 clean gain windows at
   25–82% offsets; the snapshot and progress-preserving models are rejected
   everywhere). Both hands are affected.
-- **Expiry lengthens dynamically too** (four of five expiry windows land
+- **SnD expiry lengthens dynamically too** (four of five expiry windows land
   between the hasted and base speeds; snapshot-on-removal rejected). One
   window overshoots the new full speed by +0.085 s — open anomaly.
+- **Snapshot-family haste does NOT**: the SotC control shows M0 in both
+  directions (4 gain windows at 19–59% and 3 seal-replacement removal
+  windows at 33–55%, all residuals within ±0.033; M2 off by 0.39–0.79 s).
+  The in-flight swing completes on the speed it started with; the new speed
+  applies from the next swing.
 - **Player UNIT_SPELLCAST_SUCCEEDED spell IDs stay plain mid-combat** (all
-  19 SnD casts recorded readable in open-world fighting).
-- The library's `not isForever` rescale gate held throughout (zero mainhand
-  mid-swing UPDATEs) — meaning the bar lagged the engine on every SnD cast,
-  which is the reported anomaly.
+  19 SnD casts and all SotC/SoR/Judgement casts recorded readable in
+  open-world fighting).
+- The library's `not isForever` rescale gate held throughout both sessions
+  (zero mainhand mid-swing UPDATEs) — correct for SotC by design, but it
+  means the bar lagged the engine on every SnD cast, which is the reported
+  anomaly.
 
 ## Caveats
 
@@ -140,6 +161,6 @@ minus trace GetTime).
   12 parries) predates the trace v2 SESSION markers and the spellcast /
   library-update recording.
 - The SnD trace file is the accumulated SavedVariables across ALL sessions;
-  the rogue segment must be selected by file position (after the
-  `SESSION 4318.226` line), because its GetTime values numerically overlap
-  the first paladin session's.
+  the rogue and SotC segments must be selected by file position (after the
+  `SESSION 4318.226` and `SESSION 5170.413` lines respectively), because
+  their GetTime values numerically overlap the first paladin session's.

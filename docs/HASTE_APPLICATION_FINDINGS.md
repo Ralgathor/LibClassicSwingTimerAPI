@@ -1,8 +1,10 @@
 # Haste application timing on WoW: Forever — investigation findings
 
 Status: **VERIFIED by capture** (rogue Slice and Dice session, 2026-09-30
-15:41, build 70124). Evidence: `docs/evidence/4everSwingTimer-2026-09-30-snd.lua`
-(verbatim SavedVariables copy) and `docs/evidence/WoWCombatLog-093026_154137.txt`.
+15:41 + paladin Seal of the Crusader control session, 15:55, build 70124).
+Evidence: `docs/evidence/4everSwingTimer-2026-09-30.lua` (verbatim
+SavedVariables copy, both sessions) and
+`docs/evidence/WoWCombatLog-093026_154137.txt` (both sessions, append-mode).
 No code changes made yet; the fix design is in section 6.
 
 ## 1. The report
@@ -83,7 +85,7 @@ bar ran long for the remainder of the first swing after every SnD cast —
 the engine's swing landed early and `PLAYER_SWING` re-anchored. That is the
 visual anomaly the user reported.
 
-## 3. The two-family taxonomy on Forever
+## 3. The two-family taxonomy on Forever — both families captured same-day
 
 The classic library path already encodes the split: `prevent_swing_speed_update`
 (druid forms + SotC ranks 21082, 20162, 20305–20308) suppresses the mid-swing
@@ -91,10 +93,52 @@ rescale — the snapshot family; everything else rescales (line 621). The
 community record (WeakAuras2 issue #3205, TBC) documents the same split and
 SotC as "snapshotted in both ways". On Forever:
 
-- **Dynamic family**: SnD confirmed mid-swing, both directions (this capture).
-- **Snapshot family**: SotC observed next-swing-only (§8.9, 2026-09-25).
-  No same-session control was run in this capture; the taxonomy claim rests
-  on those two independent observations.
+- **Dynamic family**: SnD confirmed mid-swing, both directions (section 2).
+- **Snapshot family**: SotC confirmed next-swing-only, both directions — the
+  §8.9 observation (2026-09-25), now re-verified as a same-day control on
+  the same rig and build as the SnD capture.
+
+### 3.1 SotC control capture (2026-09-30 15:55)
+
+Paladin `Ralgathor` (GUID `Player-4620-0095BF89`), one 3.4 two-hander
+(the combat log confirms a single weapon: one continuous 37–815 damage
+profile across both speed windows, 12 LANDED + 1 MISSED = 13 = the trace's
+13 mainhand anchors). Seal of the Crusader rank 2 (spell 20162) hasted the
+weapon 3.400 → **2.428** (x1.4003 — matching the §8.9 observation's
+2.4 → 1.714, x1.4002: SotC rank 2 is ~+40% with the same small non-integer
+deviation in both captures, engine-internal haste arithmetic). SotC was
+applied by casting the seal and removed mid-swing by casting Seal of
+Righteousness (seals replace each other; confirmed in the combat log's
+`SPELL_AURA_REMOVED` timeline). Seven transition windows, all M0:
+
+| direction | offset | measured P | M0 resid | M2 resid |
+|---|---|---|---|---|
+| gain (SotC cast) | 19% | 3.408 | +0.008 | +0.792 |
+| gain (SotC cast) | 26% | 3.409 | +0.009 | +0.733 |
+| gain (SotC cast) | 30% | 3.433 | +0.033 | +0.718 |
+| gain (SotC cast) | 59% | 3.396 | -0.004 | +0.391 |
+| removal (SoR replaces) | 33% | 2.442 | +0.014 | -0.637 |
+| removal (SoR replaces) | 52% | 2.424 | -0.004 | -0.468 |
+| removal (SoR replaces) | 55% | 2.441 | +0.013 | -0.425 |
+
+- **Gain**: the in-flight swing always completed on the old (unhasted)
+  schedule; the hasted speed appears from the next swing. M2 is off by
+  0.39–0.79 s.
+- **Removal**: the in-flight swing always completed on its hasted schedule
+  even though the aura was gone — "the attack speed bonus stays on until
+  the next swing" (TheSorm's verbatim claim for classic-era SotC).
+
+Same client build (70124), same rig, same day as the SnD capture: SnD is M2
+in both directions, SotC is M0 in both directions. The classic-era two-family
+taxonomy carries to Forever verbatim, and the classic library path's design
+(rescale at line 621 + `prevent_swing_speed_update` skip) is the correct
+target model.
+
+Retroactive flag: the §8.5 dungeon notes record a "weapon swap
+(speed 2.428 → 3.400)". 2.428 is exactly the SotC-hasted value of a 3.4
+weapon, so those transitions may have been seal transitions misread as
+weapon swaps. That capture (2026-09-25) is not in the archive; flagged for
+re-examination, not asserted.
 
 The §8.9 SotC test was therefore never evidence about the dynamic family —
 the `not isForever` gate over-generalized a snapshot-family result, exactly
@@ -132,9 +176,15 @@ Forever regardless of the gate.
   capture. Rank 2 (6774) percentage needs a probe (classic-era +30%).
   Unknown spell IDs: keep current behavior (re-anchor at the next
   `PLAYER_SWING`).
-- Snapshot family (SotC ranks, druid forms): no rescale — matching both the
-  classic path's `prevent_swing_speed_update` and the §8.9 Forever
-  observation. The skip must be SUCCEEDED-driven on Forever (no CLEU).
+- Snapshot family (SotC ranks, druid forms): **no special handling needed**
+  — the SotC control shows the library's next-swing re-anchoring is exactly
+  right for this family in both directions. The in-flight swing completes on
+  the speed it started with (the library's model), and `PLAYER_SWING`
+  re-anchors with the new speed at the next swing. SotC and the forms simply
+  do not go in the dynamic-haste table. (The classic path's
+  `prevent_swing_speed_update` skip exists to stop a UNIT_ATTACK_SPEED-driven
+  rescale; on Forever that path cannot fire mid-combat anyway, so absence
+  from the table is the whole mechanism.)
 - Expiry: no plain removal signal verified (`UNIT_AURA` secrecy unprobed),
   so expiry lengthening cannot be mirrored yet — accept one-swing lag on
   expiry, self-corrected at the next `PLAYER_SWING` anchor. Documented.
@@ -143,12 +193,13 @@ Forever regardless of the gate.
 
 ## 7. Open items
 
-1. SotC control run in the same style as this capture (expected M0) — closes
-   the taxonomy as same-session evidence.
-2. SnD rank 2 (6774) haste factor; other dynamic-family sources on Forever
+1. SnD rank 2 (6774) haste factor; other dynamic-family sources on Forever
    (haste potions, procs, Classic+ 7-digit spells).
-3. The 4453 expiry overshoot (+0.085 over full new speed, single occurrence).
-4. `UNIT_ATTACK_SPEED` fire behavior on Forever (does the event fire at all
+2. The 4453 expiry overshoot (+0.085 over full new speed, single occurrence).
+3. `UNIT_ATTACK_SPEED` fire behavior on Forever (does the event fire at all
    when speeds change?).
-5. Player `SUCCEEDED` spell-ID secrecy in restricted instanced content
-   (open-world combat verified plain by this capture).
+4. Player `SUCCEEDED` spell-ID secrecy in restricted instanced content
+   (open-world combat verified plain by the SnD capture).
+5. Re-examine the §8.5 dungeon "weapon swap 2.428 → 3.400" reading against
+   the SotC-hasted hypothesis (2.428 = 3.4/1.4); the 2026-09-25 capture is
+   not archived.
