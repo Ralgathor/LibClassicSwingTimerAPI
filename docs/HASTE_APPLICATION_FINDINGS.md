@@ -153,20 +153,24 @@ with the classic taxonomy the library encodes:
 
 - **Flurry (warrior and shaman talent proc): dynamic family.** Consistent
   with the classic path, where Flurry is absent from
-  `prevent_swing_speed_update` and rides the generic rescale. **Design gap
-  on Forever**: Flurry is a crit-proc aura — its application fires no
-  `UNIT_SPELLCAST_SUCCEEDED`, so the shipped cast-success trigger cannot
-  cover it. An aura-presence trigger (the natural fit, which would also
-  have covered Flurry's charge expiry and SnD expiry) was probed and is
-  **ruled out**: aura data is blocked mid-combat on this client (section
-  4). Flurry applications currently self-correct at the next
-  `PLAYER_SWING` anchor (bar long for the in-flight swing after each crit,
-  correct for the rest of the proc). The only remaining candidate signal
-  is `UNIT_COMBAT` `CRITICAL` flags on the player's outgoing melee — which
-  would additionally require talent detection and full 3-charge tracking
-  with no aura ground truth to correct against. Left at next-swing
-  correction unless a capture shows the crit signal is reliable enough to
-  justify that machinery.
+  `prevent_swing_speed_update` and rides the generic rescale. **Open
+  question on Forever: does the proc fire
+  `UNIT_SPELLCAST_SUCCEEDED`?** The classic-engine assumption is no (proc
+  auras are not casts), but this client demonstrably fires SUCCEEDED for
+  non-cast effect applications: the captures record spells 8617 and 647
+  with `CastBar-`-prefixed castGUIDs, while every real cast (SnD, Sinister
+  Strike, Judgement) carries a normal `Cast-` GUID — a distinct family of
+  engine-internal applications surfaced on the same event. If Flurry's
+  proc arrives that way, the shipped trigger already covers it once the
+  spell ID and factor are in the table. If it does not, the remaining
+  candidate is `UNIT_COMBAT` `CRITICAL` on outgoing melee plus talent
+  detection and uncorrectable 3-charge tracking (poor). Until then Flurry
+  applications self-correct at the next `PLAYER_SWING` anchor (bar long
+  for the in-flight swing after each crit, correct for the rest of the
+  proc). A warrior/shaman capture decides: trace on, auto-attack until
+  crits proc Flurry mid-swing, then check the trace for SUCCEEDED events
+  at the crit instants (and read the proc's spell ID and the anchor
+  payload's speed drop for the factor).
 - **Druid form switches (Cat/Bear/Dire Bear): snapshot family.** Confirms
   the existing classification. No change needed on either path: the forms
   are in `prevent_swing_speed_update` on classic, and on Forever absence
@@ -295,12 +299,13 @@ yet exercised in-game.
 
 1. SnD rank 2 (6774) haste factor; other dynamic-family sources on Forever
    (haste potions, procs, Classic+ 7-digit spells).
-2. Flurry coverage decision: aura presence is ruled out (section 4); the
-   only remaining signal is `UNIT_COMBAT` `CRITICAL` on outgoing melee,
-   which would need talent detection and uncorrectable 3-charge tracking.
-   Default: leave Flurry at next-swing correction. A warrior/shaman capture
-   (M2 confirmation + factor, classic +30%) is still worth having for the
-   findings record regardless of the implementation decision.
+2. Flurry capture (warrior or shaman, Forever): does the proc fire
+   `UNIT_SPELLCAST_SUCCEEDED` (possibly with a `CastBar-` castGUID, the
+   client's non-cast application family — see 3.2)? If yes, the shipped
+   trigger covers Flurry once the spell ID and factor (classic +30%) are
+   captured and the guard is reworked to per-spell flags. If no, the
+   decision is next-swing correction (default) versus the
+   `UNIT_COMBAT`-crit machinery (not recommended).
 3. The 4453 expiry overshoot (+0.085 over full new speed, single occurrence).
 4. `UNIT_ATTACK_SPEED` fire behavior on Forever (does the event fire at all
    when speeds change?).
