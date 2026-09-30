@@ -852,6 +852,32 @@ probes: single-mob fights to isolate the anomaly; more mid-band parries
 (t_p 0.72–1.4) hoping for normal-cadence follow-ups to bracket the
 threshold from above.
 
+**Third verbatim trace 2026-09-30 (near-single-mob session, build 70124) —
+the clamp-0 behavior is settled unambiguously; the anomaly is confirmed
+intrinsic; the first over-report case is recorded.** 236 anchors, 13 player
+parries. (1) **No floor — settled**: a deep parry at t_p 2.169 (remaining
+0.231) fired the swing IN THE PARRY'S OWN FRAME (`PLAYER_SWING 7477.366` and
+`player PARRY 7477.366`, same stamp; 0.231 s ahead of the natural cadence).
+The landing (anchor + 2.169) is outside both anomaly families (anchor+0.6w
+and 1.65–2.06 gaps), so it is not confounded; a floored rule would have
+DELAYED the swing to +0.48; the engine dispatched immediately, not at a
+~0.2 s update as one earlier sample suggested (that sample was likely an
+anomaly coincidence). (2) **Threshold bracket from clean data only**:
+no-effect ≤ t_p 0.718, effective ≥ 0.934 (three more sub-30 ms pipeline
+matches at t_p 0.934/1.068/1.301), so the threshold lies in (0.718, 0.934);
+the three sub-0.72 "effective" readings (t_p 0.534/0.617/0.647) each admit
+the anomaly explanation, so the parsimonious read keeps the shipped 0.7w
+guard at the clean bottom edge. (3) **First over-report recorded**:
+at t_p 1.068 (in the effect band) the library applied haste but the
+engine's swing came 1.73 s LATE (a 4.13 s cycle — out-of-range or mob-death
+noise; the model cannot see melee range). Bounded: the bar re-anchors at
+the next real swing. Noted as a known limitation for all timer modeling,
+not a formula issue. (4) **The anomaly is intrinsic**, not multi-mob
+noise: four more clean no-parry early landings (gaps 1.368–1.735) with one
+or two mobs present, ~2% of cycles this session. No player-parry, cast, or
+outgoing correlation; one cycle contained a player HEAL. Identification
+remains open.
+
 - **The math is fully portable.** The block at `:358–377` only uses values the library
   already holds as plain numbers: `defender.mainExpirationTime`, the cached
   `defender.mainSpeed` (on Forever, refreshed by `PLAYER_SWING`'s plain payload), and
