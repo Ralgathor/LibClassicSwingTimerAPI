@@ -23,6 +23,16 @@ Known unverified in this build: a live in-game run of the Forever parry-haste ba
 
 * Fix a hard Lua error in the `UNIT_SPELLCAST_*` handlers in restricted content on WoW: Forever and 12.x clients: a secret spell ID in the event payload cannot index the spell-ID tables. Secret IDs now degrade to "unknown spell" - cast-state flags still update (so the cast-based swing reset still fires), while spell-ID lookups and spell-specific special cases are skipped.
 
+### Changed
+
+- Internal cleanup, no behavior change: a shared ReadAttackSpeeds helper for the
+  secret-guarded UnitAttackSpeed read, a shared Unit:ResetTransientState for the
+  identical state clears on PLAYER_ENTERING_WORLD / PLAYER_TARGET_CHANGED, the dead
+  `and unit` condition removed from the CLEU SPELL_CAST_START branch, the identical
+  main-hand reset hoisted out of the retail split in UNIT_SPELLCAST_CHANNEL_STOP, and
+  the Forever/classic event registration folded into one if/else.
+
+
 ## [2.2.0-beta2] - 2026-09-28
 
 Known unverified in this beta: off-hand anchoring on WoW: Forever (dual-wield `PLAYER_SWING`) and the Classic Era regression pass - feedback welcome.

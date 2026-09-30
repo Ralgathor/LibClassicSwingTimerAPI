@@ -26,6 +26,17 @@ local function ResolveSecret(value, fallback)
 	return value
 end
 
+-- UnitAttackSpeed with the 12.x secret-value guard: mid-combat reads in
+-- restricted content return secret strings; degrade both speeds to nil so
+-- callers fall back to their cached values.
+local function ReadAttackSpeeds(unitId)
+	local mainSpeed, offSpeed = UnitAttackSpeed(unitId)
+	if issecretvalue and (issecretvalue(mainSpeed) or issecretvalue(offSpeed)) then
+		return nil, nil
+	end
+	return mainSpeed, offSpeed
+end
+
 -- The GetSpellCooldown global was removed from 11.x+ clients (retail and WoW: Forever).
 -- Fall back to C_Spell.GetSpellCooldown (table return) where the old global no longer exists.
 local GetSpellCooldownCompat
@@ -133,6 +144,29 @@ function Unit:CalculateDelta()
 	if self.offSpeed > 0 and self.mainExpirationTime ~= nil and self.offExpirationTime ~= nil then
 		self.callbacks:Fire("UNIT_SWING_TIMER_DELTA", self.id, self.mainExpirationTime - self.offExpirationTime)
 	end
+end
+
+-- Clear the unit's transient timers and cast state. Shared by the full
+-- re-anchoring on PLAYER_ENTERING_WORLD and PLAYER_TARGET_CHANGED.
+function Unit:ResetTransientState()
+	if self.feignDeathTimer then
+		self.feignDeathTimer:Cancel()
+	end
+	self.feignDeathTimer = nil
+
+	self.mainTimer = nil
+	self.offTimer = nil
+	self.rangedTimer = nil
+	self.calculaDeltaTimer = nil
+
+	self.casting = false
+	self.channeling = false
+	self.isAttacking = false
+	self.preventSwingReset = false
+	self.auraPreventSwingReset = false
+
+	self.skipNextAttackSpeedUpdate = nil
+	self.skipNextAttackSpeedUpdateCount = 0
 end
 
 function Unit:SwingStart(hand, startTime, isReset)
@@ -323,10 +357,7 @@ function lib:PLAYER_ENTERING_WORLD()
 	self.player.GUID = UnitGUID("player")
 	self.player.class = select(2,GetPlayerInfoByGUID(self.player.GUID))
 
-	local mainSpeed, offSpeed = UnitAttackSpeed("player")
-	if issecretvalue and (issecretvalue(mainSpeed) or issecretvalue(offSpeed)) then
-		mainSpeed, offSpeed = nil, nil
-	end
+	local mainSpeed, offSpeed = ReadAttackSpeeds("player")
 	local now = GetTime()
 
 	self.player.mainSpeed = mainSpeed or 3 -- some dummy non-zero value to prevent infinities
@@ -343,24 +374,7 @@ function lib:PLAYER_ENTERING_WORLD()
 
 	self.player.lastRangedSwing = now
 	self.player.rangedExpirationTime = self.player.lastRangedSwing + self.player.rangedSpeed
-	if self.player.feignDeathTimer then
-		self.player.feignDeathTimer:Cancel()
-	end
-	self.player.feignDeathTimer = nil
-
-	self.player.mainTimer = nil
-	self.player.offTimer = nil
-	self.player.rangedTimer = nil
-	self.player.calculaDeltaTimer = nil
-
-	self.player.casting = false
-	self.player.channeling = false
-	self.player.isAttacking = false
-	self.player.preventSwingReset = false
-	self.player.auraPreventSwingReset = false
-
-	self.player.skipNextAttackSpeedUpdate = nil
-	self.player.skipNextAttackSpeedUpdateCount = 0
+	self.player:ResetTransientState()
 
 	self.callbacks:Fire("UNIT_SWING_TIMER_INFO_INITIALIZED", self.player.id)
 end
@@ -369,10 +383,7 @@ function lib:PLAYER_TARGET_CHANGED()
 	self.target.GUID = UnitGUID("target")
 
 	self.target.isPlayer = UnitIsPlayer("target")
-	local mainSpeed, offSpeed = UnitAttackSpeed("target")
-	if issecretvalue and (issecretvalue(mainSpeed) or issecretvalue(offSpeed)) then
-		mainSpeed, offSpeed = nil, nil
-	end
+	local mainSpeed, offSpeed = ReadAttackSpeeds("target")
 	if(not self.target.isPlayer) then
 		offSpeed = mainSpeed
 	end
@@ -392,24 +403,7 @@ function lib:PLAYER_TARGET_CHANGED()
 
 	self.target.lastRangedSwing = now
 	self.target.rangedExpirationTime = self.target.lastRangedSwing
-	if self.target.feignDeathTimer then
-		self.target.feignDeathTimer:Cancel()
-	end
-	self.target.feignDeathTimer = nil
-
-	self.target.mainTimer = nil
-	self.target.offTimer = nil
-	self.target.rangedTimer = nil
-	self.target.calculaDeltaTimer = nil
-
-	self.target.casting = false
-	self.target.channeling = false
-	self.target.isAttacking = false
-	self.target.preventSwingReset = false
-	self.target.auraPreventSwingReset = false
-
-	self.target.skipNextAttackSpeedUpdate = nil
-	self.target.skipNextAttackSpeedUpdateCount = 0
+	self.target:ResetTransientState()
 
 	self.callbacks:Fire("UNIT_SWING_TIMER_INFO_INITIALIZED", self.target.id)
 end
@@ -563,9 +557,9 @@ function lib:COMBAT_LOG_EVENT_UNFILTERED(_, ts, subEvent, _, sourceGUID, _, _, _
 				unit:SwingStart("ranged", GetTime(), true)
 			end
 		end
-	elseif subEvent == "SPELL_CAST_START" and unit then
+	elseif subEvent == "SPELL_CAST_START" then
 		local spell = amount
-		if isClassic and spell and ranged_swing[spell] and GetTime() > (unit.rangedExpirationTime - unit.autoShotCastTime) then
+		if isClassic and spell and ranged_swing[spell] and now > (unit.rangedExpirationTime - unit.autoShotCastTime) then
 			if unit.rangedTimer and not unit.rangedTimer:IsCancelled() then
 				unit.rangedTimer:Cancel()
 			end
@@ -939,10 +933,8 @@ function lib:UNIT_SPELLCAST_CHANNEL_STOP(_, unitType, _, spell)
 	unit.channeling = false
 	unit.preventSwingReset = unit.auraPreventSwingReset or false
 	if (spell and reset_swing_on_channel_stop_spells[spell]) then
-		if isRetail then		
-			unit:SwingStart("mainhand", now, true)
-		else
-			unit:SwingStart("mainhand", now, true)
+		unit:SwingStart("mainhand", now, true)
+		if not isRetail then
 			unit:SwingStart("offhand", now, true)
 			unit:SwingStart("ranged", now, true)
 		end
@@ -1051,12 +1043,11 @@ end
 
 -- WoW: Forever refuses CLEU registration silently and only exposes swings through
 -- its native event; it is unknown whether PLAYER_SWING exists on retail 12.x.
-if not isForever then
-	frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
-end
 if isForever then
 	frame:RegisterEvent("PLAYER_SWING")
 	frame:RegisterEvent("UNIT_COMBAT")
+else
+	frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
 end
 frame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
 frame:RegisterEvent("PLAYER_ENTER_COMBAT")
