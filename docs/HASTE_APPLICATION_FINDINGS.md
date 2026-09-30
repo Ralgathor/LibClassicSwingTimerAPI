@@ -146,6 +146,31 @@ The §8.9 SotC test was therefore never evidence about the dynamic family —
 the `not isForever` gate over-generalized a snapshot-family result, exactly
 as WeakAuras did with commit 91bc69f before being argued out of it.
 
+### 3.2 Additional family classifications (reported 2026-09-30, pending capture)
+
+Two further classifications were reported from gameplay, both consistent
+with the classic taxonomy the library encodes:
+
+- **Flurry (warrior and shaman talent proc): dynamic family.** Consistent
+  with the classic path, where Flurry is absent from
+  `prevent_swing_speed_update` and rides the generic rescale. **Design gap
+  on Forever**: Flurry is a crit-proc aura — its application fires no
+  `UNIT_SPELLCAST_SUCCEEDED`, so the shipped cast-success trigger cannot
+  cover it. Flurry applications currently self-correct at the next
+  `PLAYER_SWING` anchor (bar long for the in-flight swing after each crit,
+  correct for the rest of the proc). Mid-swing coverage would need: a
+  warrior/shaman capture confirming Flurry is M2 on Forever and identifying
+  the application signal (candidate: `UNIT_COMBAT` `CRITICAL` flags on the
+  player's outgoing melee — the trace rig already records them), talent
+  detection, charge tracking (3 charges consumed per swing, refreshed on
+  crits), and the guard reworked from the single `dynamicHasteActive` slot
+  to per-spell flags. Nothing built speculatively — capture first.
+- **Druid form switches (Cat/Bear/Dire Bear): snapshot family.** Confirms
+  the existing classification. No change needed on either path: the forms
+  are in `prevent_swing_speed_update` on classic, and on Forever absence
+  from the dynamic table gives exactly the engine's next-swing behavior
+  (the same mechanism the SotC control verified).
+
 ## 4. Secrecy findings from this capture
 
 Player `UNIT_SPELLCAST_SUCCEEDED` spell IDs read **plain mid-combat** (open
@@ -250,11 +275,18 @@ yet exercised in-game.
 
 1. SnD rank 2 (6774) haste factor; other dynamic-family sources on Forever
    (haste potions, procs, Classic+ 7-digit spells).
-2. The 4453 expiry overshoot (+0.085 over full new speed, single occurrence).
-3. `UNIT_ATTACK_SPEED` fire behavior on Forever (does the event fire at all
+2. Flurry capture (warrior or shaman, Forever): confirm the dynamic family
+   mid-swing, measure the factor (classic +30%), and identify the
+   application signal — the rig's `UNIT_COMBAT` `CRITICAL` records are the
+   candidate trigger. Also settles whether the anchor payload stream tracks
+   the 3-charge consumption cleanly. Prerequisite for any Flurry rescale
+   code: the single `dynamicHasteActive` guard must become per-spell flags
+   first.
+3. The 4453 expiry overshoot (+0.085 over full new speed, single occurrence).
+4. `UNIT_ATTACK_SPEED` fire behavior on Forever (does the event fire at all
    when speeds change?).
-4. Player `SUCCEEDED` spell-ID secrecy in restricted instanced content
+5. Player `SUCCEEDED` spell-ID secrecy in restricted instanced content
    (open-world combat verified plain by the SnD capture).
-5. Re-examine the §8.5 dungeon "weapon swap 2.428 → 3.400" reading against
+6. Re-examine the §8.5 dungeon "weapon swap 2.428 → 3.400" reading against
    the SotC-hasted hypothesis (2.428 = 3.4/1.4); the 2026-09-25 capture is
    not archived.
