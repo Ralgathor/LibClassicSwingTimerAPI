@@ -79,6 +79,7 @@ local prevent_reset_swing_auras = {}
 local pause_swing_spells = {}
 local ranged_swing = {}
 local reset_ranged_swing = {}
+local dynamic_haste_spells = {}
 
 local Unit = {
 	id = nil,
@@ -479,6 +480,38 @@ function lib:ApplyParryHaste(unit)
 end
 
 
+--[[	WoW: Forever dynamic-haste rescale (capture-verified 2026-09-30, build
+	70124): applying one of the dynamic_haste_spells auras mid-swing shortens
+	the in-flight swing proportionally - the same rule as the classic
+	UNIT_ATTACK_SPEED rescale, expressed as remaining time divided by the
+	haste factor. Both hands (verified: SnD affects main and off hand).
+	Ranged is excluded: no dynamic-haste ranged spell is verified. ]]
+function lib:ApplyDynamicHaste(unit, factor)
+	local now = GetTime()
+	if unit.mainSpeed > 0 and unit.mainExpirationTime and unit.mainExpirationTime > now then
+		if unit.mainTimer then
+			unit.mainTimer:Cancel()
+		end
+		unit.mainSpeed = unit.mainSpeed / factor
+		unit.mainExpirationTime = now + (unit.mainExpirationTime - now) / factor
+		self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.mainSpeed, unit.mainExpirationTime, "mainhand")
+		unit.mainTimer = C_Timer.NewTimer(unit.mainExpirationTime - now, function()
+			unit:SwingEnd("mainhand")
+		end)
+	end
+	if unit.offSpeed > 0 and unit.offExpirationTime and unit.offExpirationTime > now then
+		if unit.offTimer then
+			unit.offTimer:Cancel()
+		end
+		unit.offSpeed = unit.offSpeed / factor
+		unit.offExpirationTime = now + (unit.offExpirationTime - now) / factor
+		self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.offSpeed, unit.offExpirationTime, "offhand")
+		unit.offTimer = C_Timer.NewTimer(unit.offExpirationTime - now, function()
+			unit:SwingEnd("offhand")
+		end)
+	end
+end
+
 function lib:COMBAT_LOG_EVENT_UNFILTERED(_, ts, subEvent, _, sourceGUID, _, _, _, destGUID, _, _, _, amount, overkill, _, resisted, _, _, _, _, _, isOffHand)
 	local now = GetTime()
 	-- Parry haste: the defender of a parried attack gets its next main-hand swing sooner.
@@ -571,6 +604,24 @@ function lib:PLAYER_SWING(_, swingDuration, swingType)
 	if not unit then
 		return
 	end
+	-- WoW: Forever dynamic-haste state: the anchor payload is the true speed
+	-- every swing, so it doubles as the expiry signal - once it reports a
+	-- speed above the hasted cache again, the aura is gone and a recast must
+	-- rescale once more.
+	if unit.dynamicHasteActive then
+		local cachedSpeed
+		if hand == "mainhand" then
+			cachedSpeed = unit.mainSpeed
+		elseif hand == "offhand" then
+			cachedSpeed = unit.offSpeed
+		else
+			cachedSpeed = unit.rangedSpeed
+		end
+		if cachedSpeed and cachedSpeed > 0 and swingDuration > cachedSpeed * 1.02 then
+			unit.dynamicHasteActive = nil
+		end
+	end
+
 	-- Cache the event-provided speed first so the UnitAttackSpeed reads inside
 	-- SwingStart fall back to it when they return secret values.
 	if hand == "mainhand" then
@@ -773,6 +824,20 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, unitType, _, spell)
 			end
 		end
 	end	
+	-- WoW: Forever dynamic-haste mid-swing rescale (capture-verified
+	-- 2026-09-30): the engine shortens the in-flight swing when one of these
+	-- auras is applied, and the cast success is the only plain mid-combat
+	-- speed signal on that client (UnitAttackSpeed is secret in combat). A
+	-- recast while the aura is already up does NOT rescale again (the engine
+	-- does not - verified), so the rescale is guarded by a flag that
+	-- lib:PLAYER_SWING clears when an anchor reports the aura is gone.
+	if isForever and spell and dynamic_haste_spells[spell] then
+		if unit.dynamicHasteActive ~= spell then
+			unit.dynamicHasteActive = spell
+			self:ApplyDynamicHaste(unit, dynamic_haste_spells[spell])
+		end
+	end
+
 	-- The auto-attack toggle must not clear the cast-state flags. Classic clients
 	-- fire the toggle as 6603; WoW: Forever fires it as 6803 (verified in-game).
 	local isAttackToggle = spell == 6603 or (isForever and spell == 6803)
@@ -1073,6 +1138,18 @@ if isClassic or isForever then
 	}
 
 	reset_swing_on_channel_stop_spells = {}
+
+	-- WoW: Forever dynamic-haste family (capture-verified 2026-09-30,
+	-- docs/HASTE_APPLICATION_FINDINGS.md): applying one of these auras
+	-- rescales the in-flight swing proportionally, both hands. Value = the
+	-- attack speed multiplier's denominator (newSpeed = speed / factor).
+	-- Only capture-verified spells belong here; unknown haste spells keep
+	-- the next-swing re-anchoring. The snapshot family (SotC and the druid
+	-- forms in prevent_swing_speed_update below) must never be listed: the
+	-- engine applies those from the next swing only.
+	if isForever then
+		dynamic_haste_spells[5171] = 1.2 -- Slice and Dice (rank 1, +20%)
+	end
 
 	prevent_swing_speed_update = {
 		[768] = true, -- Cat Form

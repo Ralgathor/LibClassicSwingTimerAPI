@@ -5,7 +5,9 @@ Status: **VERIFIED by capture** (rogue Slice and Dice session, 2026-09-30
 Evidence: `docs/evidence/4everSwingTimer-2026-09-30.lua` (verbatim
 SavedVariables copy, both sessions) and
 `docs/evidence/WoWCombatLog-093026_154137.txt` (both sessions, append-mode).
-No code changes made yet; the fix design is in section 6.
+**Implemented** on `feature/forever-support` (2026-09-30) — the
+dynamic-haste table and rescale described in section 6 — pending the in-game
+verification checklist (section 6.1).
 
 ## 1. The report
 
@@ -167,29 +169,55 @@ up to one full swing. But removing the gate alone fixes nothing: mid-combat
 never go true in combat — the classic rescale path has no speed source on
 Forever regardless of the gate.
 
-## 6. Fix design (proposed, not implemented)
+## 6. Fix design (IMPLEMENTED 2026-09-30, pending in-game verification)
 
 - Rescale on Forever only when a **plain signal identifies the new speed**:
-  on `UNIT_SPELLCAST_SUCCEEDED` of a known dynamic-haste spell, apply the
-  spell's haste factor to the cached speed and rescale the remaining time
-  proportionally (both hands). SnD rank 1 (5171): x1/1.2, verified by this
-  capture. Rank 2 (6774) percentage needs a probe (classic-era +30%).
-  Unknown spell IDs: keep current behavior (re-anchor at the next
+  on `UNIT_SPELLCAST_SUCCEEDED` of a spell in `dynamic_haste_spells`, apply
+  the spell's haste factor to the cached speed and rescale the remaining
+  time proportionally (`lib:ApplyDynamicHaste`, both hands). Slice and Dice
+  rank 1 (5171): factor 1.2, verified by capture. Rank 2 (6774) percentage
+  needs a probe (classic-era +30%) and stays out of the table until then.
+  Unknown spell IDs keep current behavior (re-anchor at the next
   `PLAYER_SWING`).
-- Snapshot family (SotC ranks, druid forms): **no special handling needed**
-  — the SotC control shows the library's next-swing re-anchoring is exactly
-  right for this family in both directions. The in-flight swing completes on
-  the speed it started with (the library's model), and `PLAYER_SWING`
-  re-anchors with the new speed at the next swing. SotC and the forms simply
-  do not go in the dynamic-haste table. (The classic path's
-  `prevent_swing_speed_update` skip exists to stop a UNIT_ATTACK_SPEED-driven
-  rescale; on Forever that path cannot fire mid-combat anyway, so absence
-  from the table is the whole mechanism.)
+- **Refresh guard**: a recast while the aura is already up must not rescale
+  again — the engine does not (verified in the capture: refresh casts
+  produce no anchor speed change). Implemented as `unit.dynamicHasteActive`
+  (set on the first application, cleared by the first `PLAYER_SWING` anchor
+  that reports a speed back above the hasted cache — the anchor payload is
+  the expiry signal). Known corner: an expiry followed by a recast before
+  any anchor reports gives one swing of bar error, self-correcting.
+- Snapshot family (SotC ranks, druid forms): **no special handling** —
+  the SotC control shows the library's next-swing re-anchoring is exactly
+  right for this family in both directions, so absence from the table is
+  the whole mechanism.
 - Expiry: no plain removal signal verified (`UNIT_AURA` secrecy unprobed),
   so expiry lengthening cannot be mirrored yet — accept one-swing lag on
   expiry, self-corrected at the next `PLAYER_SWING` anchor. Documented.
-- Stacking haste (SnD + proc auras) is unprobed; the factor table should
-  start with verified spells only and grow by capture.
+- Stacking haste (SnD + proc auras) is unprobed; the table starts with
+  verified spells only and grows by capture. Two simultaneous dynamic auras
+  would share the single guard flag — rework to per-spell flags before
+  adding a second dynamic spell.
+- Classic flavors: zero behavior change (the table is populated and
+  consulted on WoW: Forever only; `luajit -bl` clean).
+
+### 6.1 In-game verification checklist (blocking for release)
+
+1. **Forever rogue, SnD mid-swing**: with the rig's listener, cast SnD
+   mid-swing — expect `UNIT_SWING_TIMER_UPDATE` for mainhand (and offhand
+   if dual-wielding) at the cast instant with expiry ≈ cast +
+   remaining/1.2, and the bar matching the engine's early landing.
+2. **Refresh**: recast SnD while it is active — expect NO further UPDATE
+   (no double-hasten).
+3. **Expiry**: let SnD fall off mid-swing — expect no UPDATE (documented
+   one-swing lag; the bar parks briefly and re-anchors at the next
+   `PLAYER_SWING`).
+4. **Dungeon mid-fight**: no Lua errors; note whether the rescale still
+   fires there (answers the player-`SUCCEEDED` secrecy question for
+   restricted content empirically).
+5. **Classic Era regression**: SnD on a rogue (or any haste aura) —
+   identical behavior to 2.1.x (the classic rescale path is untouched).
+6. **SotC sanity**: seal-juggle on the paladin — no UPDATE on SotC
+   application or replacement, cadence tracking as before.
 
 ## 7. Open items
 
