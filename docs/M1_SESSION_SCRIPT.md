@@ -99,6 +99,11 @@ With and without Improved Slam talented (talent 12862: removes the delay):
    ApplyParryHaste updated accordingly; the third capture's conflicting
    parry timestamp was screenshot noise (its landing fits any effective
    parry under the no-floor rule).
+   SUPERSEDED (2026-09-30 log-only join): the no-floor and ~30%-threshold
+   readings were cross-stream artifacts (UNIT_COMBAT parry stamps sit
+   ~0.55-0.72 s after the engine's parry instant relative to PLAYER_SWING
+   anchors); the engine rule is the classic one with the 20% floor - see
+   findings 8.10 FINAL.
 6. Anomaly family (updated after the second verbatim trace): the anomaly
    lands swings at anchor + 60% of weapon speed with NO parry event, and
    ~4-5% of cycles show early re-anchoring landings (two shapes: ~0.6w gaps
@@ -112,6 +117,10 @@ With and without Improved Slam talented (talent 12862: removes the delay):
    UPDATE lines let the model-vs-engine check run every session. Also:
    the dungeon run surfaced a getUnit secret-GUID crash (fixed - see
    findings 8.10); re-verify no Lua errors on the next run.
+   RESOLVED (2026-09-30): the anomaly family is the classic rule's floor
+   band - parries whose UNIT_COMBAT dispatch arrives after the
+   already-hasted PLAYER_SWING and lands in the next cycle; in the combat
+   log only ~2 of 688 no-parry cycles are off cadence (findings 8.10 FINAL).
 7. Combat-log join (attribution for the anomaly): test /combatlog on the
    beta - run it, fight one mob, toggle off, check Logs for WoWCombatLog.txt
    and SWING_MISSED PARRY lines (the client writes this file itself; addon
@@ -124,6 +133,8 @@ With and without Improved Slam talented (talent 12862: removes the delay):
    engine-internal. PLAYER_SWING is not a combat-log event - the log is a
    join, not a replacement for the trace.
    PLAYER_SWING lands at the hastened expiry, no Lua errors.
+   RESOLVED (2026-09-30): the join ran (two sessions, two weapon speeds);
+   the log-only read settled the rule and the anomaly (findings 8.10 FINAL).
 
 ## Part C - addon beta checklist (SPEC section 7, items not yet covered in effect testing)
 

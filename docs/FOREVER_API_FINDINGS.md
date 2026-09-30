@@ -1709,3 +1709,54 @@ at the +0.6 pipeline point) — unconfirmed. The early-band "full-cut" readings
 (five 0.6w landings after early-band parries this session) remain confounded
 with the 0.6w anomaly shape. No code change: the shipped rule verified in
 every band at both weapon speeds.
+
+**FINAL — combat-log-only join 2026-09-30 (both join sessions, build 70124) —
+the rule is the documented classic rule; the "no floor / early-discard"
+deviations were channel artifacts; the anomaly family is resolved;
+`ApplyParryHaste` corrected.** The discriminator the earlier entries lacked:
+read swings AND parries from the same file (the client's own `/combatlog` —
+the classic wiki's own measurement method), eliminating the cross-stream skew
+that every SavedVariables-trace reading carried. Result, with no free
+parameters: 96 of 98 single-parry cycles fit the documented rule exactly —
+full cut above 60% remaining (landings at 60% of the swing, d = r − 0.4w to
+milliseconds); a FLOOR between 20% and 60% (d = 0.484 s at 2.4 s and 0.685 s
+at 3.4 s — 20% at both speeds, ±20 ms; a dispatch latency cannot be
+weapon-proportional, the floor is); no effect under 20% remaining (every
+no-effect parry sits in the last 20% of the log cycle). The artifact
+mechanism, now measured: PLAYER_SWING precedes the swing's attack resolution
+by ~0.45 s (same-channel: PLAYER_SWING → the swing's own UNIT_COMBAT damage
+event, median 0.451/0.486 at the two weapon speeds — weapon-independent), and
+the UNIT_COMBAT parry dispatch trails its combat-log record by 0.10 /
+0.25–0.30 s (two clusters, verified by fitting the hit and parry stream
+offsets separately) — so a UNIT_COMBAT parry stamp sits ~0.55–0.72 s after
+the engine's parry instant relative to the PLAYER_SWING-anchored timer.
+That single skew explains every earlier "deviation": stamped-early parries
+belong to the previous cycle's tail (wiki: no effect under 20% remaining);
+stamped "sub-floor" landings are wiki floor-band parries whose landing stamp
+precedes their own dispatch (d_stamp = 0.2w − C ≈ −0.07 s at 2.4 s — the
+"fires in the parry's own frame" reading, including the 7477.366 sample); and
+the anomaly family IS the floor band — parries whose UNIT_COMBAT dispatch
+arrives after the already-hasted PLAYER_SWING land in the next cycle, so the
+hasted cycle shows "no parry event" (log-only: ~2 of 688 no-parry cycles off
+cadence, vs ~4.7% in the trace; the "2/66 delayed ~0.83 s" parries were the
+same lag read through a tight join window). Remediation applied:
+`ApplyParryHaste` now implements the classic bands (full cut above 60%,
+floor at 20%, no effect at or below 20%, pre-swing parries ignored) with the
+Forever parry back-dated by the cluster midpoint 0.65 s
+(`FOREVER_PARRY_EVENT_SKEW`; the classic CLEU path needs no correction —
+swings and parries arrive on the same stream there); the changelog entry and
+`PARRY_HASTE_BUG_REPORT.md` are rewritten — the beta report now files the
+event-pipeline findings (the pre-resolution PLAYER_SWING, the UNIT_COMBAT
+dispatch lag, Blizzard's own bar anchoring on the event with no lead
+compensation) instead of the retracted deviations; the evidence README is
+corrected. Superseded by this entry: every prior 8.10 conclusion of "no 20%
+floor", "no 60% cap", "early-parry no-effect band", "clamp-0 immediate
+fire", and "anomaly unidentified" (§9 items 5–7 and the B3 discriminators),
+together with the "shipped rule verified at two weapon speeds" claims —
+those verified the artifact against artifact-consistent stamps. Remaining
+verification: an in-game run of the corrected formula (the join analysis is
+capture-based, not a live run), and the Classic Era regression pass for the
+classic CLEU parry branch. Lesson recorded: "same GetTime clock" is not
+"same channel" — PLAYER_SWING and UNIT_COMBAT are separate dispatch streams
+with different latencies, and any rule measured across them inherits their
+skew; the wiki's same-file method was the right instrument all along.

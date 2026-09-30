@@ -415,17 +415,27 @@ end
 
 -- Parry haste shared by the classic CLEU path and the WoW: Forever UNIT_COMBAT
 -- path (lib:UNIT_COMBAT): shorten an in-flight main-hand swing after a defensive
--- parry by this unit. Engine rule, settled by verbatim SavedVariables traces on
--- WoW: Forever (build 70124, 2026-09-30; five sessions, two weapon speeds, 950+
--- swing anchors, 120+ timestamped player parries): a parry has NO effect before
--- ~30% of the swing has elapsed (remaining above ~70% of weapon speed; clean
--- no-effect samples up to 0.718 s elapsed, effect from 0.934 s on a 2.4 s weapon;
--- verified weapon-proportional at 3.4 s); afterwards the remaining swing is reduced
--- by 40% of weapon speed with NO floor (verified to milliseconds at both weapon
--- speeds) - a reduction that would land in the past fires the swing immediately,
--- in the parry's own frame. No 60% cap and no 20% floor exist on this engine;
--- both earlier readings were interpolations from screenshot-derived captures
--- with digit noise.
+-- parry by this unit. Engine rule (the documented classic rule, verified against
+-- this engine by a combat-log-only join on build 70124, 2026-09-30, two weapon
+-- speeds): more than 60% of the swing remaining -> reduce by 40% of weapon speed;
+-- between 20% and 60% -> reduce to 20% of weapon speed remaining (the floor);
+-- 20% or less -> no effect. The floor measured at 0.484 s on a 2.4 s weapon and
+-- 0.685 s on a 3.4 s weapon (20% at both speeds, +/-20 ms); full-cut landings
+-- match to milliseconds; parries under 20% remaining do nothing.
+-- On WoW: Forever the event streams are skewed: PLAYER_SWING fires ~0.45 s
+-- before the swing's attack resolves, and the UNIT_COMBAT parry dispatch trails
+-- the combat log's record of the same parry by 0.10-0.30 s (two clusters), so a
+-- UNIT_COMBAT parry stamp sits ~0.55-0.72 s after the engine's parry
+-- instant relative to the PLAYER_SWING-anchored timer (two dispatch
+-- clusters, 0.55 and 0.72; their midpoint 0.65 is used). The parry is
+-- therefore back-dated by that skew before the rule is applied; the classic
+-- CLEU path needs no correction (swings and parries arrive on the same stream).
+-- The earlier "no 20% floor / early parries discarded" readings were artifacts
+-- of measuring UNIT_COMBAT parry stamps against PLAYER_SWING anchors without
+-- this correction; see docs/FOREVER_API_FINDINGS.md section 8.10 (final entry)
+-- and docs/evidence/README.md.
+local FOREVER_PARRY_EVENT_SKEW = 0.65
+
 function lib:ApplyParryHaste(unit)
 	if not unit then
 		return
@@ -434,14 +444,30 @@ function lib:ApplyParryHaste(unit)
 		return
 	end
 	local now = GetTime()
+	local speed = unit.mainSpeed
+	if not speed or speed <= 0 then
+		return
+	end
 	local remaining = unit.mainExpirationTime - now
-	if remaining <= 0 or remaining > 0.7 * unit.mainSpeed then
-		return -- engine: no effect before ~30% of the swing has elapsed
+	if remaining <= 0 then
+		return
+	end
+	-- Engine-domain remaining at the parry instant; on WoW: Forever the
+	-- UNIT_COMBAT event arrives ~FOREVER_PARRY_EVENT_SKEW after that instant.
+	local skew = isForever and FOREVER_PARRY_EVENT_SKEW or 0
+	local engineRemaining = remaining + skew
+	if engineRemaining >= speed or engineRemaining <= 0.2 * speed then
+		return -- before this swing started, or under the 20% floor: no effect
 	end
 	unit.mainTimer:Cancel()
-	remaining = remaining - (0.4 * unit.mainSpeed)
+	if engineRemaining > 0.6 * speed then
+		engineRemaining = engineRemaining - 0.4 * speed -- full cut
+	else
+		engineRemaining = 0.2 * speed -- floored at 20% of the swing
+	end
+	remaining = engineRemaining - skew
 	if remaining < 0 then
-		remaining = 0 -- lands at the engine's next swing update (~0.2 s observed)
+		remaining = 0 -- the engine has already fired (or fires at its next update)
 	end
 	unit.mainExpirationTime = now + remaining
 	self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.mainSpeed, unit.mainExpirationTime, "mainhand")

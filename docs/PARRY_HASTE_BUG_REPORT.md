@@ -1,74 +1,76 @@
-# Bug report draft: parry haste deviates from the classic rule (WoW: Forever beta)
+# Bug report draft: event-pipeline timing on the WoW: Forever beta (PLAYER_SWING precedes the attack; UNIT_COMBAT parries lag)
 
-Status: draft, 2026-09-30, superseding the earlier short form (which said
-~20% and asked about a swapped comparison — both corrected by later data:
-the clean no-effect bracket reaches ~30% elapsed, and the swapped-comparison
-hypothesis was rejected when a deep parry fired the swing early instead of
-delaying it). From the verbatim SavedVariables event traces in
-FOREVER_API_FINDINGS.md section 8.10: five sessions on build 70124 across
-two weapon speeds (2.4 s and 3.4 s), 950+ swing anchors, 120+ timestamped
-player parries, measured with a trace addon recording PLAYER_SWING and
-UNIT_COMBAT to disk — no screenshots, no transcription.
+Status: draft, 2026-09-30, second edition. **Supersedes the first draft in
+full** — that draft claimed two parry-haste deviations from classic (early
+parries discarded; no 20% floor). Both were measurement artifacts: the
+parries were read from `UNIT_COMBAT` stamps and the swings from
+`PLAYER_SWING` anchors — two event streams whose dispatch latencies differ
+by ~0.55–0.72 s on this client. Reading swings and parries from the same
+file — the client's own `/combatlog`, the measurement method the classic
+wiki itself used — shows the engine implements the documented classic rule
+exactly, floor included. What actually deviates is the event pipeline, and
+that is what this report asks about.
 
 Filed in two forms: the in-game beta reporter (character-limited) and the
 full forum / WoW UI Discord version below.
 
-## In-game short form (249 characters — the reporter caps at 255)
+## In-game short form (243 characters — the reporter caps at 255)
 
 ```
-Parry haste bug? Measured on b70124: parries early in a swing (<30% elapsed) never haste (30+ verbatim samples; classic gives the full cut) and deep parries fire the swing in the same frame (no 20% floor). Intended Classic+ change? WoWUIDev Discord.
+b70124 timing: PLAYER_SWING fires ~0.45s before the swing resolves (constant across weapon speeds); UNIT_COMBAT PARRY dispatch lags its log record 0.10-0.30s, at times past the hasted swing. Parry haste matches classic. Docs? WoWUIDev Discord.
 ```
 
 ## Full version (forum / dev thread)
 
-Title: Parry haste deviates from the documented classic rule on the Forever
-beta (early parries discarded; late parries fire the swing instantly)
+Title: PLAYER_SWING fires ~0.45 s before the swing resolves and UNIT_COMBAT
+PARRY dispatch lags its combat-log record by 0.10–0.30 s (WoW: Forever
+beta) — parry haste itself matches the classic rule
 
 Build: WoW: Forever beta, 1.60.1 (build 70124), Interface 16001.
 
-Method: SavedVariables event traces (PLAYER_SWING + UNIT_COMBAT,
-millisecond timestamps, written to disk at logout) across five sessions
-and two weapon speeds (2.4 s and 3.4 s): 950+ swing anchors, 120+
-timestamped player parries, mostly one or two mobs.
+Method: the client's own advanced combat log (`/combatlog`) plus verbatim
+SavedVariables event traces (`PLAYER_SWING` + `UNIT_COMBAT`, millisecond
+timestamps, written to disk at logout) across two join sessions and two
+weapon speeds (2.4 s and 3.4 s): 753 player swing attempts and 108 player
+parries, every one timestamped in both channels.
 
-The documented classic parry-haste rule: a successful parry reduces the
-remaining swing timer by 40% of the defender's weapon speed (sources
-disagree only on the tail: capped at 20% of the swing remaining, or no
-effect when the cut would drop below 20%).
+Finding 1 — parry haste matches classic, exactly. With swings and parries
+both read from the combat log (one file, no cross-file clock join, no free
+parameters), 96 of 98 single-parry cycles fit the documented rule: more than
+60% of the swing remaining → reduce the remainder by 40% of weapon speed
+(landings match to milliseconds); between 20% and 60% → reduce to 20%
+remaining (the floor lands at 0.484 s on the 2.4 s weapon and 0.685 s on
+the 3.4 s weapon — 20% at both speeds, within ±20 ms); under 20% remaining
+→ no effect. A dispatch artifact cannot imitate this: the floor scales with
+weapon speed and nothing else in the pipeline does.
 
-Observed on this build — two deviations:
+Finding 2 — PLAYER_SWING is a pre-resolution event. Same-channel
+measurement (trace only): the swing's own `UNIT_COMBAT` damage event
+arrives a median 0.451 s (2.4 s weapon) and 0.486 s (3.4 s weapon) after
+`PLAYER_SWING` — roughly constant, not weapon-proportional; the combat log
+records the attempt a further ~0.13–0.23 s later. Blizzard's own bar
+(`Blizzard_SwingTimer.lua`) anchors on `PLAYER_SWING` with no lead
+compensation (`swingEndTime = GetTime() + duration`), and the generated API
+documentation declares the event `SynchronousEvent = true` with no
+description of what it marks.
 
-1. Early parries do nothing. A parry in the first ~30% of the swing leaves
-the cadence untouched (30+ clean samples; no effect at 0.718 s elapsed on a
-2.4 s weapon, effect confirmed from 0.934 s). The documented rule gives
-these parries the FULL cut — a parry right after a swing should land the
-next swing at 60% of the swing time.
+Finding 3 — UNIT_COMBAT parry dispatch lags its combat-log record. Two
+clusters: 0.10 and 0.25–0.30 s behind the outgoing-hit dispatch relative to
+the log records. Consequence for addon authors: on a 2.4 s weapon, a
+floor-band parry's `UNIT_COMBAT` event can arrive after the already-hasted
+`PLAYER_SWING`. In the SavedVariables traces this produced a family of
+~2–5% of swing cycles that appeared to land early with no parry event at
+all; in the combat log only ~2 of 688 no-parry cycles are off cadence, and
+those cycles do contain the parry record.
 
-2. No 20% floor — late parries fire the swing instantly. A parry with
-0.231 s remaining on a 2.4 s weapon fired the swing in the parry's own frame
-(the swing event and the parry combat-feedback event share the same
-timestamp). Both documented tail readings are contradicted: nothing caps
-the remaining swing at 20%, and the effect certainly does not stop.
-Confirmed at 3.4 s weapon speed: parries with 0.09-0.39 s
-remaining fired the swing within 0.15 s.
+Ask: (1) document what `PLAYER_SWING` is supposed to mark — Blizzard's own
+bar treats it as the swing instant, but the attack resolves ~0.45 s later
+at every weapon speed tested; (2) say whether the `UNIT_COMBAT` dispatch
+latency is intended, and whether the event's payload will ever be populated
+(`GetCurrentCombatTextEventInfo()` returns nil on this build). Addon
+authors combining `PLAYER_SWING` with combat events for mid-swing
+adjustments currently need an undocumented ~0.65 s correction (0.45 s
+PLAYER_SWING lead + 0.10–0.30 s parry dispatch lag).
 
-The middle band matches classic exactly: remaining swing minus 40% of
-weapon speed predicts the landing to within 30 ms across seven measured
-parries (e.g. 1.014 s remaining -> swing 0.050 s later).
-
-Ask: intended Classic+ tuning, or a bug? If intended, the deviation from
-every documented version of the mechanic is worth calling out in the beta
-notes; if a bug, early parries should presumably receive the documented
-full cut and the tail should respect the 20% floor.
-
-Related observation (one line): separately, ~2–5% of swing cycles in the
-traces land early (at 60% of the swing time, or 0.69–0.86 of it) with no
-parry event at all — possibly the same mechanism dropping events, possibly
-unrelated; the raw captures are in docs/evidence/ in the library repository.
-Another observation from the same join: the swing's damage lands a constant
-0.65 s AFTER the PLAYER_SWING event (median; 0.660 s over 489 swings at
-2.4 s weapon speed and 0.649 s over 264 swings at 3.4 s - the delay is
-absolute, not weapon-proportional, which would have shown as 0.935 s at
-3.4 s). PLAYER_SWING appears
-to be a pre-attack event rather than the attack resolution - it would help
-addon authors to know what it is supposed to represent.
+Evidence: the verbatim captures and the join recipe are in `docs/evidence/`
+in the library repository (LibClassicSwingTimerAPI).

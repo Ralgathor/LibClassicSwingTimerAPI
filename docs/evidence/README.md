@@ -1,7 +1,7 @@
 # Evidence: parry-haste rule on WoW: Forever (build 70124, 2026-09-30)
 
 Raw captures backing the parry-haste rule recorded in
-`FOREVER_API_FINDINGS.md` section 8.10, the shipped formula in
+`FOREVER_API_FINDINGS.md` section 8.10 (FINAL entry), the shipped formula in
 `LibClassicSwingTimerAPI.lua` (`lib:ApplyParryHaste`), and the beta report
 in `PARRY_HASTE_BUG_REPORT.md`.
 
@@ -42,33 +42,48 @@ Line formats:
 
 ## How to reproduce the join
 
-Align the two files by wall-clock time: the trace `SESSION` markers carry
-a wall-clock date plus the `GetTime()` at capture start; refine the offset
-by pairing trace `UNIT_COMBAT player PARRY` events with combat-log
-`SWING_MISSED ... PARRY` events (destination = player GUID). For the two
-join sessions the refined offsets were constant:
+**The decisive analysis needs no join at all**: read swings AND parries from
+the combat log alone (player swing attempts as cycle anchors, parries as
+`SWING_MISSED ... PARRY` with destination = player GUID). That single-file
+read is what settled the rule — see below.
 
-- 2.4 s session: trace GetTime + 31075.643 = log wall-clock (parries);
-  swing damage lands a further +0.660 s after `PLAYER_SWING`
-- 3.4 s session: +31075.654; swing pipeline +0.649 s
-
-The `PLAYER_SWING`-to-damage pipeline delay is absolute (~0.65 s at both
-weapon speeds), not weapon-proportional.
+To align the trace with the log, use the trace `SESSION` markers (wall-clock
+date plus the `GetTime()` at capture start) and refine by pairing trace
+`UNIT_COMBAT player PARRY` events with combat-log `SWING_MISSED ... PARRY`
+events (destination = player GUID). Caveat, learned the hard way: the
+parry-fitted offset is NOT a pure clock offset — it absorbs the UNIT_COMBAT
+parry dispatch lag (0.10–0.30 s behind the log records, two clusters), so a
+single fitted constant is only good to ±0.1 s and the two event streams must
+not be mixed when measuring engine rules. Fitted constants for reference:
+2.4 s session ≈ 31075.6–31075.7, 3.4 s session ≈ 31075.6 (log wall-clock
+minus trace GetTime).
 
 ## What these captures establish
 
-- The shipped rule, verified at both weapon speeds: no effect before ~30%
-  of the swing has elapsed (remaining above ~70% of weapon speed); then
-  remaining -= 40% of weapon speed, no floor; a reduction landing in the
-  past fires the swing immediately (in the parry's own frame).
-- No 20% floor and no 60% cap exist on this engine.
-- `UNIT_COMBAT` parry coverage is complete (64/66 on time in the 2.4 s
-  join, 2/66 delayed ~0.83 s — not dropped).
-- Open question (recorded in the findings, not resolved by these
-  captures): ~2-5% of swing cycles land early (at 60% of the swing, or
-  0.69-0.91 of it) with no parry event in either channel — the anomaly
-  family; not extra swings (PLAYER_SWING and combat-log swing attempts
-  are 1:1), not item casts (baseline-checked), not seal procs.
+- **The engine implements the documented classic parry-haste rule, exactly**
+  (combat-log-only read: swings and parries from the same file, 96 of 98
+  single-parry cycles fit): a parry with more than 60% of the swing
+  remaining cuts the remainder by 40% of weapon speed (landings match to
+  milliseconds); between 20% and 60% the swing is reduced to 20% remaining —
+  the floor measured at 0.484 s on the 2.4 s weapon and 0.685 s on the 3.4 s
+  weapon (20% at both speeds, ±20 ms; weapon-proportional, which no dispatch
+  latency can be); under 20% remaining, no effect.
+- **PLAYER_SWING is a pre-resolution event**: the swing's own UNIT_COMBAT
+  damage event arrives a median 0.451 s (2.4 s weapon) / 0.486 s (3.4 s)
+  after PLAYER_SWING — same-channel, weapon-independent; the combat log
+  records the attempt a further ~0.13–0.23 s later (~0.65 s total).
+- **UNIT_COMBAT parry dispatch lags its combat-log record** by 0.10 and
+  0.25–0.30 s (two clusters). Relative to the PLAYER_SWING-anchored timer, a
+  UNIT_COMBAT parry stamp therefore sits ~0.55–0.72 s after the engine's
+  parry instant. This single skew produced the earlier (now retracted)
+  "no 20% floor / early parries discarded" readings, and it resolves the
+  former anomaly family: floor-band parries whose UNIT_COMBAT dispatch
+  arrives after the already-hasted PLAYER_SWING land in the next cycle, so
+  the hasted cycle shows "no parry event" — ~2–5% of trace cycles, but only
+  ~2 of 688 no-parry cycles are off cadence in the combat log.
+- `UNIT_COMBAT` parry coverage is complete (the join pairs every trace
+  parry with a log record; the earlier "2/66 delayed ~0.83 s" reading was
+  the dispatch lag seen through a tight join window).
 
 ## Caveats
 
