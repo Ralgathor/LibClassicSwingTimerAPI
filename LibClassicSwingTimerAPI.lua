@@ -415,16 +415,17 @@ end
 
 -- Parry haste shared by the classic CLEU path and the WoW: Forever UNIT_COMBAT
 -- path (lib:UNIT_COMBAT): shorten an in-flight main-hand swing after a defensive
--- parry by this unit. Engine rule, settled by a verbatim SavedVariables trace on
--- WoW: Forever (build 1.60.1, 2026-09-30; 91 swing anchors, 12 timestamped player
--- parries): a parry has NO effect before ~30% of the swing has elapsed
--- (remaining above ~70% of weapon speed; no-effect observed at 0.718 s elapsed,
--- effect at 0.742 s on a 2.4 s weapon); afterwards the remaining swing is reduced
--- by 40% of weapon speed with NO floor (a parry with 1.014 s remaining landed
--- 0.050 s later = remaining minus 0.96, to 4 ms) - a reduction that would land in
--- the past fires the swing at the next engine update (~0.2 s observed). No 60%
--- cap and no 20% floor exist on this engine; both earlier readings were
--- interpolations from screenshot-derived captures with digit noise.
+-- parry by this unit. Engine rule, settled by verbatim SavedVariables traces on
+-- WoW: Forever (build 70124, 2026-09-30; five sessions, two weapon speeds, 950+
+-- swing anchors, 120+ timestamped player parries): a parry has NO effect before
+-- ~30% of the swing has elapsed (remaining above ~70% of weapon speed; clean
+-- no-effect samples up to 0.718 s elapsed, effect from 0.934 s on a 2.4 s weapon;
+-- verified weapon-proportional at 3.4 s); afterwards the remaining swing is reduced
+-- by 40% of weapon speed with NO floor (verified to milliseconds at both weapon
+-- speeds) - a reduction that would land in the past fires the swing immediately,
+-- in the parry's own frame. No 60% cap and no 20% floor exist on this engine;
+-- both earlier readings were interpolations from screenshot-derived captures
+-- with digit noise.
 function lib:ApplyParryHaste(unit)
 	if not unit then
 		return
