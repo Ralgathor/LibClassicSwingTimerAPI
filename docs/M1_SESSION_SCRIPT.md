@@ -76,6 +76,15 @@ With and without Improved Slam talented (talent 12862: removes the delay):
    (2026-09-30); the outgoing PARRY itself is not yet.
 2. Dungeon mid-fight: UNIT_COMBAT tokens stay plain (display-feed channel),
    the lib fires UNIT_SWING_TIMER_UPDATE on player parries, the next
+3. Parry direction coverage (from the 2026-09-30 second capture: two engine-
+   hastened swings with no player-PARRY event). Run the all-token probe:
+   /run PA2=PA2 or CreateFrame("Frame") PA2:RegisterEvent("PLAYER_SWING") PA2:RegisterEvent("UNIT_COMBAT") PA2:SetScript("OnEvent",function(_,e,a,b) if e=="PLAYER_SWING" then print("S",GetTime()) elseif b=="PARRY" then print("PA",a,GetTime()) end end)
+   A hasted swing gap with PA on a mob token in the same frame as the previous
+   swing = attacker-side haste (outgoing parries hasten the player too; the
+   lib would need the anchor-coincidence signal). PA player mid-cycle = an
+   unreported incoming parry (coverage gap in UNIT_COMBAT). No PA at all = a
+   third mechanism. Record which; also note the char's extra-attack procs for
+   the non-anchoring extra swings (item 17 signature).
    PLAYER_SWING lands at the hastened expiry, no Lua errors.
 
 ## Part C - addon beta checklist (SPEC section 7, items not yet covered in effect testing)

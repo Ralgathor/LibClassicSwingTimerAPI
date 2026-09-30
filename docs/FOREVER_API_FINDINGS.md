@@ -648,6 +648,30 @@ remaining → no effect (a parry never delays the swing — the flat rule's
 tail floor pushed the modeled swing later, which would also have flashed the
 interrupt feedback on an ordinary swing via the START-while-active path).
 
+**Second capture 2026-09-30 (raw-swing probe, build 70124) — engine haste
+observed WITHOUT a player-PARRY event.** 17 `PLAYER_SWING` anchors on a 2.4 s
+weapon: steady 2.36–2.42 s cadence, two non-anchoring extra swings (+0.276 s,
++0.735 s — no parry rule can produce a sub-1.44 s gap and the cadence continued
+from the previous anchor; the §9 item 17 mystery signature, consistent with an
+extra-attack proc), and two parry-hasted anchors (+1.452 s and +1.686 s, both
+re-anchoring; both fit the tiered rule — band 1 with a parry at ~0.01/~0.25 s
+into the swing, or band 2 at ~0.97/~1.21 s; the 1.686 s gap is
+flat-band-1-impossible, further confirming the tiered formula). Zero `player
+PARRY` lines in the window. Two candidate explanations: (A) incoming player
+parries that the engine hastened but `UNIT_COMBAT` did not dispatch (coverage
+gap), or (B) attacker-side haste — the player's attack being parried hastening
+the player's own next swing, a deviation from the classic defender-only rule
+(the defender's tokens would have fired PARRY and the player filter correctly
+ignored them). The implementation stays safe either way — it can only
+under-report: a missed haste leaves the bar un-hastened until the early swing
+re-anchors it, bounded by one cycle, never wrong-direction. Discriminating
+probe (M1 script B3 item 3): log every PARRY token alongside the swings — a
+hasted anchor with `PA <mobtoken>` in the same frame as the *previous* swing is
+attacker-side haste (B); `PA player` mid-cycle is an unreported incoming parry
+(A); no PARRY at all is a third mechanism. If (B) is confirmed, the Forever
+path would additionally need the outgoing-parry anchor-coincidence signal
+(a PARRY on any token in the same frame as the player's own swing anchor).
+
 - **The math is fully portable.** The block at `:358–377` only uses values the library
   already holds as plain numbers: `defender.mainExpirationTime`, the cached
   `defender.mainSpeed` (on Forever, refreshed by `PLAYER_SWING`'s plain payload), and
