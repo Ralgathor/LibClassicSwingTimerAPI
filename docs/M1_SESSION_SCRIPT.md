@@ -92,11 +92,11 @@ With and without Improved Slam talented (talent 12862: removes the delay):
    (the lib would then model the delay as an engine deviation). Beta report
    drafted in FOREVER_API_FINDINGS section 8.10.
 5. Verbatim capture for the floor question (fifth capture flagged it):
-   enable /chatlog (the client writes every print to Logs\WoWChatLog.txt in
-   the game folder), run the PA2 probe, tank a few minutes, then read the
-   parry->landing offsets straight from the file. Every directly measured
-   offset so far (0.301, 0.456, 0.116) lands below the 20% floor and fits
-   no-floor exactly, while four parry-less gaps fit the floor - screenshot
+   /chatlog does not exist on the beta client - instead run
+   /4everswingtimer trace (records PLAYER_SWING and UNIT_COMBAT with full
+   payloads into the SavedVariables table FourEverSwingTimerTrace), tank a
+   few minutes, then log out or /reload and read the file in
+   WTF\Account\...\SavedVariables straight from disk. Every directly measured
    transcription cannot separate them. This settles floor vs no floor and
    likely the exact early-band threshold; the shipped floor is held until
    then (bounded one-cycle error either way).

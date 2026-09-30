@@ -773,10 +773,13 @@ four coincide with player parries printed at the landing — consistent with
 "the printed parry is a second parry whose first was lost", which would
 rescue the floor. Screenshot transcription is now the limiting factor
 (digit noise is documented in earlier captures). Discriminator (M1 B3 item
-5): a verbatim capture via /chatlog (the client writes every print to
-Logs\WoWChatLog.txt) — read parry→landing offsets straight from the file,
-no OCR, no lost lines. One session settles floor vs no floor and likely the
-exact early-band threshold. The shipped floor is HELD, not flipped: it only
+5): a verbatim capture via the test rig's `/4everswingtimer trace` command
+(/chatlog does not exist on the beta client) — it records `PLAYER_SWING` and
+`UNIT_COMBAT` with full payloads and millisecond stamps into the
+SavedVariables table `FourEverSwingTimerTrace`, persisted by the client at
+logout or /reload; the file in WTF\Account\...\SavedVariables can be read
+straight from disk — no OCR, no lost lines. One session settles floor vs no
+floor and likely the exact early-band threshold. The shipped floor is HELD, not flipped: it only
 mispredicts for parries with under 60% remaining, the error is bounded to one
 cycle and self-corrects, and both candidate rules degrade safely.
 
