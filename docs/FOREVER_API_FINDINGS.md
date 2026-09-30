@@ -776,7 +776,10 @@ four coincide with player parries printed at the landing — consistent with
 rescue the floor. Screenshot transcription is now the limiting factor
 (digit noise is documented in earlier captures). Discriminator (M1 B3 item
 5): a verbatim capture via the test rig's `/4everswingtimer trace` command
-(/chatlog does not exist on the beta client) — it records `PLAYER_SWING` and
+(/chatlog exists on the beta client but captures only chat-channel messages,
+not `print()` probe output — WoWChatLog.txt is present with chat frames from
+Sep 28 — so the SavedVariables trace is the right tool) — it records
+`PLAYER_SWING` and
 `UNIT_COMBAT` with full payloads and millisecond stamps into the
 SavedVariables table `FourEverSwingTimerTrace`, persisted by the client at
 logout or /reload; the file in WTF\Account\...\SavedVariables can be read

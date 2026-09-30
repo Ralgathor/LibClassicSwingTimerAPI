@@ -112,6 +112,17 @@ With and without Improved Slam talented (talent 12862: removes the delay):
    UPDATE lines let the model-vs-engine check run every session. Also:
    the dungeon run surfaced a getUnit secret-GUID crash (fixed - see
    findings 8.10); re-verify no Lua errors on the next run.
+7. Combat-log join (attribution for the anomaly): test /combatlog on the
+   beta - run it, fight one mob, toggle off, check Logs for WoWCombatLog.txt
+   and SWING_MISSED PARRY lines (the client writes this file itself; addon
+   CLEU access remains refused, but the text log may not be restricted).
+   If it writes: run /combatlog AND /4everswingtimer trace in the same
+   session - join offline by wall-clock time (the trace session marker) and
+   a shared event (a Judgement cast appears in both). The log gives source/
+   dest attribution (whose attack was parried, extra SWING_DAMAGE lines),
+   which settles the anomaly: unreported parries vs extra-attack procs vs
+   engine-internal. PLAYER_SWING is not a combat-log event - the log is a
+   join, not a replacement for the trace.
    PLAYER_SWING lands at the hastened expiry, no Lua errors.
 
 ## Part C - addon beta checklist (SPEC section 7, items not yet covered in effect testing)
