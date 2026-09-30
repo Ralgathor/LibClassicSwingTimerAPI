@@ -816,6 +816,42 @@ otherwise remaining −= 40% of weapon speed, clamped at 0. Tooling note: the
 trace's stored build label is the version string only ("1.60.1"); the build
 number is now recorded as well.
 
+**Second verbatim trace 2026-09-30 (trace v2 rig; build 70124 confirmed by the
+session marker) — pipeline verified to milliseconds; a confound discovery
+reopens the precision of every earlier parry reading.** 113 anchors, 12
+player parries, cast and library lines recorded. (1) **Pipeline verified**:
+the four hasted landings where the library applied the model match the
+engine's actual `PLAYER_SWING` to −1/−2/−1/+12 ms. The UNIT_COMBAT →
+ApplyParryHaste → UPDATE → bar chain works as shipped. (2) **Early band
+reconfirmed**: twelve more clean no-effect samples at t_p ≤ 0.272, plus the
+previous 0.669/0.718 — the shipped 0.72 guard matches every clean no-effect
+sample. (3) **THE CONFOUND**: the anomaly mechanism lands swings at
+anchor + 60% of weapon speed with NO parry event in-cycle — and that time is
+algebraically IDENTICAL to the parry-haste landing for any parry before 60%
+of the swing has elapsed (parry + (r − 0.4w) = anchor + 0.6w always). One
+anomaly cycle in this trace landed at exactly the 1.44 s signature with no
+parry at all. Consequence: every "effective parry" sample with t_p < 60%
+elapsed is indistinguishable from "no-effect parry + coincident anomaly",
+including this session's two parries at t_p 0.617/0.647 previously read as
+threshold misses — and even the deep sample (t_p 1.825, landing +0.234) sits
+inside the anomaly family's other shape (gaps 1.65–2.06). The no-floor
+"confirmation to 4 ms" is therefore downgraded to *consistent with, but
+confounded by* the anomaly; the only unambiguous facts are: parry haste
+exists (many 1.44-family landings follow parries far more often than the
+~4–5% anomaly rate), the no-effect band extends to at least t_p 0.718, and
+the true threshold's upper edge is unknown (a mid-band parry followed by a
+NORMAL 2.4 landing would bracket it — none sampled yet). (4) **Anomaly
+characterization**: ~4–5% of cycles, two shapes (anchor+0.6w landings and
+1.65–2.06 s gaps), no player-parry, cast, or outgoing-event correlation;
+too frequent for a 2%-proc and wrongly timed for an on-hit extra attack
+(procs fire at swing time, not mid-cycle). Hypotheses: parries that
+UNIT_COMBAT does not report at all, or an unmodeled engine haste source.
+The shipped code remains held: it matches all clean data, and every
+misprediction direction is bounded to one cycle and self-correcting. Next
+probes: single-mob fights to isolate the anomaly; more mid-band parries
+(t_p 0.72–1.4) hoping for normal-cadence follow-ups to bracket the
+threshold from above.
+
 - **The math is fully portable.** The block at `:358–377` only uses values the library
   already holds as plain numbers: `defender.mainExpirationTime`, the cached
   `defender.mainSpeed` (on Forever, refreshed by `PLAYER_SWING`'s plain payload), and

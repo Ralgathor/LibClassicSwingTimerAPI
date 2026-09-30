@@ -99,14 +99,19 @@ With and without Improved Slam talented (talent 12862: removes the delay):
    ApplyParryHaste updated accordingly; the third capture's conflicting
    parry timestamp was screenshot noise (its landing fits any effective
    parry under the no-floor rule).
-6. Anomaly family (NEW, from the same trace): five re-anchoring early
-   landings (gaps 1.770-2.059 s on the 2.4 s weapon) with no rule-matching
-   player parry in-cycle; each such cycle has an incoming dodge/miss/parry
-   but so do normal cycles - no clean correlation, no outgoing event
-   precedes them. Keep /4everswingtimer trace armed during ordinary play;
-   candidates: an extra-attack proc that re-anchors, or unmodeled engine
-   behavior. Also: the dungeon run surfaced a getUnit secret-GUID crash
-   (fixed - see findings 8.10); re-verify no Lua errors on the next run.
+6. Anomaly family (updated after the second verbatim trace): the anomaly
+   lands swings at anchor + 60% of weapon speed with NO parry event, and
+   ~4-5% of cycles show early re-anchoring landings (two shapes: ~0.6w gaps
+   and 1.65-2.06 s gaps on the 2.4 s weapon). CRITICAL CONFOUND (findings
+   8.10): the anomaly landing time is algebraically identical to the
+   parry-haste landing for any parry before 60% of the swing elapsed, so
+   individual mid-band parry readings cannot be attributed. Next probes:
+   (a) single-mob fights to isolate the anomaly; (b) mid-band parries
+   (t_p 0.72-1.4) hoping for normal-cadence follow-ups to bracket the
+   no-effect threshold from above; (c) keep the trace armed - the library
+   UPDATE lines let the model-vs-engine check run every session. Also:
+   the dungeon run surfaced a getUnit secret-GUID crash (fixed - see
+   findings 8.10); re-verify no Lua errors on the next run.
    PLAYER_SWING lands at the hastened expiry, no Lua errors.
 
 ## Part C - addon beta checklist (SPEC section 7, items not yet covered in effect testing)
