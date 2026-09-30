@@ -755,6 +755,31 @@ change or swap bug? WoWUIDev Discord." Either outcome leaves the current
 implementation safe: the early band can only cause bounded under-reporting,
 self-correcting at the next anchor.
 
+**Fifth capture 2026-09-30 (all-token probe) — the 20% floor is now in
+question; verbatim-logging discriminator queued.** Clean confirmations: a
+player parry coinciding with its swing's frame (t_p ≈ 0 of the new cycle)
+produced no effect (next swing normal, +2.410) — fifth early-band sample;
+outgoing parries again produced no player haste. The challenge: the cleanest
+direct parry→landing pair yet — parry at 3697.563 (remaining 1.077) → swing
+at 3697.679, a 0.116 s offset = remaining − 0.96 exactly, landing BELOW the
+20% floor. With the two earlier direct pairs (offsets 0.301 and 0.456, both
+sub-floor, both exact), every directly measured parry→landing offset on
+build 70124 fits **no floor** — new remaining = remaining − 40% of weapon
+speed, period. Against that, four early-landing gaps across the sessions
+(1.588, 1.686, 2.094, 2.158 s) fit the FLOORED rule — but in all four the
+causative parry line was never printed, so those fits are circular (the
+parry time was inferred from the gap assuming the floor), and two of the
+four coincide with player parries printed at the landing — consistent with
+"the printed parry is a second parry whose first was lost", which would
+rescue the floor. Screenshot transcription is now the limiting factor
+(digit noise is documented in earlier captures). Discriminator (M1 B3 item
+5): a verbatim capture via /chatlog (the client writes every print to
+Logs\WoWChatLog.txt) — read parry→landing offsets straight from the file,
+no OCR, no lost lines. One session settles floor vs no floor and likely the
+exact early-band threshold. The shipped floor is HELD, not flipped: it only
+mispredicts for parries with under 60% remaining, the error is bounded to one
+cycle and self-corrects, and both candidate rules degrade safely.
+
 - **The math is fully portable.** The block at `:358–377` only uses values the library
   already holds as plain numbers: `defender.mainExpirationTime`, the cached
   `defender.mainSpeed` (on Forever, refreshed by `PLAYER_SWING`'s plain payload), and
