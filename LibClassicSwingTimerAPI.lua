@@ -267,9 +267,17 @@ function lib:getUnit(unit)
 	if not self.player or not self.target then
 		return nil
 	end
-	if self.player.GUID == unit or self.player.id == unit then
+	-- UnitGUID("target") returns a SECRET string mid-combat in restricted
+	-- content on WoW: Forever and 12.x clients (observed in a dungeon: every
+	-- comparison against the cached target GUID errored with "attempt to
+	-- compare field 'GUID' (a secret string value)"). A secret GUID degrades
+	-- to matching by unit id only - the spellcast and attack-speed handlers
+	-- pass unit ids ("player"/"target"), so target handling is unaffected.
+	local playerGUID = ResolveSecret(self.player.GUID, nil)
+	local targetGUID = ResolveSecret(self.target.GUID, nil)
+	if playerGUID == unit or self.player.id == unit then
 		return self.player
-	elseif self.target.GUID == unit or self.target.id == unit then
+	elseif targetGUID == unit or self.target.id == unit then
 		return self.target
 	end
 end
@@ -407,15 +415,16 @@ end
 
 -- Parry haste shared by the classic CLEU path and the WoW: Forever UNIT_COMBAT
 -- path (lib:UNIT_COMBAT): shorten an in-flight main-hand swing after a defensive
--- parry by this unit. Engine rule, settled by in-game captures on WoW: Forever
--- (build 70124, seven timestamped player parries): a parry has NO effect before
--- 20% of the swing has elapsed (remaining above 80% of weapon speed) and never
--- delays the swing (remaining at or below 20%); in between, the remaining swing
--- is reduced by 40% of weapon speed, floored at 20%. There is no 60% cap on
--- this engine: parries at 70% and 51% remaining landed at remaining minus 40% of
--- weapon speed exactly. The unconditional flat reduction previously shipped
--- over-hastened early parries, parking the bar up to ~1s before the engine's
--- actual swing.
+-- parry by this unit. Engine rule, settled by a verbatim SavedVariables trace on
+-- WoW: Forever (build 1.60.1, 2026-09-30; 91 swing anchors, 12 timestamped player
+-- parries): a parry has NO effect before ~30% of the swing has elapsed
+-- (remaining above ~70% of weapon speed; no-effect observed at 0.718 s elapsed,
+-- effect at 0.742 s on a 2.4 s weapon); afterwards the remaining swing is reduced
+-- by 40% of weapon speed with NO floor (a parry with 1.014 s remaining landed
+-- 0.050 s later = remaining minus 0.96, to 4 ms) - a reduction that would land in
+-- the past fires the swing at the next engine update (~0.2 s observed). No 60%
+-- cap and no 20% floor exist on this engine; both earlier readings were
+-- interpolations from screenshot-derived captures with digit noise.
 function lib:ApplyParryHaste(unit)
 	if not unit then
 		return
@@ -425,14 +434,13 @@ function lib:ApplyParryHaste(unit)
 	end
 	local now = GetTime()
 	local remaining = unit.mainExpirationTime - now
-	local min_swing_time = 0.2 * unit.mainSpeed
-	if remaining <= min_swing_time or remaining > 0.8 * unit.mainSpeed then
-		return -- engine: no effect in the first 20% of the swing; never delay
+	if remaining <= 0 or remaining > 0.7 * unit.mainSpeed then
+		return -- engine: no effect before ~30% of the swing has elapsed
 	end
 	unit.mainTimer:Cancel()
 	remaining = remaining - (0.4 * unit.mainSpeed)
-	if remaining < min_swing_time then
-		remaining = min_swing_time
+	if remaining < 0 then
+		remaining = 0 -- lands at the engine's next swing update (~0.2 s observed)
 	end
 	unit.mainExpirationTime = now + remaining
 	self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.mainSpeed, unit.mainExpirationTime, "mainhand")

@@ -91,15 +91,22 @@ With and without Improved Slam talented (talent 12862: removes the delay):
    LATER than normal (gap > weapon speed) = swapped-comparison bug confirmed
    (the lib would then model the delay as an engine deviation). Beta report
    drafted in FOREVER_API_FINDINGS section 8.10.
-5. Verbatim capture for the floor question (fifth capture flagged it):
-   /chatlog does not exist on the beta client - instead run
-   /4everswingtimer trace (records PLAYER_SWING and UNIT_COMBAT with full
-   payloads into the SavedVariables table FourEverSwingTimerTrace), tank a
-   few minutes, then log out or /reload and read the file in
-   WTF\Account\...\SavedVariables straight from disk. Every directly measured
-   transcription cannot separate them. This settles floor vs no floor and
-   likely the exact early-band threshold; the shipped floor is held until
-   then (bounded one-cycle error either way).
+5. Verbatim capture - RESOLVED (2026-09-30 SavedVariables trace, 91 anchors,
+   12 timestamped player parries): NO floor (parries with 1.014/1.433 s
+   remaining landed at remaining-0.96, to 4-11 ms); no-effect threshold ~30%
+   elapsed (no-effect at 0.718 s, effect at 0.742 s on the 2.4 s weapon);
+   clamp-0 landings fire ~0.2 s later at the engine's next update.
+   ApplyParryHaste updated accordingly; the third capture's conflicting
+   parry timestamp was screenshot noise (its landing fits any effective
+   parry under the no-floor rule).
+6. Anomaly family (NEW, from the same trace): five re-anchoring early
+   landings (gaps 1.770-2.059 s on the 2.4 s weapon) with no rule-matching
+   player parry in-cycle; each such cycle has an incoming dodge/miss/parry
+   but so do normal cycles - no clean correlation, no outgoing event
+   precedes them. Keep /4everswingtimer trace armed during ordinary play;
+   candidates: an extra-attack proc that re-anchors, or unmodeled engine
+   behavior. Also: the dungeon run surfaced a getUnit secret-GUID crash
+   (fixed - see findings 8.10); re-verify no Lua errors on the next run.
    PLAYER_SWING lands at the hastened expiry, no Lua errors.
 
 ## Part C - addon beta checklist (SPEC section 7, items not yet covered in effect testing)

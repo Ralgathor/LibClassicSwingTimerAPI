@@ -783,6 +783,39 @@ floor and likely the exact early-band threshold. The shipped floor is HELD, not 
 mispredicts for parries with under 60% remaining, the error is bounded to one
 cycle and self-corrects, and both candidate rules degrade safely.
 
+**Verbatim trace 2026-09-30 (SavedVariables via the test rig's
+`/4everswingtimer trace`, build 1.60.1) — the floor is dead; the no-effect
+threshold is ~30% elapsed; a getUnit secret-GUID bug found and fixed.** 91
+swing anchors, 12 timestamped player parries, zero transcription loss.
+Results: (1) **No floor** — parries with 1.014 s and 1.433 s remaining landed
+0.050 s and 0.484 s after the parry (remaining − 0.96, to 4–11 ms); a 0.48 s
+floor cannot exist. (2) **The no-effect threshold is ~30% elapsed, not
+20%**: no-effect at t_p = 0.718 s, effect at 0.742 s — the boundary brackets
+0.72 s = 0.3w on the 2.4 s weapon. This also resolves the third-capture
+contradiction: its "effective at 0.718 s" parry was screenshot-derived (digit
+noise), and its landing (anchor + 1.44) is what ANY effective parry produces
+under the no-floor rule, so only its parry timestamp was load-bearing —
+exactly the noisiest input. (3) **Clamp to zero**: the deepest parry sampled
+(0.575 s remaining) landed +0.234 s — the reduction lands in the past and
+the engine fires the swing at its next update (~0.2 s). (4) **Unresolved —
+anomaly family**: five re-anchoring early landings (gaps 1.770–2.059 s) with
+no rule-matching player parry in-cycle; each such cycle contains an incoming
+dodge/miss/parry, but so do many normal-gap cycles, and no outgoing
+dodge/parry precedes them — no clean correlation. Candidates: an
+extra-attack proc that re-anchors, or an unmodeled engine behavior; the trace
+rig stays the tool. (5) The session also surfaced a **hard Lua error 4x
+mid-fight**: `UnitGUID("target")` returns a SECRET string mid-combat in
+restricted content, and `PLAYER_TARGET_CHANGED` caches it, so `getUnit`'s
+GUID comparison threw on every target-unit spellcast event ("attempt to
+compare field 'GUID' (a secret string value)"). Fixed by routing both GUID
+comparisons through the secret-value guard — a secret GUID degrades to
+id-only matching, and the spellcast/attack-speed handlers pass unit ids, so
+behavior is unaffected. `ApplyParryHaste` now implements the verbatim rule:
+no effect before ~30% of the swing has elapsed (or at ≤0 remaining);
+otherwise remaining −= 40% of weapon speed, clamped at 0. Tooling note: the
+trace's stored build label is the version string only ("1.60.1"); the build
+number is now recorded as well.
+
 - **The math is fully portable.** The block at `:358–377` only uses values the library
   already holds as plain numbers: `defender.mainExpirationTime`, the cached
   `defender.mainSpeed` (on Forever, refreshed by `PLAYER_SWING`'s plain payload), and
