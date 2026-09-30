@@ -79,10 +79,10 @@ in the library repository (LibClassicSwingTimerAPI).
 # AMENDMENT (2026-09-30, later analysis): the earlier report was wrong - the
 engine implements the classic rule exactly; the real issue is event timing
 
-## In-game short form (233 characters)
+## In-game short form (242 characters - self-contained; the in-game triager reads only this, so no references to prior reports, repos, or Discord)
 
 ```
-Parry haste correction: engine follows the classic rule exactly (verified b70124). Earlier report was wrong - event-timing artifacts. Real ask: document PLAYER_SWING (~0.45s pre-attack) and UNIT_COMBAT dispatch lag. WoWUIDev Discord.
+Swing event timing: PLAYER_SWING fires ~0.45s before the attack resolves; UNIT_COMBAT PARRY trails the real parry by 0.1-0.3s (vs combat log, b70124). Addons correlating them get skewed swing timers. Document intended timing, or align events?
 ```
 
 ## Full amendment (forum / dev thread)
