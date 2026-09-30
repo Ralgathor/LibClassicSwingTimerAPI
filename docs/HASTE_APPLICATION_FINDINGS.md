@@ -331,10 +331,13 @@ Side channels assessed against the retail UI source
   calls `C_Secrets.GetSpellAuraSecrecy(auraData.spellId)` and compares
   against `Enum.SecrecyLevel.NeverSecret` — spells classified never-secret
   are readable and filterable even mid-combat (the source cites
-  Exhaustion/Sated as examples). So the question for any specific aura is
-  its classification, probe-able out of combat:
-  `/dump Enum.SecrecyLevel` then
-  `/run print(C_Secrets.GetSpellAuraSecrecy(5171), C_Secrets.GetSpellAuraSecrecy(20162), C_Secrets.GetSpellAuraSecrecy(20128))`.
+  Exhaustion/Sated as examples). **Probed on the beta (build 70124):
+  `Enum.SecrecyLevel` = { NeverSecret=0, AlwaysSecret=1,
+  ContextuallySecret=2 }, and Slice and Dice (5171), Seal of the Crusader
+  (20162) and Redoubt (20128) all return ContextuallySecret (2)** —
+  readable out of combat, hidden whenever restrictions are active. None
+  are in the NeverSecret whitelist class on this client, which is the
+  factual basis for the request below.
 - **Retail runs a community-request whitelist process** (12.0 planned API
   changes): Maelstrom Weapon, Skyriding spells, the GCD spell and
   combat-res spells received aura/cooldown secrecy exemptions on request;
@@ -344,11 +347,13 @@ Side channels assessed against the retail UI source
 
 Consequences:
 
-1. **The durable fix is now a concrete ask**: request NeverSecret
-   classification (or a swing-timer carve-out) for the player's own
-   haste auras on WoW: Forever — Slice and Dice, Flurry — citing the
-   Maelstrom Weapon precedent. This slots into the existing Blizzard API
-   report alongside the haste-application-event ask.
+1. **The durable fix is now a concrete, evidence-backed ask**: request
+   NeverSecret classification (or a swing-timer carve-out) for the player's
+   own haste auras on WoW: Forever — Slice and Dice, Flurry — citing the
+   Maelstrom Weapon precedent and the probed classifications (all three
+   swing-relevant auras currently ContextuallySecret, so mid-combat
+   swing-timer addons have no aura signal at all). This slots into the
+   existing Blizzard API report alongside the haste-application-event ask.
 2. **Probes to run** (in addition to the secrecy-classification one-liners
    above): `GetComboPoints("player","target")` mid-combat with combo
    points up (if secondary resources are unsecreted here, SnD expiry
