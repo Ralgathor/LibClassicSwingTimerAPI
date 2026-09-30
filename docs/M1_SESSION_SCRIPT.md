@@ -84,6 +84,13 @@ With and without Improved Slam talented (talent 12862: removes the delay):
    otherwise remaining -= 40% of weapon speed, floored at 20%. Optional
    confirmation: a parry landing 11-30% into the swing would pin the exact
    no-effect threshold line.
+4. Late-band parry (early-band bug discriminator): with the same probe, catch
+   a PA player line in the last 20% of the swing (more than 80% of the weapon
+   speed after the last S). Normal cadence after = the early discard band is
+   intended tuning and the tail matches the documented rule; a swing arriving
+   LATER than normal (gap > weapon speed) = swapped-comparison bug confirmed
+   (the lib would then model the delay as an engine deviation). Beta report
+   drafted in FOREVER_API_FINDINGS section 8.10.
    PLAYER_SWING lands at the hastened expiry, no Lua errors.
 
 ## Part C - addon beta checklist (SPEC section 7, items not yet covered in effect testing)

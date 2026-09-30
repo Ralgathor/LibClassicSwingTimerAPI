@@ -725,6 +725,36 @@ a player parry at ~0% of the new cycle, correctly a no-op. Parry haste on
 WoW: Forever is functionally verified end-to-end; remaining B3 item: the
 dungeon mid-fight run.
 
+**Early-band deviation analysis (2026-09-30) — bug candidate, with a decisive
+probe.** The documented vanilla/classic rule (vanilla-wow and classic-wow
+wikis, and the r/classicwow breakdowns quoting them) applies the reduction to
+every parry with more than 20% of the swing remaining: parries in the first
+40% of the swing take the full 40%-of-weapon-speed cut (landing at 60% of the
+swing after the previous anchor); later parries are capped at 20% remaining;
+only parries with under 20% remaining do nothing. The observed Forever behavior
+deviates in exactly one band: parries in the first ~20% of the swing
+(remaining above ~80%) are discarded instead of taking the full cut. The shape
+is the signature of a swapped comparison — the documented no-effect band is
+"remaining < 20%" (end of swing), the observed band is "elapsed < 20%" (start
+of swing), a mirror image, as if the engine tested time-since-last-swing where
+the rule calls for time-until-next-swing. Testable prediction: if the
+comparison is swapped, parries in the LAST 20% of the swing (remaining under
+20%) — which the documented rule ignores — should instead DELAY the swing to
+20% remaining (a post-parry gap LONGER than the weapon speed). No capture so
+far has sampled that band (no observed parry had under 0.48 s remaining on the
+2.4 s weapon). Decisive read with the existing all-token probe (B3 item 4): a
+`PA player` line more than 80% of the weapon speed after the last swing,
+followed by either a normal-cadence swing (the discard band is intended
+tuning; the tail matches the documented rule) or a delayed swing (swap bug
+confirmed — the library should then model the delay, remaining ≤ 20% →
+expiry = now + 20% of speed, flagged as an engine deviation). In-game report
+drafted (242 chars): "Parry haste bug? Parries in the first ~20% of a swing
+have no effect; classic rule cuts remaining swing by 40% of speed for ANY
+parry over 20% remaining (early parries get the full cut). Intended Classic+
+change or swap bug? WoWUIDev Discord." Either outcome leaves the current
+implementation safe: the early band can only cause bounded under-reporting,
+self-correcting at the next anchor.
+
 - **The math is fully portable.** The block at `:358–377` only uses values the library
   already holds as plain numbers: `defender.mainExpirationTime`, the cached
   `defender.mainSpeed` (on Forever, refreshed by `PLAYER_SWING`'s plain payload), and
