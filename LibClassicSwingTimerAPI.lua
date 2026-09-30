@@ -405,28 +405,39 @@ function lib:PLAYER_TARGET_CHANGED()
 	self.callbacks:Fire("UNIT_SWING_TIMER_INFO_INITIALIZED", self.target.id)
 end
 
+-- Parry haste shared by the classic CLEU path and the WoW: Forever UNIT_COMBAT
+-- path (lib:UNIT_COMBAT): shorten an in-flight main-hand swing after a defensive
+-- parry by this unit. Reduce the remaining swing by 40% of weapon speed, floored
+-- at 20% of weapon speed.
+function lib:ApplyParryHaste(unit)
+	if not unit then
+		return
+	end
+	if not (unit.mainTimer and not unit.mainTimer:IsCancelled()) then
+		return
+	end
+	local now = GetTime()
+	unit.mainTimer:Cancel()
+	local remaining = unit.mainExpirationTime - now - (0.4 * unit.mainSpeed)
+	local min_swing_time = 0.2 * unit.mainSpeed
+	if remaining < min_swing_time then
+		remaining = min_swing_time
+	end
+	unit.mainExpirationTime = now + remaining
+	self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.mainSpeed, unit.mainExpirationTime, "mainhand")
+	if unit.mainSpeed > 0 and unit.mainExpirationTime - now > 0 then
+		unit.mainTimer = C_Timer.NewTimer(unit.mainExpirationTime - now, function()
+			unit:SwingEnd("mainhand")
+		end)
+	end
+end
+
 function lib:COMBAT_LOG_EVENT_UNFILTERED(_, ts, subEvent, _, sourceGUID, _, _, _, destGUID, _, _, _, amount, overkill, _, resisted, _, _, _, _, _, isOffHand)
 	local now = GetTime()
 	-- Parry haste: the defender of a parried attack gets its next main-hand swing sooner.
 	-- Handled before the source lookup so a parry by an untracked attacker still applies.
 	if subEvent == "SWING_MISSED" and amount == "PARRY" then
-		local defender = lib:getUnit(destGUID)
-		if defender and defender.mainTimer and not defender.mainTimer:IsCancelled() then
-			defender.mainTimer:Cancel()
-			-- Reduce the remaining swing by 40% of weapon speed, floored at 20% of weapon speed.
-			local remaining = defender.mainExpirationTime - now - (0.4 * defender.mainSpeed)
-			local min_swing_time = 0.2 * defender.mainSpeed
-			if remaining < min_swing_time then
-				remaining = min_swing_time
-			end
-			defender.mainExpirationTime = now + remaining
-			self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", defender.id, defender.mainSpeed, defender.mainExpirationTime, "mainhand")
-			if defender.mainSpeed > 0 and defender.mainExpirationTime - now > 0 then
-				defender.mainTimer = C_Timer.NewTimer(defender.mainExpirationTime - now, function()
-					defender:SwingEnd("mainhand")
-				end)
-			end
-		end
+		self:ApplyParryHaste(lib:getUnit(destGUID))
 	end
 	local unit = lib:getUnit(sourceGUID)
 	if not unit then
@@ -525,6 +536,18 @@ function lib:PLAYER_SWING(_, swingDuration, swingType)
 		unit.rangedSpeed = swingDuration
 	end
 	unit:SwingStart(hand, GetTime(), false)
+end
+
+--[[	WoW: Forever parry signal (registered on Forever only). CLEU is refused on
+	that client, but UNIT_COMBAT fires for the defender of a combat action, once
+	per unit token that names it, with plain unitIDs mid-combat (probe-verified
+	2026-09-30, build 70124). A defensive parry by the player fires the "player"
+	token; the player's attack being parried fires the defender's own tokens. ]]
+function lib:UNIT_COMBAT(_, unitTarget, action)
+	if unitTarget ~= "player" or action ~= "PARRY" then
+		return
+	end
+	self:ApplyParryHaste(self.player)
 end
 
 function lib:UNIT_ATTACK_SPEED(_, unitGUID)
@@ -913,6 +936,7 @@ if not isForever then
 end
 if isForever then
 	frame:RegisterEvent("PLAYER_SWING")
+	frame:RegisterEvent("UNIT_COMBAT")
 end
 frame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
 frame:RegisterEvent("PLAYER_ENTER_COMBAT")

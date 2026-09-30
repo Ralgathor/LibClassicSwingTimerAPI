@@ -602,6 +602,32 @@ before Blizzard acts)
 Mechanic: when a unit parries an incoming attack, its next main-hand swing is
 shortened by 40% of weapon speed, floored at 20% of weapon speed remaining.
 
+**Probe update 2026-09-30 (build 70124) — the "no direction discriminator" premise
+is disproven; option B+D superseded by an exact path.** `UNIT_COMBAT`, the
+2004-era defender-anchored combat-feedback event, was never probed here —
+`/api search parry` cannot surface it (neither its name nor its payload contains
+a searchable "parry" keyword; the event predates the documented-API system). It
+is live on the Forever client: `RegisterEvent` returned true, and it fired
+mid-combat with plain unitIDs. The capture: a player parry fired `player` +
+`targettarget` (the same unit named by two tokens, identical timestamp), while
+an outgoing dodge fired the mob's `nameplate1` + `target` tokens only —
+direction IS the unitID, and the event fires once per unit token, so filtering
+`unitTarget == "player"` catches exactly one event per defensive parry (pet
+parries fire `pet`, filtered out). Same capture: `GetCurrentCombatTextEventInfo()`
+returned nil — not secret values — for PARRY on this build; the generated docs
+mark it `SecretReturns`, so any future payload would be classified, and the
+Blizzard ask stays "populate the payload or add `PLAYER_PARRY`". Applied the
+same day: `lib:UNIT_COMBAT` handler (player + PARRY filter, Forever-only
+registration) and the parry math extracted into `lib:ApplyParryHaste`, shared
+with the classic CLEU path (classic behavior byte-identical). Remaining
+verification (M1 script B3): a direct outgoing-parry capture (the outgoing-dodge
+analog is captured; the mob did not parry during the probe window) and a dungeon
+mid-fight run. Side finding: every player-defender `UNIT_COMBAT` action
+(WOUND/DODGE/PARRY/BLOCK) marks an incoming attack attempt — a readable
+mob-swing-cadence signal with no combat log, usable for a future target-timer
+lead (single-attacker fights; the schoolMask payload can separate melee from
+spells).
+
 - **The math is fully portable.** The block at `:358–377` only uses values the library
   already holds as plain numbers: `defender.mainExpirationTime`, the cached
   `defender.mainSpeed` (on Forever, refreshed by `PLAYER_SWING`'s plain payload), and
@@ -1347,6 +1373,12 @@ was never formally run** — it is the foundation of the correlation filter.
 
 -- GetCurrentCombatTextEventInfo payload per combat text type (inspect with /dump CTI after a fight)
 /run CI=CI or CreateFrame("Frame") CI:RegisterEvent("COMBAT_TEXT_UPDATE") CI:SetScript("OnEvent",function(_,_,t) CTI=CTI or {} CTI[t]={pcall(GetCurrentCombatTextEventInfo)} end)
+
+-- UNIT_COMBAT direction capture (parry-haste signal; prints defender tokens for parries/dodges)
+/run local f=CreateFrame("Frame") print("reg",f:RegisterEvent("UNIT_COMBAT")) f:SetScript("OnEvent",function(_,_,u,a) if a=="PARRY" or a=="DODGE" then print("UC",GetTime(),u,a,issecretvalue(u)) end end)
+
+-- CombatText PARRY payload types and secrecy (values print even when secret)
+/run CT2=CT2 or CreateFrame("Frame") CT2:RegisterEvent("COMBAT_TEXT_UPDATE") CT2:SetScript("OnEvent",function(_,_,t) if t=="PARRY" then local a,b,c=GetCurrentCombatTextEventInfo() print("P",a,b,c,issecretvalue(a),issecretvalue(b),issecretvalue(c)) end end)
 ```
 
 ## 11. Follow-up improvement plan (moved to its own document)

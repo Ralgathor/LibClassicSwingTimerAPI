@@ -62,6 +62,16 @@ With and without Improved Slam talented (talent 12862: removes the delay):
    UNIT_SPELLCAST_SUCCEEDED that would otherwise reset the swing timer - and
    that the swing cadence is undisturbed.
 
+### B3. Parry haste on Forever (UNIT_COMBAT handler shipped, needs final captures)
+
+1. Outgoing parry: melee a frontal mob until IT parries YOU, with the UC macro
+   from the appendix active. Expect the parry on the defender's tokens
+   (target/nameplate), never "player" - the outgoing DODGE analog is captured
+   (2026-09-30); the outgoing PARRY itself is not yet.
+2. Dungeon mid-fight: UNIT_COMBAT tokens stay plain (display-feed channel),
+   the lib fires UNIT_SWING_TIMER_UPDATE on player parries, the next
+   PLAYER_SWING lands at the hastened expiry, no Lua errors.
+
 ## Part C - addon beta checklist (SPEC section 7, items not yet covered in effect testing)
 
 1. Hunter: ranged bar per Auto Shot; strafe mid-shot reschedules once

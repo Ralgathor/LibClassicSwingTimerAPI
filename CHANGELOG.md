@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+* Real-time parry haste on WoW: Forever. A probe (2026-09-30, build 70124) disproved the previously recorded blocker that no direction discriminator exists without the combat log: `UNIT_COMBAT`, the defender-anchored combat-feedback event, is live on the client and fires with plain unitIDs mid-combat — a defensive parry by the player fires the `player` token, while the player's attack being dodged or parried fires the defender's own tokens. The library now registers `UNIT_COMBAT` on WoW: Forever and shortens the in-flight main-hand swing on `player` + `PARRY`; the parry math is extracted from the classic CLEU handler into a shared `ApplyParryHaste` helper (classic behavior unchanged). Remaining verification: a direct outgoing-parry capture (the outgoing-dodge analog is captured) and a dungeon mid-fight run.
+
 ### Fixed
 
 * Fix a hard Lua error in the `UNIT_SPELLCAST_*` handlers in restricted content on WoW: Forever and 12.x clients: the event payload's spell ID can be a secret value, and indexing the spell-ID tables with it raised "attempted to index a table that cannot be indexed with secret keys" (observed mid-fight on the target unit's `UNIT_SPELLCAST_START` on WoW: Forever). Spell IDs from spellcast events are now routed through the `issecretvalue` guard; a secret ID degrades to "unknown spell" — cast-state flags still update (including `casting` on `UNIT_SPELLCAST_START`, hoisted out of the spell guard so the cast-based swing reset still fires), while the spell-ID list lookups and spell-specific special cases (Feign Death watcher, pause/next-melee/ranged lists) are skipped for the unreadable ID.
