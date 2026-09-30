@@ -709,6 +709,22 @@ window would confirm. One outlier sample (t_p = 0.885) landed 0.34 s earlier
 than the rule predicts — unresolved single datapoint, extra-attack or
 transcription candidate.
 
+**Fourth capture 2026-09-30 (confirmation round, settled-rule build driving the
+bars) — early band directly confirmed in-game; visual behavior accepted.** The
+bar rig ran the settled-rule library and the visual behavior read correct
+(green stack and bar jump only on effective parries). The raw capture adds a
+direct in-band datapoint: a player parry at 6% of the swing elapsed
+(t_p = 0.146, 94% remaining) produced no haste — normal cadence after —
+confirming the no-effect band extends into the previously untested low range
+(the threshold line itself remains bracketed by the (0.27, 0.72) elapsed
+window). A hasted swing in the same capture (gap 1.588 s = t_p ≈ 1.108 + 0.48
+floor) landed exactly per the rule; its causative parry line was lost in
+transcription, and the same frame also carried an outgoing parry on the target
+token with no player haste (consistent with the attacker-side rejection) and
+a player parry at ~0% of the new cycle, correctly a no-op. Parry haste on
+WoW: Forever is functionally verified end-to-end; remaining B3 item: the
+dungeon mid-fight run.
+
 - **The math is fully portable.** The block at `:358–377` only uses values the library
   already holds as plain numbers: `defender.mainExpirationTime`, the cached
   `defender.mainSpeed` (on Forever, refreshed by `PLAYER_SWING`'s plain payload), and
