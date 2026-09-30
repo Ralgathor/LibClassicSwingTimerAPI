@@ -162,21 +162,30 @@ with the classic taxonomy the library encodes:
   log identifies 8617 as Skinning, a real cast with a progress bar (the
   `CastBar-` tag marks bar casts, not engine-internal applications);
   647 appears nowhere in the combat log and is unidentified. The question
-  is open with no supporting evidence either way. **Proxy test at the level
-  cap (20): Redoubt** (paladin Protection tier 1, procs on being critically
-  struck — same mechanism class as Flurry: a talent-triggered proc aura
-  with no player cast). Protocol: one point in Redoubt, fight attacking
-  melee mobs around your level (dummies do not attack; several pulls —
-  incoming crits are ~5%), trace on. Analysis: at each incoming crit
-  (`UNIT_COMBAT player WOUND CRITICAL` in the trace, critical-flagged
-  `SWING_DAMAGE_LANDED` with the player as destination in the log), check
-  whether SUCCEEDED fired with the Redoubt spell ID, and read the aura's
-  spell ID from the log's `SPELL_AURA_APPLIED`. This answers only the
-  surfacing question — Redoubt is a block aura with no swing effect, so
-  Flurry's family (M2?) and factor (+30%) still need a Flurry capture when
-  the cap rises. Backup proxy: warrior Enrage (Fury tier 2, procs on being
-  crit). Neither is in `dynamic_haste_spells`, so the shipped trigger
-  ignores them during the test. Until answered, Flurry applications
+  is open with no supporting evidence either way. **Flurry is rebalanced on
+  Forever** (client-read tooltips, wowforevertalents.com, build 70124):
+  trigger unchanged (procs on dealing a melee critical strike, next 3
+  swings) but values lowered — warrior and shaman rank 1 is +5% (Classic
+  +10%), rank 5 is +25% (Classic +30%). Consequence: any future
+  `dynamic_haste_spells` entries for Flurry are per-rank (factors 1.05 to
+  1.25) and must be measured by capture; the Classic +30% expectation does
+  not apply on this client. **Proxy test at the level cap (20): Redoubt**
+  (paladin Protection tier 1) — same mechanism class as Flurry: a
+  talent-triggered proc aura with no player cast. Note Forever rewrote
+  Redoubt's trigger too: it no longer procs on being critically struck —
+  "Damaging melee attacks against you have a 10% chance to increase your
+  chance to block by 6%. Lasts 10 sec or 5 blocks" — which makes the proxy
+  EASIER: any attacking melee mob procs it at ~10% per incoming hit, no
+  crit dependency. Protocol: one point in Redoubt, fight attacking melee
+  mobs around your level (dummies do not attack), trace on. Analysis: at
+  each Redoubt proc (correlated with incoming `UNIT_COMBAT player WOUND`
+  events in the trace), check whether SUCCEEDED fired with the Redoubt
+  spell ID, and read the aura's spell ID from the log's
+  `SPELL_AURA_APPLIED`. This answers only the surfacing question —
+  Redoubt is a block aura with no swing effect, so Flurry's family (M2?)
+  and rank factors still need a Flurry capture when the cap rises. Neither
+  is in `dynamic_haste_spells`, so the shipped trigger ignores them during
+  the test. Until answered, Flurry applications
   self-correct at the next `PLAYER_SWING` anchor (bar long for the
   in-flight swing after each crit, correct for the rest of the proc).
 - **Druid form switches (Cat/Bear/Dire Bear): snapshot family.** Confirms
