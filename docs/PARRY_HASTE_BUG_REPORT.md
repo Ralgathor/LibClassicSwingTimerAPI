@@ -74,3 +74,48 @@ PLAYER_SWING lead + 0.10–0.30 s parry dispatch lag).
 
 Evidence: the verbatim captures and the join recipe are in `docs/evidence/`
 in the library repository (LibClassicSwingTimerAPI).
+
+---
+# AMENDMENT (2026-09-30, later analysis): the earlier report was wrong - the
+engine implements the classic rule exactly; the real issue is event timing
+
+## In-game short form (233 characters)
+
+```
+Parry haste correction: engine follows the classic rule exactly (verified b70124). Earlier report was wrong - event-timing artifacts. Real ask: document PLAYER_SWING (~0.45s pre-attack) and UNIT_COMBAT dispatch lag. WoWUIDev Discord.
+```
+
+## Full amendment (forum / dev thread)
+
+Follow-up to my earlier parry-haste report: I need to correct it. After
+re-analyzing with the client's own combat log (/combatlog works on the beta)
+joined against itself - swings and parries both combat-log events, one clock,
+no cross-addon joins - the engine implements the documented classic rule
+exactly, at both weapon speeds tested (2.4 s, 3.4 s; ~750 swing attacks,
+108 incoming parries, build 70124):
+
+- more than 60% of the swing remaining: cut by 40% of weapon speed
+  (full-cut landings match to milliseconds)
+- 20-60% remaining: floored at 20% of the swing (measured 0.484 s at 2.4 s
+  and 0.685 s at 3.4 s - exactly 20% at both speeds, +/-20 ms)
+- under 20%: no effect
+
+My earlier "early parries discarded / no 20% floor" readings were artifacts
+of comparing two skewed event streams without realizing it: PLAYER_SWING
+fires ~0.45 s before the swing's attack resolves, and the UNIT_COMBAT parry
+dispatch trails the combat log's record of the same parry by 0.10-0.30 s
+(two clusters ~0.55/0.72 relative to the PLAYER_SWING-anchored timer), so a
+UNIT_COMBAT parry stamp sits ~0.55-0.72 s after the engine's parry instant.
+An addon correlating PLAYER_SWING anchors with UNIT_COMBAT events inherits
+that skew - which is what my earlier report measured as engine deviations.
+
+The ask, restated: can the event timing be documented? Specifically (1) what
+PLAYER_SWING represents (it appears to fire ~0.45 s before the attack - at
+both weapon speeds, so a fixed lead, not weapon-proportional), and (2) the
+UNIT_COMBAT dispatch delay and its two-cluster behavior. Both affect any
+addon modeling swing timing from these events. A first-class PLAYER_PARRY
+event (or a populated GetCurrentCombatTextEventInfo) would remove the need
+to reconstruct parry timing from skewed streams entirely.
+
+Raw captures (combat log + SavedVariables event traces) available in the
+library repository's docs/evidence folder - happy to walk through them.
