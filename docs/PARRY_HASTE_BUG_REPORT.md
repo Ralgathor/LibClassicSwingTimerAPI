@@ -119,3 +119,22 @@ to reconstruct parry timing from skewed streams entirely.
 
 Raw captures (combat log + SavedVariables event traces) available in the
 library repository's docs/evidence folder - happy to walk through them.
+## Split form (recommended over the single 218-char form)
+
+The two findings belong to different subsystems (the SwingTimer event vs the
+combat-feedback dispatch), have independent fixes (document vs fix a delay),
+and split filing gives each its own character budget for the discriminating
+details. The repo's earlier range-API report was split for the same reason:
+separate reports triage and fix independently.
+
+Ticket 1 - PLAYER_SWING semantics (246 chars):
+
+```
+PLAYER_SWING fires ~0.45s before the swing resolves (constant across weapon speeds; measured vs combat-log swing damage). Is the early fire intended? Please document what instant it represents - addons anchoring swing timers on it skew vs damage.
+```
+
+Ticket 2 - UNIT_COMBAT dispatch delay (250 chars):
+
+```
+UNIT_COMBAT PARRY arrives 0.10-0.30s after the parry occurred, in two clusters (measured vs the combat log's SWING_MISSED for the same parry). Combat feedback should be immediate; the delay skews addon parry timing. Bug or intended dispatch behavior?
+```
