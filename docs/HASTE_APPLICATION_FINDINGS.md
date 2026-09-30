@@ -333,11 +333,15 @@ Side channels assessed against the retail UI source
   are readable and filterable even mid-combat (the source cites
   Exhaustion/Sated as examples). **Probed on the beta (build 70124):
   `Enum.SecrecyLevel` = { NeverSecret=0, AlwaysSecret=1,
-  ContextuallySecret=2 }, and Slice and Dice (5171), Seal of the Crusader
-  (20162) and Redoubt (20128) all return ContextuallySecret (2)** —
-  readable out of combat, hidden whenever restrictions are active. None
-  are in the NeverSecret whitelist class on this client, which is the
-  factual basis for the request below.
+  ContextuallySecret=2 }, and every aura probed returns
+  ContextuallySecret (2): Slice and Dice (5171), Seal of the Crusader
+  (20162), Redoubt (20128), Devotion Aura (10290), Retribution Aura
+  (7294).** Note the paladin aura spell IDs are renumbered on Forever
+  (Devotion 10290 vs Classic 465, Retribution 7294 vs 7291) —
+  classic-era aura IDs do not carry over. The NeverSecret whitelist
+  mechanism exists in this client but nothing probed populates it on this
+  build — readable out of combat only, hidden whenever restrictions are
+  active. That is the factual basis for the request below.
 - **Retail runs a community-request whitelist process** (12.0 planned API
   changes): Maelstrom Weapon, Skyriding spells, the GCD spell and
   combat-res spells received aura/cooldown secrecy exemptions on request;
