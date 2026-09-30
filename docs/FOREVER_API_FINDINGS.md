@@ -748,12 +748,14 @@ followed by either a normal-cadence swing (the discard band is intended
 tuning; the tail matches the documented rule) or a delayed swing (swap bug
 confirmed — the library should then model the delay, remaining ≤ 20% →
 expiry = now + 20% of speed, flagged as an engine deviation). In-game report
-drafted (242 chars): "Parry haste bug? Parries in the first ~20% of a swing
-have no effect; classic rule cuts remaining swing by 40% of speed for ANY
-parry over 20% remaining (early parries get the full cut). Intended Classic+
-change or swap bug? WoWUIDev Discord." Either outcome leaves the current
-implementation safe: the early band can only cause bounded under-reporting,
-self-correcting at the next anchor.
+drafted (242 chars, now SUPERSEDED — it said ~20% and asked about a swapped
+comparison; both were corrected by later data: the clean no-effect bracket
+reaches ~30% elapsed, and the swap hypothesis was rejected when a deep
+parry fired the swing early instead of delaying it). The final report —
+249 chars, backed by the three verbatim traces — lives in
+`docs/PARRY_HASTE_BUG_REPORT.md` together with the full forum version.
+Either outcome leaves the current implementation safe: the early band can
+only cause bounded under-reporting, self-correcting at the next anchor.
 
 **Fifth capture 2026-09-30 (all-token probe) — the 20% floor is now in
 question; verbatim-logging discriminator queued.** Clean confirmations: a
