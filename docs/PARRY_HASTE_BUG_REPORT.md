@@ -5,10 +5,10 @@ Status: draft, 2026-09-30, superseding the earlier short form (which said
 the clean no-effect bracket reaches ~30% elapsed, and the swapped-comparison
 hypothesis was rejected when a deep parry fired the swing early instead of
 delaying it). From the verbatim SavedVariables event traces in
-FOREVER_API_FINDINGS.md section 8.10: three sessions, build 70124, 440+
-swing anchors, 37 timestamped player parries, measured with a trace addon
-recording PLAYER_SWING and UNIT_COMBAT to disk — no screenshots, no
-transcription.
+FOREVER_API_FINDINGS.md section 8.10: five sessions on build 70124 across
+two weapon speeds (2.4 s and 3.4 s), 950+ swing anchors, 120+ timestamped
+player parries, measured with a trace addon recording PLAYER_SWING and
+UNIT_COMBAT to disk — no screenshots, no transcription.
 
 Filed in two forms: the in-game beta reporter (character-limited) and the
 full forum / WoW UI Discord version below.
@@ -27,8 +27,9 @@ beta (early parries discarded; late parries fire the swing instantly)
 Build: WoW: Forever beta, 1.60.1 (build 70124), Interface 16001.
 
 Method: SavedVariables event traces (PLAYER_SWING + UNIT_COMBAT,
-millisecond timestamps, written to disk at logout) across three sessions,
-440+ swing anchors, 37 timestamped player parries, mostly one or two mobs.
+millisecond timestamps, written to disk at logout) across five sessions
+and two weapon speeds (2.4 s and 3.4 s): 950+ swing anchors, 120+
+timestamped player parries, mostly one or two mobs.
 
 The documented classic parry-haste rule: a successful parry reduces the
 remaining swing timer by 40% of the defender's weapon speed (sources
@@ -48,6 +49,8 @@ next swing at 60% of the swing time.
 (the swing event and the parry combat-feedback event share the same
 timestamp). Both documented tail readings are contradicted: nothing caps
 the remaining swing at 20%, and the effect certainly does not stop.
+Confirmed at 3.4 s weapon speed: parries with 0.09-0.39 s
+remaining fired the swing within 0.15 s.
 
 The middle band matches classic exactly: remaining swing minus 40% of
 weapon speed predicts the landing to within 30 ms across seven measured
@@ -63,7 +66,9 @@ traces land early (at 60% of the swing time, or 0.69–0.86 of it) with no
 parry event at all — possibly the same mechanism dropping events, possibly
 unrelated; happy to share the trace data.
 Another observation from the same join: the swing's damage lands a constant
-0.660 s AFTER the PLAYER_SWING event (median of 489 swings; 0.66 = 27.5% of
-the 2.4 s weapon, possibly weapon-speed-proportional). PLAYER_SWING appears
+0.65 s AFTER the PLAYER_SWING event (median; 0.660 s over 489 swings at
+2.4 s weapon speed and 0.649 s over 264 swings at 3.4 s - the delay is
+absolute, not weapon-proportional, which would have shown as 0.935 s at
+3.4 s). PLAYER_SWING appears
 to be a pre-attack event rather than the attack resolution - it would help
 addon authors to know what it is supposed to represent.
