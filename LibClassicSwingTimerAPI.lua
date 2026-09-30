@@ -485,10 +485,17 @@ end
 	the in-flight swing proportionally - the same rule as the classic
 	UNIT_ATTACK_SPEED rescale, expressed as remaining time divided by the
 	haste factor. Both hands (verified: SnD affects main and off hand).
-	Ranged is excluded: no dynamic-haste ranged spell is verified. ]]
+	Ranged is excluded: no dynamic-haste ranged spell is verified.
+	Young-swing guard: a cast landing at a swing boundary arrives after the
+	PLAYER_SWING anchor has already re-anchored with the hasted payload (the
+	engine applies the aura before the anchor fires - observed in the 2026-09-30
+	capture: a cast SUCCEEDED at the same instant as an anchor already reporting
+	the new speed), so a swing younger than 50 ms is left alone: rescaling it
+	would double-apply the factor, and it would gain less than 5 ms anyway. ]]
 function lib:ApplyDynamicHaste(unit, factor)
 	local now = GetTime()
-	if unit.mainSpeed > 0 and unit.mainExpirationTime and unit.mainExpirationTime > now then
+	if unit.mainSpeed > 0 and unit.mainExpirationTime and unit.mainExpirationTime > now
+		and unit.lastMainSwing and now - unit.lastMainSwing > 0.05 then
 		if unit.mainTimer then
 			unit.mainTimer:Cancel()
 		end
@@ -499,7 +506,8 @@ function lib:ApplyDynamicHaste(unit, factor)
 			unit:SwingEnd("mainhand")
 		end)
 	end
-	if unit.offSpeed > 0 and unit.offExpirationTime and unit.offExpirationTime > now then
+	if unit.offSpeed > 0 and unit.offExpirationTime and unit.offExpirationTime > now
+		and unit.lastOffSwing and now - unit.lastOffSwing > 0.05 then
 		if unit.offTimer then
 			unit.offTimer:Cancel()
 		end

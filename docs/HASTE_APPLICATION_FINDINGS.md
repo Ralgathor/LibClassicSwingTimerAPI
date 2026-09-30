@@ -186,6 +186,13 @@ Forever regardless of the gate.
   that reports a speed back above the hasted cache — the anchor payload is
   the expiry signal). Known corner: an expiry followed by a recast before
   any anchor reports gives one swing of bar error, self-correcting.
+- **Young-swing guard** (added after the first smoke test): a cast landing
+  at a swing boundary arrives after the `PLAYER_SWING` anchor has already
+  re-anchored with the hasted payload (the engine applies the aura before
+  the anchor fires — observed in the capture's 4637.832 window), so
+  rescaling a swing younger than 50 ms would double-apply the factor.
+  `ApplyDynamicHaste` skips swings that started less than 50 ms ago,
+  per hand.
 - Snapshot family (SotC ranks, druid forms): **no special handling** —
   the SotC control shows the library's next-swing re-anchoring is exactly
   right for this family in both directions, so absence from the table is
@@ -202,15 +209,30 @@ Forever regardless of the gate.
 
 ### 6.1 In-game verification checklist (blocking for release)
 
+**Smoke test 2026-09-30 16:15 (traced, rogue on a dummy) — items 1-3 pass:**
+six SnD casts; the five fresh applications all fired `UNIT_SWING_TIMER_UPDATE`
+for both hands at the cast instant with new speed 1.4025 (= 1.683/1.2) and
+expiry = cast + remaining/1.2, matching the subsequent `PLAYER_SWING`
+anchors within 0.002-0.089 s (the dispatch-skew scatter seen in the
+capture); the one no-op cast was a refresh while SnD was active (engine-
+matched, correct); the expire -> re-cast chain re-armed the rescale
+correctly (the first post-expiry anchor reported 1.683, cleared the guard
+flag, and the next fresh cast rescaled); the expiry one-swing lag is visible
+as designed (one hasted swing landed 0.065 s after the library's
+prediction). No parries occurred in the segment and no cast landed on a
+swing boundary, so the parry interplay and the young-swing guard are not
+yet exercised in-game.
+
 1. **Forever rogue, SnD mid-swing**: with the rig's listener, cast SnD
    mid-swing — expect `UNIT_SWING_TIMER_UPDATE` for mainhand (and offhand
    if dual-wielding) at the cast instant with expiry ≈ cast +
    remaining/1.2, and the bar matching the engine's early landing.
+   *Passed (traced, 2026-09-30 16:15).*
 2. **Refresh**: recast SnD while it is active — expect NO further UPDATE
-   (no double-hasten).
+   (no double-hasten). *Passed (traced, 2026-09-30 16:15).*
 3. **Expiry**: let SnD fall off mid-swing — expect no UPDATE (documented
    one-swing lag; the bar parks briefly and re-anchors at the next
-   `PLAYER_SWING`).
+   `PLAYER_SWING`). *Passed (traced, 2026-09-30 16:15).*
 4. **Dungeon mid-fight**: no Lua errors; note whether the rescale still
    fires there (answers the player-`SUCCEEDED` secrecy question for
    restricted content empirically).
@@ -218,6 +240,11 @@ Forever regardless of the gate.
    identical behavior to 2.1.x (the classic rescale path is untouched).
 6. **SotC sanity**: seal-juggle on the paladin — no UPDATE on SotC
    application or replacement, cadence tracking as before.
+7. **Boundary cast**: cast SnD deliberately at the moment a swing lands —
+   the young-swing guard must prevent a double-hasten (bar must not drop
+   below the hasted speed).
+8. **Parry interplay**: get parried while SnD is up — parry cut and haste
+   rescale both apply to the same in-flight swing without conflict.
 
 ## 7. Open items
 
