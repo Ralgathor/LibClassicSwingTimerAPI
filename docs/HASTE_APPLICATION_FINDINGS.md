@@ -156,21 +156,29 @@ with the classic taxonomy the library encodes:
   `prevent_swing_speed_update` and rides the generic rescale. **Open
   question on Forever: does the proc fire
   `UNIT_SPELLCAST_SUCCEEDED`?** The classic-engine assumption is no (proc
-  auras are not casts), but this client demonstrably fires SUCCEEDED for
-  non-cast effect applications: the captures record spells 8617 and 647
-  with `CastBar-`-prefixed castGUIDs, while every real cast (SnD, Sinister
-  Strike, Judgement) carries a normal `Cast-` GUID — a distinct family of
-  engine-internal applications surfaced on the same event. If Flurry's
-  proc arrives that way, the shipped trigger already covers it once the
-  spell ID and factor are in the table. If it does not, the remaining
-  candidate is `UNIT_COMBAT` `CRITICAL` on outgoing melee plus talent
-  detection and uncorrectable 3-charge tracking (poor). Until then Flurry
-  applications self-correct at the next `PLAYER_SWING` anchor (bar long
-  for the in-flight swing after each crit, correct for the rest of the
-  proc). A warrior/shaman capture decides: trace on, auto-attack until
-  crits proc Flurry mid-swing, then check the trace for SUCCEEDED events
-  at the crit instants (and read the proc's spell ID and the anchor
-  payload's speed drop for the factor).
+  auras are not casts). An earlier revision of this section cited the
+  `CastBar-`-tagged trace events (spells 8617, 647) as evidence that
+  non-cast applications surface on SUCCEEDED — **retracted**: the combat
+  log identifies 8617 as Skinning, a real cast with a progress bar (the
+  `CastBar-` tag marks bar casts, not engine-internal applications);
+  647 appears nowhere in the combat log and is unidentified. The question
+  is open with no supporting evidence either way. **Proxy test at the level
+  cap (20): Redoubt** (paladin Protection tier 1, procs on being critically
+  struck — same mechanism class as Flurry: a talent-triggered proc aura
+  with no player cast). Protocol: one point in Redoubt, fight attacking
+  melee mobs around your level (dummies do not attack; several pulls —
+  incoming crits are ~5%), trace on. Analysis: at each incoming crit
+  (`UNIT_COMBAT player WOUND CRITICAL` in the trace, critical-flagged
+  `SWING_DAMAGE_LANDED` with the player as destination in the log), check
+  whether SUCCEEDED fired with the Redoubt spell ID, and read the aura's
+  spell ID from the log's `SPELL_AURA_APPLIED`. This answers only the
+  surfacing question — Redoubt is a block aura with no swing effect, so
+  Flurry's family (M2?) and factor (+30%) still need a Flurry capture when
+  the cap rises. Backup proxy: warrior Enrage (Fury tier 2, procs on being
+  crit). Neither is in `dynamic_haste_spells`, so the shipped trigger
+  ignores them during the test. Until answered, Flurry applications
+  self-correct at the next `PLAYER_SWING` anchor (bar long for the
+  in-flight swing after each crit, correct for the rest of the proc).
 - **Druid form switches (Cat/Bear/Dire Bear): snapshot family.** Confirms
   the existing classification. No change needed on either path: the forms
   are in `prevent_swing_speed_update` on classic, and on Forever absence
@@ -299,11 +307,12 @@ yet exercised in-game.
 
 1. SnD rank 2 (6774) haste factor; other dynamic-family sources on Forever
    (haste potions, procs, Classic+ 7-digit spells).
-2. Flurry capture (warrior or shaman, Forever): does the proc fire
-   `UNIT_SPELLCAST_SUCCEEDED` (possibly with a `CastBar-` castGUID, the
-   client's non-cast application family — see 3.2)? If yes, the shipped
-   trigger covers Flurry once the spell ID and factor (classic +30%) are
-   captured and the guard is reworked to per-spell flags. If no, the
+2. Flurry surfacing question, proxied by Redoubt at the level cap (beta is
+   capped at 20; Flurry is unreachable — 15-point Fury/Enhancement): does a
+   talent-proc aura application fire `UNIT_SPELLCAST_SUCCEEDED` on this
+   client? Redoubt protocol in section 3.2. If yes, the shipped trigger
+   covers Flurry once a Flurry capture supplies the spell ID and factor
+   (classic +30%) and the guard is reworked to per-spell flags. If no, the
    decision is next-swing correction (default) versus the
    `UNIT_COMBAT`-crit machinery (not recommended).
 3. The 4453 expiry overshoot (+0.085 over full new speed, single occurrence).
