@@ -628,6 +628,26 @@ mob-swing-cadence signal with no combat log, usable for a future target-timer
 lead (single-attacker fights; the schoolMask payload can separate melee from
 spells).
 
+**In-game result 2026-09-30 (build 70124, bar rig) — the flat parry formula is
+rejected; the tiered engine rule applied.** First live run of the
+`UNIT_COMBAT` handler: detection and the mid-swing UPDATE work (green stack
+fired, the bar re-anchored), but the bar parked early — stuck full for up to
+~40% of the weapon speed before the engine's actual hastened swing landed.
+That is the flat formula over-hastening early parries: it reduces the
+remaining swing by 40% of weapon speed unconditionally, while the engine caps
+parries with more than 60% of the swing remaining at 60% remaining. The
+earlier captures already fit the tiered rule (the 2.0 s gap on a 2.4 s weapon
+is impossible under the flat reduction, which snaps every effective parry to a
+1.44 s gap); the bar-parked-early observation is the direct confirmation. The
+engine rule now implemented in `ApplyParryHaste` (all clients — the classic
+CLEU branch was unreachable before 2.2.0, so the flat rule had never been
+exercised against the engine; the Era regression pass should cover it):
+more than 60% of the swing remaining → the swing lands at 60%; between 20%
+and 60% → reduced by 40% of weapon speed, floored at 20%; 20% or less
+remaining → no effect (a parry never delays the swing — the flat rule's
+tail floor pushed the modeled swing later, which would also have flashed the
+interrupt feedback on an ordinary swing via the START-while-active path).
+
 - **The math is fully portable.** The block at `:358–377` only uses values the library
   already holds as plain numbers: `defender.mainExpirationTime`, the cached
   `defender.mainSpeed` (on Forever, refreshed by `PLAYER_SWING`'s plain payload), and

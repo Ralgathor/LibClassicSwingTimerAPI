@@ -407,8 +407,13 @@ end
 
 -- Parry haste shared by the classic CLEU path and the WoW: Forever UNIT_COMBAT
 -- path (lib:UNIT_COMBAT): shorten an in-flight main-hand swing after a defensive
--- parry by this unit. Reduce the remaining swing by 40% of weapon speed, floored
--- at 20% of weapon speed.
+-- parry by this unit, following the engine's tiered rule (verified in-game on
+-- WoW: Forever, build 70124): more than 60% of the swing remaining -> the swing
+-- lands at 60%; between 20% and 60% -> reduced by 40% of weapon speed, floored
+-- at 20%; 20% or less remaining -> no effect (a parry never delays the swing).
+-- The previous flat reduction over-hastened early parries (the bar parked up to
+-- ~40% of the weapon speed before the engine's actual hastened swing) and
+-- delayed parries in the last 20%.
 function lib:ApplyParryHaste(unit)
 	if not unit then
 		return
@@ -417,11 +422,19 @@ function lib:ApplyParryHaste(unit)
 		return
 	end
 	local now = GetTime()
-	unit.mainTimer:Cancel()
-	local remaining = unit.mainExpirationTime - now - (0.4 * unit.mainSpeed)
+	local remaining = unit.mainExpirationTime - now
 	local min_swing_time = 0.2 * unit.mainSpeed
-	if remaining < min_swing_time then
-		remaining = min_swing_time
+	if remaining <= min_swing_time then
+		return -- engine: no effect this late in the swing
+	end
+	unit.mainTimer:Cancel()
+	if remaining > 0.6 * unit.mainSpeed then
+		remaining = 0.6 * unit.mainSpeed
+	else
+		remaining = remaining - (0.4 * unit.mainSpeed)
+		if remaining < min_swing_time then
+			remaining = min_swing_time
+		end
 	end
 	unit.mainExpirationTime = now + remaining
 	self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.mainSpeed, unit.mainExpirationTime, "mainhand")
@@ -431,6 +444,7 @@ function lib:ApplyParryHaste(unit)
 		end)
 	end
 end
+
 
 function lib:COMBAT_LOG_EVENT_UNFILTERED(_, ts, subEvent, _, sourceGUID, _, _, _, destGUID, _, _, _, amount, overkill, _, resisted, _, _, _, _, _, isOffHand)
 	local now = GetTime()
