@@ -40,6 +40,37 @@ Line formats:
 - `LIB_UNIT_SWING_TIMER_UPDATE <GetTime> player <speed> <expiry> mainhand`
 - `SESSION <GetTime> <version> <buildNumber> <wall-clock date>`
 
+## Files: SnD mid-swing haste capture (2026-09-30 15:41)
+
+Backs `HASTE_APPLICATION_FINDINGS.md`. Rogue `Rolhgar`
+(GUID `Player-4620-011E60D2`), dual-wield (mainhand 1.683, offhand 1.782),
+Slice and Dice rank 1 (5171, +20% measured: 1.683→1.403 / 1.782→1.485).
+Both files are verbatim copies from the live beta client.
+
+### `4everSwingTimer-2026-09-30-snd.lua` (1.0 MB)
+
+The full accumulated `FourEverSwingTimerTrace` SavedVariables table at the
+end of the session (all earlier sessions included; the SnD session is the
+segment after the `SESSION 4318.226 ... 15:41:29` marker — its GetTime range
+numerically overlaps the file's first paladin session, so analysis must
+select by file position, not by GetTime value). The SnD session records 121
+mainhand and 106 offhand PLAYER_SWING anchors, 19 SnD and 20 Sinister Strike
+`UNIT_SPELLCAST_SUCCEEDED` casts, and 17 offhand combat-start
+`LIB_UNIT_SWING_TIMER_UPDATE` anchors (zero mainhand mid-swing updates —
+the rescale gate held throughout).
+
+### `WoWCombatLog-093026_154137.txt` (250 KB)
+
+The client's advanced combat log for the SnD session. Player-attributed
+swing attempts: `SWING_DAMAGE_LANDED` + `SWING_MISSED` (source = player
+GUID; 157 landed + 70 missed = 227 = the trace's 121 + 106 anchors).
+SnD appears as `SPELL_AURA_APPLIED`/`SPELL_AURA_REMOVED` 5171 (15 each —
+recasts replace the aura), with `SPELL_AURA_APPLIED` landing 4 ms after the
+matching `SPELL_CAST_SUCCESS` in the same channel. Note for parsing: unit
+names contain spaces inside quotes ("Ornery Galestrider"), so
+whitespace-based field splitting corrupts combat-log lines — split on
+commas only.
+
 ## How to reproduce the join
 
 **The decisive analysis needs no join at all**: read swings AND parries from
@@ -85,6 +116,21 @@ minus trace GetTime).
   parry with a log record; the earlier "2/66 delayed ~0.83 s" reading was
   the dispatch lag seen through a tight join window).
 
+## What the SnD capture establishes (see HASTE_APPLICATION_FINDINGS.md)
+
+- **Dynamic-family haste applies mid-swing on Forever**: SnD rescales the
+  in-flight swing's remaining time proportionally (13 clean gain windows at
+  25–82% offsets; the snapshot and progress-preserving models are rejected
+  everywhere). Both hands are affected.
+- **Expiry lengthens dynamically too** (four of five expiry windows land
+  between the hasted and base speeds; snapshot-on-removal rejected). One
+  window overshoots the new full speed by +0.085 s — open anomaly.
+- **Player UNIT_SPELLCAST_SUCCEEDED spell IDs stay plain mid-combat** (all
+  19 SnD casts recorded readable in open-world fighting).
+- The library's `not isForever` rescale gate held throughout (zero mainhand
+  mid-swing UPDATEs) — meaning the bar lagged the engine on every SnD cast,
+  which is the reported anomaly.
+
 ## Caveats
 
 - The combat log is append-mode: it contains BOTH join sessions plus the
@@ -93,3 +139,7 @@ minus trace GetTime).
 - `GetTime()` is session-relative; the first trace session (91 anchors,
   12 parries) predates the trace v2 SESSION markers and the spellcast /
   library-update recording.
+- The SnD trace file is the accumulated SavedVariables across ALL sessions;
+  the rogue segment must be selected by file position (after the
+  `SESSION 4318.226` line), because its GetTime values numerically overlap
+  the first paladin session's.

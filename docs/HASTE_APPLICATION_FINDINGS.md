@@ -1,191 +1,154 @@
 # Haste application timing on WoW: Forever — investigation findings
 
-Status: **unverified hypothesis, pending in-game capture.** No code changes made.
-Source: user report (2026-09-30) that Slice and Dice appears to apply *during*
-the current swing on the Forever beta, not from the next swing.
+Status: **VERIFIED by capture** (rogue Slice and Dice session, 2026-09-30
+15:41, build 70124). Evidence: `docs/evidence/4everSwingTimer-2026-09-30-snd.lua`
+(verbatim SavedVariables copy) and `docs/evidence/WoWCombatLog-093026_154137.txt`.
+No code changes made yet; the fix design is in section 6.
 
-## 1. The report and the conflict
+## 1. The report
 
-**Report:** on the Forever beta, a rogue's Slice and Dice seems to shorten the
-in-flight swing (mid-swing haste application).
+On the Forever beta, a rogue's Slice and Dice appeared to shorten the in-flight
+swing (mid-swing haste application). This contradicted the shipped Forever
+rescale gate (`LibClassicSwingTimerAPI.lua` lines 621/636/655:
+`and not isForever`), which never rescales in-flight swings on Forever and was
+justified by a single SotC observation (`FOREVER_API_FINDINGS.md` §8.9,
+2026-09-25: "in-flight swing completed on the old schedule, new cadence from
+the next swing").
 
-**Existing finding it conflicts with** (`FOREVER_API_FINDINGS.md` §8.9,
-2026-09-25): "SotC mid-swing verified: in-flight swing completed on the old
-schedule, NO mid-swing UPDATE (rescale gate works), completing swing reported
-the new speed 1.714, new cadence from the next swing." This observation is
-the entire basis for the shipped Forever rescale gate
-(`LibClassicSwingTimerAPI.lua` lines 621/636/655: `and not isForever` —
-in-flight swings are never rescaled on Forever).
+**The report is correct.** The engine applies dynamic-family haste mid-swing.
 
-## 2. The reconciliation: classic engines have two haste families, and the
-SotC test only sampled the snapshot family
+## 2. Verified engine rule
 
-The library itself already encodes a two-family haste taxonomy on the classic
-path (in the CLEU `SPELL_AURA_APPLIED/REMOVED` branch):
+Test session: rogue `Rolhgar` (GUID `Player-4620-011E60D2`), dual-wield,
+mainhand base speed **1.683**, offhand base **1.782**. SnD rank 1 (spell 5171)
+measured at **+20% haste** (1.683 → 1.403; 1.683/1.403 = 1.1997; offhand
+1.782 → 1.485, same ratio — both hands affected). 19 SnD casts, 20 Sinister
+Strikes, ~228 mainhand swings. All measurements below are anchor-to-anchor
+`PLAYER_SWING` (type 0) periods from the trace — a single channel, so the
+~0.45 s pre-resolution lag cancels; the parry work established this method as
+millisecond-clean.
 
-- `prevent_swing_speed_update` (Lua line 1077 block): Cat/Bear/Dire Bear Form
-  and **all six Seal of the Crusader ranks (21082, 20162, 20305-20308)** —
-  aura gained/removed mid-swing → `skipNextAttackSpeedUpdate = 2`: the next
-  `UNIT_ATTACK_SPEED` rescale is suppressed, the in-flight swing completes on
-  its old schedule, and the new speed applies from the next swing.
-- Everything else — Slice and Dice, Heroism, haste potions and procs,
-  Divine Shield — has no entry: the generic rescale path (line 621) runs
-  mid-swing and rescales the remaining time proportionally
-  (`timeLeft = remaining * newSpeed / oldSpeed`).
+### 2.1 Gain direction: proportional-remaining rescale (model M2)
 
-This is not library invention; it is the community-documented engine taxonomy.
-WeakAuras2 issue #3205 ("Weapon Swing Timer incorrect behavior with haste
-buffs", TBC, Jul 2021) records exactly this split, contested and confirmed in
-the thread:
+For a cast at offset `t` into a swing of speed `S`, with hasted speed `H`,
+the measured period `P` follows `P = t + (S - t) * H / S` — the classic
+library model (`timeLeft = remaining * newSpeed / oldSpeed`). 13 clean gain
+windows:
 
-- TheSorm: "Devine Shield for example will be breaking the swing timer
-  completly now since it changes the attack speed mid swing when its applied
-  and when its taken off. On the other hand we have Seal of crusader which is
-  snapshotted in both ways. When you apply SoC mid swing, the attack speed
-  effect will only be applied after the next swing. When taking it off mid
-  swing, the attack speed bonus stays on until the next swing." (Trinkets
-  like Abacus: dynamic, no snapshot.)
-- tasosgretsistas: "most haste effects in TBC ... are not snapshotted at the
-  start of a swing but instead update remaining swing duration dynamically
-  when they are applied / removed mid-swing ... You would need to specifically
-  add the IDs of auras that do not snapshot."
-- WeakAuras initially shipped a blanket "attack speed is snapshotted on TBC"
-  change (commit 91bc69f) — the same over-generalization our Forever gate
-  makes — and was argued out of it in the thread.
+| offset into swing | measured P | M0 (snapshot) resid | M2 resid | M3 (progress-keep) resid |
+|---|---|---|---|---|
+| 25% | 1.507 | -0.176 | +0.035 | +0.104 |
+| 30% | 1.493 | -0.190 | +0.007 | +0.090 |
+| 33% | 1.537 | -0.146 | +0.042 | +0.134 |
+| 37% | 1.538 | -0.145 | +0.032 | +0.135 |
+| 57% | 1.621 | -0.062 | +0.060 | +0.218 |
+| 61% | 1.573 | -0.110 | -0.002 | +0.170 |
+| 62% | 1.587 | -0.096 | +0.009 | +0.184 |
+| 66% | 1.604 | -0.079 | +0.015 | +0.201 |
+| 69% | 1.653 | -0.030 | +0.056 | +0.250 |
+| 69% | 1.588 | -0.095 | -0.009 | +0.185 |
+| 78% | 1.653 | -0.030 | +0.031 | +0.250 |
+| 79% | 1.638 | -0.045 | +0.013 | +0.235 |
+| 82% | 1.624 | -0.059 | -0.009 | +0.221 |
 
-**Conclusion of the review:** the 2026-09-25 Forever observation is fully
-consistent with Forever preserving the classic two-family taxonomy. SotC is
-the one haste aura the classic engine itself snapshots at swing boundaries,
-so that test could not have detected mid-swing rescaling. The
-`and not isForever` gate turned a snapshot-family result into a Forever-wide
-rule. The new SnD report matches the dynamic family and, if confirmed,
-means the gate makes the library's bar lag the engine for up to one full
-swing after every dynamic haste gain (the bar runs long; the engine's swing
-lands early; `PLAYER_SWING` re-anchors at the next swing).
+M0 (the current gate's assumption) and M3 are rejected everywhere; M2 holds
+within event jitter. One further window (SnD SUCCEEDED at the exact instant
+of the next anchor, 4.5% of the swing remaining) is a resolution-boundary
+case and is excluded from the table. The M2 residual mean is **+0.024**,
+consistent with event-dispatch skew (the SUCCEEDED event and the anchors
+lead/lag the engine's instants by ~0.1–0.15 s — the same two-cluster skew
+family documented for `UNIT_COMBAT` in the parry evidence; the engine rule
+itself is M2, not M2+0.024). The combat log corroborates the application
+instant: `SPELL_AURA_APPLIED` and `SPELL_CAST_SUCCESS` for the same SnD are
+4 ms apart in that channel.
 
-Supporting plausibility from the shipped parry work: the Forever engine
-already demonstrably reschedules an in-flight swing mid-swing (parry haste
-cuts the remainder with a 20% floor, verified millisecond-accurate on two
-weapon speeds, `docs/evidence/README.md`) — an engine that can shorten an
-in-flight swing for parries can do it for haste auras too.
+### 2.2 Expiry direction: dynamic lengthening, not snapshot
 
-## 3. What the archive can and cannot settle
+Five expiry windows (speed 1.403 → 1.683 at the next anchor). Four measured
+periods land between the hasted and base speeds (1.494, 1.464, 1.535, 1.585),
+as proportional-remaining lengthening predicts; snapshot-on-removal
+(P ≈ 1.403) is rejected by +0.06 to +0.18 — far beyond the ±0.03 jitter.
+One window overshoots even the new full speed: SnD applied 4444.763 with
+1 combo point (9.0 s), so expiry fell 0.086 s into the following swing, yet
+the measured period was 1.768 (+0.085 over the full new speed). Single
+occurrence, unexplained, recorded as an open anomaly — same status as the
+parry dispatch-skew outliers were before the join work resolved them.
 
-The archived captures (2026-09-30, `docs/evidence/`) contain **no usable
-haste-transition data**: all 1,193 `PLAYER_SWING` anchors run at constant
-speed (929 at 2.4 s, 264 at 3.4 s), and the only self-applied auras in the
-combat log are Light's Fury, Consecration, Seal of Fury, Seal of
-Righteousness, Divine Protection, Forbearance and Blessings — none change
-attack speed. (Divine Protection is absorbed, not attack speed.) The
-question needs a new capture.
+### 2.3 Library behavior during the capture
 
-## 4. Candidate engine rules to discriminate
+The rescale gate held: zero mainhand mid-swing
+`LIB_UNIT_SWING_TIMER_UPDATE` events in the session (the 17 offhand UPDATEs
+are combat-start half-speed anchors). So during the whole capture the rig's
+bar ran long for the remainder of the first swing after every SnD cast —
+the engine's swing landed early and `PLAYER_SWING` re-anchored. That is the
+visual anomaly the user reported.
 
-Weapon speed `S`, SnD cast at offset `t` into the swing (`0 < t < S`), hasted
-speed `H` (classic SnD: `H = S / 1.3`; **do not assume** — read `H` from the
-first fully-hasted period in the capture, Classic+ may have changed values).
+## 3. The two-family taxonomy on Forever
 
-Let `P` = period from the `PLAYER_SWING` before the cast to the one after
-(single-channel gap — the parry work established these gaps are
-millisecond-clean; the ~0.45 s pre-resolution lag is common to both anchors
-and cancels out).
+The classic library path already encodes the split: `prevent_swing_speed_update`
+(druid forms + SotC ranks 21082, 20162, 20305–20308) suppresses the mid-swing
+rescale — the snapshot family; everything else rescales (line 621). The
+community record (WeakAuras2 issue #3205, TBC) documents the same split and
+SotC as "snapshotted in both ways". On Forever:
 
-| Model | Rule | P at t=0.6 / 1.2 / 1.8, S=2.4, H=1.846 |
-|---|---|---|
-| M0 — snapshot (gate's current assumption) | in-flight swing unaffected | 2.400 / 2.400 / 2.400 |
-| M2 — proportional-remaining (library classic model) | `P = t + (S - t) * H / S` | 1.985 / 2.123 / 2.262 |
-| M3 — progress-preserving | `P = H` if `t < H` | 1.846 / 1.846 / 1.846 |
+- **Dynamic family**: SnD confirmed mid-swing, both directions (this capture).
+- **Snapshot family**: SotC observed next-swing-only (§8.9, 2026-09-25).
+  No same-session control was run in this capture; the taxonomy claim rests
+  on those two independent observations.
 
-M0/M2/M3 are pairwise distinct at every offset; the three offsets
-(25%/50%/75%) are enough to separate all three and to detect any floor or
-clamping behavior. Also capture the **expiry direction**: SnD falling off
-mid-swing — does the in-flight swing lengthen (dynamic removal), or complete
-hasted (snapshot-on-expiry, the original WA #3205 report)? The classic
-library model rescales in both directions; TheSorm claims both directions
-are dynamic for the non-SoC family; the WA reporter observed the opposite
-for expiry. Unknown for Forever — measure it.
+The §8.9 SotC test was therefore never evidence about the dynamic family —
+the `not isForever` gate over-generalized a snapshot-family result, exactly
+as WeakAuras did with commit 91bc69f before being argued out of it.
 
-## 5. Capture protocol (4everSwingTimer trace rig, single-channel analysis)
+## 4. Secrecy findings from this capture
 
-Client: WoW: Forever beta, `/console loglevel 2` + BugSack. Trace on:
-`/4everswingtimer trace` (same rig as the parry evidence — records
-`PLAYER_SWING <GetTime> <duration> <type>`,
-`UNIT_SPELLCAST_SUCCEEDED <GetTime> player <castGUID> <spellID>`, and the
-library's own UPDATE/START/STOP). `/combatlog` alongside is optional; the
-decisive analysis needs only the trace (single clock, single channel — the
-lesson from the parry join work).
+Player `UNIT_SPELLCAST_SUCCEEDED` spell IDs read **plain mid-combat** (open
+world) throughout the session: all 19 SnD casts were recorded with readable
+IDs (5171) by the rig while fighting. This answers protocol step 5 partially:
+the per-spell haste-table approach has a usable gain-direction signal.
+(The earlier secret case — §4.3 correction — was target
+`UNIT_SPELLCAST_START` mid-fight in a dungeon; player `SUCCEEDED` in open-world
+combat is a different event/unit pair and stayed plain here.)
 
-Char: rogue, one combo-point SnD (1 CP = 9 s duration; enough for 3-5 hasted
-swings). Weapon: the 2.4 s one if available; repeat on 3.4 s for the
-two-speed rule check.
+Still unprobed: whether player `SUCCEEDED` stays plain in restricted instanced
+content, and whether `UNIT_ATTACK_SPEED` fires at all on Forever (its payload
+is secret mid-combat either way, so it cannot drive the rescale).
 
-1. **Baseline:** auto-attack a dummy 10+ cycles; confirm the period matches
-   the last-anchor cadence within ±20 ms (also confirms Sinister Strike used
-   to build the combo point does not disturb the cadence — classic model
-   says it must not; worth having in evidence).
-2. **Gain, three offsets:** mid-swing, cast SnD at roughly 25%, 50%, and 75%
-   of the period (aim by eye; the actual `t` is computed in analysis as
-   `castTime - previous PLAYER_SWING time` from the trace — aim precision
-   is not required). At least 2-3 repetitions per offset band.
-3. **Expiry:** with SnD running, stop re-casting and let it fall off
-   mid-swing; repeat 3+ times at different offsets.
-4. **Control (SotC, expected M0):** same three offsets with Seal of the
-   Crusader on the paladin — if SnD measures M2/M3 while SotC measures M0,
-   the two-family taxonomy is confirmed on Forever verbatim.
-5. **Secrecy probe (design-blocking — run before the melee captures):**
-   mid-fight, with the rig's listener, record the SnD
-   `UNIT_SPELLCAST_SUCCEEDED` spell ID and check `issecretvalue(id)`;
-   also `/dump UnitAttackSpeed("player")` mid-fight to re-confirm SECRET,
-   and probe whether `UNIT_ATTACK_SPEED` fires at all on SnD application
-   (`/run UAS=UAS or CreateFrame("Frame") UAS:RegisterUnitEvent("UNIT_ATTACK_SPEED","player") UAS:SetScript("OnEvent",function() print("UAS",GetTime()) end)`).
-6. **Dual-wield note:** SnD affects both hands. Filter `swingType 0`
-   (mainhand) for the rule analysis; offhand periods are a free second
-   dataset if the rogue is dual-wielding.
+## 5. What this means for the rescale gate
 
-Expected library trace during the test: with the current gate, the rig should
-log **no** `LIB_UNIT_SWING_TIMER_UPDATE` mid-swing on SnD application — the
-engine (if M2/M3) landing early is then visible as a period shorter than the
-rig's bar predicted. Any mid-swing UPDATE in the log means the gate leaked —
-investigate before trusting the run.
+The gate at lines 621/636/655 is wrong for the dynamic family: the engine
+rescales, the library does not, and every haste gain leaves the bar long for
+up to one full swing. But removing the gate alone fixes nothing: mid-combat
+`UnitAttackSpeed` is secret (§4.2), so `mainSpeedNew ~= unit.mainSpeed` can
+never go true in combat — the classic rescale path has no speed source on
+Forever regardless of the gate.
 
-## 6. Library implications if confirmed (design notes, nothing implemented)
+## 6. Fix design (proposed, not implemented)
 
-- The gate at lines 621/636/655 is over-broad. The classic two-family model
-  is the correct target: **dynamic family → rescale mid-swing (M2);
-  snapshot family (SotC, druid forms) → no rescale, new speed at the next
-  swing.** The snapshot exception on Forever cannot ride the CLEU
-  `SPELL_AURA_APPLIED` path (dead there); it would need a
-  `UNIT_SPELLCAST_SUCCEEDED`-driven skip keyed on the SotC rank IDs.
-- **The real blocker is detection, not the rule:** mid-fight,
-  `UnitAttackSpeed` returns secret values, so `ResolveSecret` falls back to
-  the cache and the rescale condition
-  (`mainSpeedNew ~= unit.mainSpeed`) can never go true in combat — the
-  classic rescale path is inoperable on Forever even without the gate.
-  Candidate plain-channel signals for the new speed at application time:
-  - `UNIT_SPELLCAST_SUCCEEDED` spell ID (verified plain in the §4.3 session,
-    but that predates the 4.3 correction; the START-on-target secrecy makes
-    re-verification mandatory — hence the probe in step 5) + a per-spell
-    haste table (SnD 30%, Blazewind, haste potions, procs...). Stacking
-    behavior and Classic+ values would need their own probes.
-  - Aura inspection (`UnitAura`/`C_UnitAuras`) — secrecy on Forever
-    unverified for auras; the M1 script B2 probe uses it out of combat only.
-  - Expire-direction mirroring additionally needs aura-removal detection,
-    which has no plain verified channel today (step 3's capture should note
-    what fires when SnD falls off: `UNIT_AURA`? `UNIT_COMBAT`? nothing?).
-- Until detection is solvable, the gate's behavior (bar correct at every
-  swing, imprecise for at most one swing after a haste change) is the safe
-  degraded mode; the fix should land together with a speed signal that
-  works in restricted content, not as a bare gate removal.
+- Rescale on Forever only when a **plain signal identifies the new speed**:
+  on `UNIT_SPELLCAST_SUCCEEDED` of a known dynamic-haste spell, apply the
+  spell's haste factor to the cached speed and rescale the remaining time
+  proportionally (both hands). SnD rank 1 (5171): x1/1.2, verified by this
+  capture. Rank 2 (6774) percentage needs a probe (classic-era +30%).
+  Unknown spell IDs: keep current behavior (re-anchor at the next
+  `PLAYER_SWING`).
+- Snapshot family (SotC ranks, druid forms): no rescale — matching both the
+  classic path's `prevent_swing_speed_update` and the §8.9 Forever
+  observation. The skip must be SUCCEEDED-driven on Forever (no CLEU).
+- Expiry: no plain removal signal verified (`UNIT_AURA` secrecy unprobed),
+  so expiry lengthening cannot be mirrored yet — accept one-swing lag on
+  expiry, self-corrected at the next `PLAYER_SWING` anchor. Documented.
+- Stacking haste (SnD + proc auras) is unprobed; the factor table should
+  start with verified spells only and grow by capture.
 
-## 7. Open questions
+## 7. Open items
 
-- Which family do Classic+ haste effects belong to (7-digit IDs, e.g. the
-  paladin Classic+ seals seen in the join captures)? Unknown until probed.
-- Does the engine treat the *expiry* of a dynamic-family haste as dynamic
-  (M2 lengthen) or snapshot (complete hasted)? Contradictory community
-  evidence; measure (step 3).
-- Does `PLAYER_SWING`'s `swingDuration` during SnD read the hasted speed
-  (H)? The §8.9 SotC capture read the new speed at the completing swing —
-  the SnD capture should confirm the same for the dynamic family.
-- Is there a floor on mid-swing haste shortening (a parry-haste-style
-  20%-remaining floor)? The 25% offset trials will show it if it exists.
+1. SotC control run in the same style as this capture (expected M0) — closes
+   the taxonomy as same-session evidence.
+2. SnD rank 2 (6774) haste factor; other dynamic-family sources on Forever
+   (haste potions, procs, Classic+ 7-digit spells).
+3. The 4453 expiry overshoot (+0.085 over full new speed, single occurrence).
+4. `UNIT_ATTACK_SPEED` fire behavior on Forever (does the event fire at all
+   when speeds change?).
+5. Player `SUCCEEDED` spell-ID secrecy in restricted instanced content
+   (open-world combat verified plain by this capture).
