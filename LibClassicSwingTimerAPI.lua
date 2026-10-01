@@ -365,15 +365,17 @@ function lib:PLAYER_ENTERING_WORLD()
 	self.player.rangedSpeed = GetRangedSpeed("player", self.player.rangedSpeed) or 0
 
 	self.player.lastMainSwing = now
-	self.player.mainExpirationTime = self.player.lastMainSwing + self.player.mainSpeed
+	-- Parked, like the PLAYER_TARGET_CHANGED seed: no swing can be in flight at
+	-- a loading screen, so a future expiration would be an uncompletable swing.
+	self.player.mainExpirationTime = self.player.lastMainSwing
 	self.player.firstMainSwing = false
 
 	self.player.lastOffSwing = now
-	self.player.offExpirationTime = self.player.lastOffSwing + self.player.offSpeed
+	self.player.offExpirationTime = self.player.lastOffSwing
 	self.player.firstOffSwing = false
 
 	self.player.lastRangedSwing = now
-	self.player.rangedExpirationTime = self.player.lastRangedSwing + self.player.rangedSpeed
+	self.player.rangedExpirationTime = self.player.lastRangedSwing
 	self.player:ResetTransientState()
 
 	self.callbacks:Fire("UNIT_SWING_TIMER_INFO_INITIALIZED", self.player.id)
