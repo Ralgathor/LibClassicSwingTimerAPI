@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.0-beta4] - 2026-10-01
+
+Known unverified in this build: the Classic Era regression pass for the parked login seed.
+
 ### Fixed
 
 * Park the player swing seed on PLAYER_ENTERING_WORLD (all clients): the old seed manufactured an in-flight swing at login (expiration = now + weapon speed) that no engine event could ever complete - auto-attack does not survive a loading screen - so its expiration passed without a UNIT_SWING_TIMER_STOP and consumers held a stale "active" swing until the next real swing. The seed now lands parked (expiration = lastSwing), matching the PLAYER_TARGET_CHANGED seed. Evidence: docs/upstream-stale-swing-report.md. Live-verified on the WoW: Forever beta (build 70124, probe captures 2026-10-01, with and without auto-attack at login): a mid-combat /reload parks every hand at login (no START or UPDATE after PLAYER_ENTERING_WORLD), auto-attack is confirmed not to survive the reload (the first PLAYER_SWING follows the re-pressed attack toggle), and the post-engage START/STOP cadence and parry-haste UPDATE are unchanged; classic flavors share the seed change and keep their regression pass pending.
