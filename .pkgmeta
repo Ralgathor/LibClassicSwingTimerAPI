@@ -6,6 +6,7 @@ externals:
 
 ignore:
   - README.md
+  - AGENTS.md
   - docs
 
 manual-changelog:
