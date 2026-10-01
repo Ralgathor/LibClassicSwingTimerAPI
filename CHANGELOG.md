@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.0-beta3] - 2026-10-01
+
 Known unverified in this build: a live in-game run of the Forever parry-haste back-date and dynamic-haste rescale, a direct outgoing-parry capture, and the Classic Era regression pass.
 
 ### Added

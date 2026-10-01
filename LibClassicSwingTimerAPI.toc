@@ -4,7 +4,7 @@
 ## Interface-Wrath: 30405
 ## Interface-Cata: 40402
 ## Interface-Mists: 50504
-## Version: 2.2.0-beta2
+## Version: 2.2.0-beta3
 ## Title: Swing Timer API
 ## Notes: Swing Timer Library
 ## Author: Ralgathor
