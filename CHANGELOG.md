@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+* Park the player's swings on PLAYER_DEAD (all clients): the death reset cancelled each active hand's timer and fired UNIT_SWING_TIMER_STOP but left its expiration in the future, so UnitSwingTimerInfo kept reporting the stopped swing as in flight until that time passed. Each stopped hand now parks (expiration = lastSwing, the same convention as the login seed) before its STOP fires, so a consumer that reads the state inside its STOP handler already sees it parked. Found in the Classic Era regression pass (2026-10-02, client 1.15.9.70003, Season of Discovery realm): STOP fired at death with 0.54 s left on the main hand, while the state query still read that swing as in flight. Event-driven consumers were unaffected. Verified on the same client after the fix: one STOP at death and the main hand reads parked at once; the duplicate PLAYER_DEAD fires nothing; the first swing after resurrection starts cleanly.
+
 ## [2.2.0-beta4] - 2026-10-01
 
 Known unverified in this build: the Classic Era regression pass for the parked login seed.
