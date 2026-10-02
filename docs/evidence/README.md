@@ -175,3 +175,20 @@ minus trace GetTime).
   the rogue and SotC segments must be selected by file position (after the
   `SESSION 4318.226` and `SESSION 5170.413` lines respectively), because
   their GetTime values numerically overlap the first paladin session's.
+
+---
+
+# Evidence: Classic Era regression pass (2026-10-02)
+
+### `SwingTestLog-classic-era-2026-10-02.lua` (87 KB)
+
+Verbatim `SwingTestLogDB` SavedVariables from the Classic Era client
+(1.15.9.70003, Living Flame / Season of Discovery), library 2.2.0-beta4
+(MINOR 36): 10 login/reload sessions, warrior then hunter. Recorded by the
+harness in `../tools/SwingTestLog/`; summarize it with
+`luajit ../tools/analyze-swingtestlog.lua SwingTestLog-classic-era-2026-10-02.lua`.
+Line format: `<clock> <GetTime> <KIND> <fields>`, with `STATE` lines giving
+each hand's `UnitSwingTimerInfo` as PARKED / IN-FLIGHT / LANDED. Sessions 1–9
+run the beta4 file; session 10 (`NOTE DEATH fix check`) runs the
+`PLAYER_DEAD` parking fix. Results and analysis:
+`../CLASSIC_ERA_REGRESSION_2026-10-02.md`.
