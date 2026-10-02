@@ -119,7 +119,19 @@ STOP fires.
 **Fix check (22:09:42, fixed file installed on the same client):** one STOP
 at death and the main hand reads `PARKED` at once (`left=-0.851`, the time
 since its last swing); the duplicate `PLAYER_DEAD` stays silent; clean START
-after resurrection. Not yet checked on Forever.
+after resurrection.
+
+**Fix check on WoW: Forever (22:21:23, client 1.60.1.70170, paladin, fixed
+file embedded in 4everSwingTimer):** death 1.115 s into a 2.4 s swing (START
+3606.048, death 3607.333); one STOP in the same frame and the main hand reads
+`PARKED left=-1.285` at once. Forever fired `PLAYER_DEAD` only once. After
+resurrection the first auto-attack swing started cleanly on its
+`PLAYER_SWING` anchor. The same log also shows the beta4 seed parked at a
+fresh login, a mid-fight reload and two zone changes, and three parry cuts
+matching their landings within 2 ms (`left=` 0.351, 0.596, 0.617). Raw log:
+[`evidence/SwingTestLog-forever-2026-10-02.lua`](evidence/SwingTestLog-forever-2026-10-02.lua).
+The harness runs on both clients; on Forever it logs `PLAYER_SWING` as
+`SWING` and `UNIT_COMBAT` parries, since CLEU is refused there.
 
 ## Observations, not compared with 2.1.x
 
@@ -141,7 +153,6 @@ v2.1.3.
 
 ## Still open before 2.2.0 stable
 
-- Death fix check on WoW: Forever (die while auto-attacking; the state at
-  death must read `PARKED`).
+- ~~Death fix check on WoW: Forever~~ — passed 2026-10-02 (see test 3).
 - Changelog: drop the beta4 "Known unverified" line at release prep, and
   note the same-frame parry edge case.

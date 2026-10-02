@@ -1,8 +1,8 @@
-## Interface: 11509
+## Interface: 11509, 16001
 ## Title: Swing Test Log
 ## Notes: Test harness: records every LibClassicSwingTimerAPI callback plus combat context to SavedVariables for review.
 ## Author: Ralgathor
-## Dependencies: LibClassicSwingTimerAPI
+## OptionalDeps: LibClassicSwingTimerAPI, 4everSwingTimer
 ## SavedVariables: SwingTestLogDB
 
 SwingTestLog.lua
