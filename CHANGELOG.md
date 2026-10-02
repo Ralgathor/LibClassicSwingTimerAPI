@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-10-02
+
+Stable release of the 2.2.0 betas: WoW: Forever support (entries below, from 2.2.0-beta1 on) plus the fixes in this section.
+
+Verified in game on this build's changes: the Classic Era regression pass (client 1.15.9.70003 - cadence, parry haste, login/reload parking, haste rescale, death reset; docs/CLASSIC_ERA_REGRESSION_2026-10-02.md) and, on the WoW: Forever beta (client 1.60.1.70170), the death reset and dual-wield off-hand anchoring (docs/FOREVER_API_FINDINGS.md section 8.9) - closing the "known unverified" items of the beta entries below.
+
+Known unverified in this release: retail 12.x and the Classic flavors other than Era (Mists, BCC, Wrath, Cata) - no in-game pass on this build; the classic code paths they share are covered by the Era pass. Wand anchoring on WoW: Forever (assumed covered by `PLAYER_SWING` like other ranged attacks).
+
+Known limitation: a parry in the same frame as the player's own swing start is treated as landing before that swing and does not shorten it. The engine applied the cut in one such case and skipped it in another (Classic Era captures), so the rule stays until more samples settle the ordering; 2.1.x cut every parry.
+
 ### Fixed
 
 * Park the player's swings on PLAYER_DEAD (all clients): the death reset cancelled each active hand's timer and fired UNIT_SWING_TIMER_STOP but left its expiration in the future, so UnitSwingTimerInfo kept reporting the stopped swing as in flight until that time passed. Each stopped hand now parks (expiration = lastSwing, the same convention as the login seed) before its STOP fires, so a consumer that reads the state inside its STOP handler already sees it parked. Found in the Classic Era regression pass (2026-10-02, client 1.15.9.70003, Season of Discovery realm): STOP fired at death with 0.54 s left on the main hand, while the state query still read that swing as in flight. Event-driven consumers were unaffected. Verified on the same client after the fix: one STOP at death and the main hand reads parked at once; the duplicate PLAYER_DEAD fires nothing; the first swing after resurrection starts cleanly. Also verified on the WoW: Forever beta (client 1.60.1.70170): STOP at death with 1.115 s left, the main hand reads parked at once, clean START after resurrection. Report: docs/CLASSIC_ERA_REGRESSION_2026-10-02.md.
