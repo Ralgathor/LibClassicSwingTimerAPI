@@ -141,7 +141,11 @@ function Unit:new(obj)
 end
 
 function Unit:CalculateDelta()
-	if self.offSpeed > 0 and self.mainExpirationTime ~= nil and self.offExpirationTime ~= nil then
+	-- A landed hand's expiration is stale (e.g. the main hand at the attack
+	-- toggle, long after its last swing); the difference would be meaningless.
+	local now = GetTime()
+	if self.offSpeed > 0 and self.mainExpirationTime ~= nil and self.offExpirationTime ~= nil
+		and self.mainExpirationTime > now and self.offExpirationTime > now then
 		self.callbacks:Fire("UNIT_SWING_TIMER_DELTA", self.id, self.mainExpirationTime - self.offExpirationTime)
 	end
 end
@@ -286,7 +290,7 @@ function Unit:GetRangedBaseSpeed()
 		if text then
 			local match = text:match(speed_pattern)
 			if match then
-				speed = match
+				speed = tonumber(match) -- the capture is a string; cache a number
 				break
 			end
 		end
