@@ -557,13 +557,28 @@ after the anchor/recast fixes verified (single anchors, ~0.5s recast model,
 8 measurements). **Remaining: dual-wield off-hand, Classic Era regression,
 optional wand check.**
 
+**Classic Era regression and dual-wield off-hand verified (2026-10-02):** the
+Classic Era pass (items 1 and 11) is recorded in
+`CLASSIC_ERA_REGRESSION_2026-10-02.md`. Dual-wield on Forever (item 6, open item
+10): a rogue (client 1.60.1.70170) fired `PLAYER_SWING` with `swingType=1` and a
+plain duration on every off-hand swing; the library sent one off-hand START per
+swing (1.782) next to the main hand (1.683) for ~20 swings, and DELTA every
+off-hand swing (-0.87 to +0.69 s). Raw log:
+`evidence/SwingTestLog-forever-2026-10-02.lua`, `NOTE DUAL WIELD`. Two quirks at
+the attack toggle, both identical in v2.1.3: `PLAYER_ENTER_COMBAT` predicts an
+off-hand swing at half speed that never landed (the player was likely out of
+range - the first main-hand swing came 2.2 s after the toggle), and the DELTA
+fired with it read -21.625 from the stale main-hand expiration (fixed:
+`CalculateDelta` now skips a landed hand). **Remaining: optional wand check.**
+
 1. Classic Era regression: melee a dummy — timers behave exactly as 2.1.6.
 2. Forever open world: swings fire `UNIT_SWING_TIMER_START` with correct
    speed/expiration; hunter Auto Shot drives the ranged bar (`swingType=2`).
 3. Forever dungeon mid-fight: no Lua errors; timers keep running (payload plain).
 4. Forever Feign Death: no error on cast; swing resets when the FD cooldown starts.
 5. Retail 12.x: addon loads, no FD error; timers degrade silently in restricted content.
-6. Dual-wield on Forever: off-hand fires `PLAYER_SWING` with `swingType=1` (open item 10).
+6. ~~Dual-wield on Forever: off-hand fires `PLAYER_SWING` with `swingType=1` (open item 10).~~ —
+   **verified 2026-10-02** (rogue; see the progress note above).
 7. ~~Hunter on Forever: `START_AUTOREPEAT_SPELL`/`STOP_AUTOREPEAT_SPELL`~~ —
    **verified** (both fire on toggling Auto Shot; `isShooting` is maintained, the
    FAILED_QUIET gate extension is fully viable). Remaining sub-check: moving
@@ -1421,8 +1436,8 @@ was never formally run** — it is the foundation of the correlation filter.
 9. ~~`Enum.PlayerSwingType` values~~ — resolved: MainHand=0, OffHand=1, Ranged=2
    (maps 1:1 to `mainhand`/`offhand`/`ranged`).
 10. `PLAYER_SWING` coverage: **ranged confirmed** (hunter Auto Shot fires with
-    `swingType=2`, plain `swingDuration`); **off-hand (`swingType=1`) still
-    unverified** (needs a dual-wield character — release checklist item 6).
+    `swingType=2`, plain `swingDuration`); **off-hand confirmed 2026-10-02**
+    (`swingType=1`, plain `swingDuration`, rogue — release checklist item 6).
     ~~Does `PLAYER_SWING_RANGE_UPDATE` need `EnableRangeCheck` first?~~ — answered:
     yes, and even then it only fires once, at the enable call (section 4.4).
     **PLAYER_SWING player-only isolation test also never formally run** (stand
