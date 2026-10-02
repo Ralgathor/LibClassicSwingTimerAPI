@@ -1,20 +1,43 @@
 -- Swing Test Log: records LibClassicSwingTimerAPI callbacks and combat context
 -- into SwingTestLogDB, one session per login/reload. Review the file at
 -- WTF\Account\<account>\SavedVariables\SwingTestLog.lua (written on /reload or logout).
+-- Runs on Classic Era and WoW: Forever. Forever refuses CLEU, so there the own
+-- swings and parries come from PLAYER_SWING and UNIT_COMBAT (the library's own
+-- Forever sources) and auras are not logged. The library may be standalone or
+-- embedded (4everSwingTimer on Forever), so it is looked up at PLAYER_LOGIN.
 
 local LIB_NAME = "LibClassicSwingTimerAPI"
 local MAX_ENTRIES = 5000
 local MAX_SESSIONS = 20
 local HANDS = { "mainhand", "offhand", "ranged" }
+local SWING_TYPES = { [0] = "mainhand", [1] = "offhand", [2] = "ranged" }
 
 local GetTime, date, format, select, tostring = GetTime, date, format, select, tostring
 local CombatLogGetCurrentEventInfo = CombatLogGetCurrentEventInfo
+local issecretvalue = issecretvalue
 
-local lib, libMinor = LibStub(LIB_NAME, true)
+local _, _, _, interface = GetBuildInfo()
+local isForever = interface >= 16000 and interface < 20000
+
+local GetSpellName = (C_Spell and C_Spell.GetSpellName) or function(spellID)
+	return (GetSpellInfo(spellID))
+end
+
+local lib, libMinor
 local playerGUID
 local session
 
+local function str(x)
+	if issecretvalue and issecretvalue(x) then
+		return "<secret>"
+	end
+	return tostring(x)
+end
+
 local function num(x)
+	if issecretvalue and issecretvalue(x) then
+		return "<secret>"
+	end
 	if type(x) == "number" then
 		return format("%.3f", x)
 	end
@@ -27,7 +50,7 @@ local function log(kind, ...)
 	end
 	local parts = {}
 	for i = 1, select("#", ...) do
-		parts[i] = tostring((select(i, ...)))
+		parts[i] = str((select(i, ...)))
 	end
 	local line = format("%s %10.3f %-9s %s", date("%H:%M:%S"), GetTime(), kind, table.concat(parts, " "))
 	local entries = session.entries
@@ -104,7 +127,11 @@ local handlers = {}
 
 function handlers.PLAYER_LOGIN()
 	playerGUID = UnitGUID("player")
+	if LibStub then
+		lib, libMinor = LibStub(LIB_NAME, true)
+	end
 	StartSession()
+	log("CLIENT", isForever and "forever" or "classic", "interface=" .. tostring(interface))
 	if not lib then
 		log("ERROR", LIB_NAME .. " not loaded")
 		return
@@ -161,27 +188,45 @@ function handlers.PLAYER_EQUIPMENT_CHANGED(slot)
 end
 
 function handlers.UNIT_SPELLCAST_SUCCEEDED(unit, _, spellID)
-	if unit == "player" then
-		log("CAST", spellID, (GetSpellInfo(spellID)))
+	if unit ~= "player" then
+		return
+	end
+	if issecretvalue and issecretvalue(spellID) then
+		log("CAST", spellID)
+	else
+		log("CAST", spellID, GetSpellName(spellID))
 	end
 end
 
-function handlers.COMBAT_LOG_EVENT_UNFILTERED()
-	local _, sub, _, sourceGUID, _, _, _, destGUID, _, _, _, a12, a13, _, _, _, _, _, _, _, a21 = CombatLogGetCurrentEventInfo()
-	if sourceGUID == playerGUID then
-		if sub == "SWING_DAMAGE" then
-			log("HIT", a21 and "offhand" or "mainhand", "dmg=" .. tostring(a12))
-		elseif sub == "SWING_MISSED" then
-			log("MISS", a13 and "offhand" or "mainhand", a12)
-		elseif (sub == "SPELL_AURA_APPLIED" or sub == "SPELL_AURA_REMOVED" or sub == "SPELL_AURA_REFRESH") and destGUID == playerGUID then
-			log("AURA", sub:sub(12), a12, a13)
+if isForever then
+	-- The library's own Forever swing anchor and parry source.
+	function handlers.PLAYER_SWING(swingDuration, swingType)
+		log("SWING", SWING_TYPES[swingType] or str(swingType), "duration=" .. num(swingDuration))
+	end
+
+	function handlers.UNIT_COMBAT(unitTarget, action)
+		if unitTarget == "player" and not (issecretvalue and issecretvalue(action)) and action == "PARRY" then
+			log("PARRY", "you parried (UNIT_COMBAT)")
 		end
-	elseif destGUID == playerGUID and a12 == "PARRY" and (sub == "SWING_MISSED") then
-		log("PARRY", "you parried an incoming swing")
-	elseif destGUID == playerGUID and sub == "SPELL_MISSED" then
-		local _, _, _, _, _, _, _, _, _, _, _, _, _, _, missType = CombatLogGetCurrentEventInfo()
-		if missType == "PARRY" then
-			log("PARRY", "you parried an incoming spell")
+	end
+else
+	function handlers.COMBAT_LOG_EVENT_UNFILTERED()
+		local _, sub, _, sourceGUID, _, _, _, destGUID, _, _, _, a12, a13, _, _, _, _, _, _, _, a21 = CombatLogGetCurrentEventInfo()
+		if sourceGUID == playerGUID then
+			if sub == "SWING_DAMAGE" then
+				log("HIT", a21 and "offhand" or "mainhand", "dmg=" .. tostring(a12))
+			elseif sub == "SWING_MISSED" then
+				log("MISS", a13 and "offhand" or "mainhand", a12)
+			elseif (sub == "SPELL_AURA_APPLIED" or sub == "SPELL_AURA_REMOVED" or sub == "SPELL_AURA_REFRESH") and destGUID == playerGUID then
+				log("AURA", sub:sub(12), a12, a13)
+			end
+		elseif destGUID == playerGUID and a12 == "PARRY" and (sub == "SWING_MISSED") then
+			log("PARRY", "you parried an incoming swing")
+		elseif destGUID == playerGUID and sub == "SPELL_MISSED" then
+			local _, _, _, _, _, _, _, _, _, _, _, _, _, _, missType = CombatLogGetCurrentEventInfo()
+			if missType == "PARRY" then
+				log("PARRY", "you parried an incoming spell")
+			end
 		end
 	end
 end
@@ -190,7 +235,7 @@ frame:SetScript("OnEvent", function(_, event, ...)
 	handlers[event](...)
 end)
 for event in pairs(handlers) do
-	if event == "UNIT_SPELLCAST_SUCCEEDED" then
+	if event == "UNIT_SPELLCAST_SUCCEEDED" or event == "UNIT_COMBAT" then
 		frame:RegisterUnitEvent(event, "player")
 	else
 		frame:RegisterEvent(event)

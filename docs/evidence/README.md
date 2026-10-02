@@ -192,3 +192,11 @@ each hand's `UnitSwingTimerInfo` as PARKED / IN-FLIGHT / LANDED. Sessions 1–9
 run the beta4 file; session 10 (`NOTE DEATH fix check`) runs the
 `PLAYER_DEAD` parking fix. Results and analysis:
 `../CLASSIC_ERA_REGRESSION_2026-10-02.md`.
+
+### `SwingTestLog-forever-2026-10-02.lua` (11 KB)
+
+Same harness on the WoW: Forever beta (client 1.60.1.70170, paladin),
+library 2.2.0-beta4 plus the `PLAYER_DEAD` parking fix, embedded in
+4everSwingTimer. Three sessions; the death check is under
+`NOTE DEATH fix forever` in session 2. On Forever the harness logs
+`PLAYER_SWING` as `SWING` and parries from `UNIT_COMBAT` (CLEU is refused).
