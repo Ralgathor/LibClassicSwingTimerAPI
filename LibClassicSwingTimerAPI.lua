@@ -982,16 +982,22 @@ function lib:PLAYER_DEAD()
 	if not unit then
 		return
 	end
+	-- Park each stopped hand (expiration = last swing, as the login seed does)
+	-- before firing STOP: a cancelled swing keeps its future expiration
+	-- otherwise, and UnitSwingTimerInfo would report it in flight until then.
 	if unit.mainTimer and not unit.mainTimer:IsCancelled() then
 		unit.mainTimer:Cancel()
+		unit.mainExpirationTime = unit.lastMainSwing
 		self.callbacks:Fire("UNIT_SWING_TIMER_STOP", unit.id, "mainhand")
 	end
 	if unit.offTimer and not unit.offTimer:IsCancelled() then
 		unit.offTimer:Cancel()
+		unit.offExpirationTime = unit.lastOffSwing
 		self.callbacks:Fire("UNIT_SWING_TIMER_STOP", unit.id, "offhand")
 	end
 	if unit.rangedTimer and not unit.rangedTimer:IsCancelled() then
 		unit.rangedTimer:Cancel()
+		unit.rangedExpirationTime = unit.lastRangedSwing
 		self.callbacks:Fire("UNIT_SWING_TIMER_STOP", unit.id, "ranged")
 	end
 	unit.casting = false
