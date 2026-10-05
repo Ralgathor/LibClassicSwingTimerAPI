@@ -461,7 +461,7 @@ and `PLAYER_TARGET_CHANGED` main/off use a separate dual-value guard (if either
 value is secret, nil both so the existing `or 3` / `or 0` defaults apply), and
 `lib:PLAYER_SWING` keeps an explicit early-return on a secret duration (no
 fallback exists for an anchor). Assumes `issecretvalue(nil) == false` — verify
-in-game with `/run print(issecretvalue(nil))` (release checklist item 10); the
+in-game with `/run print(issecretvalue(nil))` (release checklist item 10 - **verified 2026-10-04: prints `false`**); the
 pre-simplification code already relied on this at one call site, so the pass
 unified an inconsistency rather than introducing a new assumption.
 
@@ -1352,8 +1352,8 @@ in trash packs), the player's instant melee abilities (fire CT events without a
 ask with unit-targeted swing events / source attribution (fits the "mechanically
 missing" framing — classic CLEU gave target swings, Forever gives nothing
 attributable); (2) optionally an opt-in heuristic, single-melee-target only.
-**Blocked on the PLAYER_SWING player-only isolation test (open item 10), which
-was never formally run** — it is the foundation of the correlation filter.
+**The PLAYER_SWING player-only isolation test (open item 10), formerly
+blocked as never formally run, is RESOLVED (2026-10-04 session report):** with the listener armed and the player standing still under melee, no PLAYER_SWING fired - player-only confirmed, the correlation filter foundation holds.
 
 ## 9. Open items / to verify before or during implementation
 
@@ -1440,9 +1440,9 @@ was never formally run** — it is the foundation of the correlation filter.
     (`swingType=1`, plain `swingDuration`, rogue — release checklist item 6).
     ~~Does `PLAYER_SWING_RANGE_UPDATE` need `EnableRangeCheck` first?~~ — answered:
     yes, and even then it only fires once, at the enable call (section 4.4).
-    **PLAYER_SWING player-only isolation test also never formally run** (stand
-    still, get hit, listener armed) — it underpins the target-tracking closure and
-    the swing-correlation filters (parry option A/E, any target heuristic).
+    ~~PLAYER_SWING player-only isolation test also never formally run~~ -
+    **run and passed (2026-10-04 session report)**: listener armed, stood still
+    under melee, no PLAYER_SWING fired. It underpins the target-tracking closure and the swing-correlation filters (parry option A/E, any target heuristic) - foundation confirmed.
 11. Whether the `C_SwingTimer` system also exists on retail 12.x — the built-in swing
     timer ships with Forever; if the namespace exists on retail, the native path can
     be shared.

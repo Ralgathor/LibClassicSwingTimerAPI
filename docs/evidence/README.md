@@ -201,3 +201,21 @@ Five sessions: the paladin death check under `NOTE DEATH fix forever`
 (session 2), and the rogue dual-wield check under `NOTE DUAL WIELD`
 (session 5, `FOREVER_API_FINDINGS.md` release checklist item 6). On Forever the harness logs
 `PLAYER_SWING` as `SWING` and parries from `UNIT_COMBAT` (CLEU is refused).
+
+---
+
+# Evidence: aura-presence probe, build 70205 (2026-10-04)
+
+### `SwingTestLog-forever-2026-10-04.lua`
+
+Verbatim `SwingTestLogDB` SavedVariables from the WoW: Forever beta
+(client 1.60.1.70205, library 2.2.0 stable / MINOR 37), recorded by the
+extended harness in `../tools/SwingTestLog/` (AURA by-name probe lines on
+UNIT_AURA and combat transitions, SCAN index dumps, QUEUE IsCurrentSpell
+samples, CASTSTART/CASTSTOP lines). The decisive session is the 19:38
+rogue (`Rolhgar`, dual-wield 1.683/1.782): two Slice and Dice fights
+under `NOTE snd-r1` plus the Well Fed out-of-combat control. It closes
+M1_SESSION_SCRIPT item B4 (verdict 2 - by-name nil mid-combat, full
+plain data out of combat on the same aura instance) and re-verifies the
+SnD rank 1 factor 1.2 on both hands on the new build. Recorded in
+`../HASTE_APPLICATION_FINDINGS.md` section 7.1. The 2026-10-05 morning refresh adds the SPEED/ATKSPEED-instrumented session: the 4.2 secrecy rule re-verified (plain out of combat including live hasted values at combat-leave; secret mid-combat; the combat-enter instant still plain - the flip lands after the event), UNIT_ATTACK_SPEED confirmed firing at the SnD application and expiry instants (double-fire per change), and the CP chain cross-validated again (at-snd 2.000 -> dur 12.000 -> fade edge +10 ms). The 2026-10-05 midday refresh adds the two recast fights: refresh-no-fire CONFIRMED twice (no ATKSPEED on a recast while SnD active), fade fires at +93/-24 ms of the CP-formula expiry matching the recast duration (replace-on-recast confirmed), CP plain mid-combat at 1.000 and 2.000 - with the one gap that every fade so far landed out of combat (the mid-combat fade fire is the remaining rogue check; a training dummy fight survives the expiry). Round 2 (training-dummy fight): the mid-combat fade CONFIRMED - ATKSPEED x2 at +412 ms of the CP-formula expiry, secret payload, anchors transitioning hasted-to-unhasted 620 ms after the fire, and the parity alternating (fresh application after the fade fired again). The rogue side of the transition-parity design is complete.

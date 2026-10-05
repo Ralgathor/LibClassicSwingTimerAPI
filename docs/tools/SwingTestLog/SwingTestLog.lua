@@ -3,8 +3,11 @@
 -- WTF\Account\<account>\SavedVariables\SwingTestLog.lua (written on /reload or logout).
 -- Runs on Classic Era and WoW: Forever. Forever refuses CLEU, so there the own
 -- swings and parries come from PLAYER_SWING and UNIT_COMBAT (the library's own
--- Forever sources) and auras are not logged. The library may be standalone or
--- embedded (4everSwingTimer on Forever), so it is looked up at PLAYER_LOGIN.
+-- Forever sources); on Forever aura presence is probed by name
+-- (C_UnitAuras.GetAuraDataBySpellName) on UNIT_AURA, combat transitions and
+-- /stl aura - the 2026-10-04 aura-presence investigation. The library may be
+-- standalone or embedded (4everSwingTimer on Forever), so it is looked up at
+-- PLAYER_LOGIN.
 
 local LIB_NAME = "LibClassicSwingTimerAPI"
 local MAX_ENTRIES = 5000
@@ -15,6 +18,17 @@ local SWING_TYPES = { [0] = "mainhand", [1] = "offhand", [2] = "ranged" }
 local GetTime, date, format, select, tostring = GetTime, date, format, select, tostring
 local CombatLogGetCurrentEventInfo = CombatLogGetCurrentEventInfo
 local issecretvalue = issecretvalue
+local pcall = pcall
+-- Nil-guarded 12.x namespaces: a removed global upvalues to nil, so every use
+-- below checks the local first (same rule as the library and the addon).
+local GetAuraByName = C_UnitAuras and C_UnitAuras.GetAuraDataBySpellName
+local GetAuraByIndex = C_UnitAuras and C_UnitAuras.GetAuraDataByIndex
+local IsCurrentSpell = C_Spell and C_Spell.IsCurrentSpell
+local GetAuraSecrecy = C_Secrets and C_Secrets.GetSpellAuraSecrecy
+local GetAuraCount = C_UnitAuras and C_UnitAuras.GetAuraCount
+local GetComboPoints = GetComboPoints
+local DEFAULT_WATCH = { "Slice and Dice" }
+local QUEUED_SPELLS = { 78, 845, 2973, 6807 } -- Heroic Strike, Cleave, Raptor Strike, Maul
 
 local _, _, _, interface = GetBuildInfo()
 local isForever = interface >= 16000 and interface < 20000
@@ -61,6 +75,160 @@ local function log(kind, ...)
 	end
 	if SwingTestLogDB.echo then
 		print("|cff88ccff[STL]|r " .. line)
+	end
+end
+
+local function GetWatch()
+	if type(SwingTestLogDB.watch) == "table" and #SwingTestLogDB.watch > 0 then
+		return SwingTestLogDB.watch
+	end
+	return DEFAULT_WATCH
+end
+
+-- The by-name aura probe (M1_SESSION_SCRIPT B4): one log line per watched
+-- name. pcall catches the "Auras cannot be accessed when secret" throw, so
+-- every outcome - ERROR, nil, or a table with its secrecy flags inline - is
+-- the verdict evidence. num() masks secret numbers; the secDur/secExp flags
+-- carry the classification.
+local function AuraProbe(reason)
+	if not GetAuraByName then
+		return
+	end
+	local watch = GetWatch()
+	for i = 1, #watch do
+		local name = watch[i]
+		local ok, d = pcall(GetAuraByName, "player", name, "HELPFUL")
+		if not ok then
+			log("AURA", reason, name, "ERROR", str(d))
+		elseif type(d) ~= "table" then
+			log("AURA", reason, name, "nil")
+		else
+			log("AURA", reason, name, "id=" .. str(d.spellId), "apps=" .. str(d.applications),
+				"dur=" .. num(d.duration), "exp=" .. num(d.expirationTime),
+				"secDur=" .. str(issecretvalue and issecretvalue(d.duration)),
+				"secExp=" .. str(issecretvalue and issecretvalue(d.expirationTime)),
+				"secrecy=" .. str(GetAuraSecrecy and GetAuraSecrecy(d.spellId)))
+		end
+	end
+end
+
+
+-- The count probe (UNIT_AURA edge-inference gate, findings 7.1 item 4): if
+-- GetAuraCount answers a plain number mid-combat, every UNIT_AURA edge gets a
+-- direction (+1/-1) and edge attribution gains its corroborator. num() masks
+-- a secret count; the flag carries the verdict.
+local function AuraCount(reason)
+	if not GetAuraCount then
+		return
+	end
+	local ok, c = pcall(GetAuraCount, "player", "HELPFUL")
+	if not ok then
+		log("COUNT", reason, "ERROR", str(c))
+	else
+		log("COUNT", reason, num(c), "sec=" .. str(issecretvalue and issecretvalue(c)))
+	end
+end
+
+-- Combo points mid-combat (the second edge-inference gate, findings 7.1
+
+-- The speed-secrecy probe (findings 4.2 re-check): UnitAttackSpeed's three
+-- returns plus UnitRangedDamage, each masked by num() and flagged by
+-- issecretvalue. /stl speed for an on-demand read (run one mid-fight); the
+-- combat enter/leave hooks log it at the restriction-flip instants, and
+-- login adds the out-of-combat baseline - one fight yields both states.
+local function SpeedProbe(reason)
+	local s = issecretvalue
+	if UnitAttackSpeed then
+		local a, b, c = UnitAttackSpeed("player")
+		log("SPEED", reason, "mh=" .. num(a), "oh=" .. num(b), "rgd=" .. num(c),
+			"sec=" .. str(s and (s(a) or s(b) or s(c))))
+	else
+		log("SPEED", reason, "no UnitAttackSpeed")
+	end
+	if UnitRangedDamage then
+		local r = UnitRangedDamage("player")
+		log("SPEED", reason, "rngd=" .. num(r), "sec=" .. str(s and s(r)))
+	else
+		log("SPEED", reason, "no UnitRangedDamage")
+	end
+end
+-- item 2): a plain read makes a cast SnD's duration schedulable, so the
+-- expiry edge gets an exact expected instant instead of a 9-21 s window.
+local function ComboPoints()
+	if not GetComboPoints then
+		print("|cff88ccff[STL]|r no GetComboPoints on this client")
+		return
+	end
+	local ok, cp = pcall(GetComboPoints, "player", "target")
+	if not ok then
+		log("CP", "ERROR", str(cp))
+	else
+		log("CP", num(cp), "sec=" .. str(issecretvalue and issecretvalue(cp)))
+	end
+	print("|cff88ccff[STL]|r combo points logged")
+end
+-- Index-scan dump: run it out of combat on Forever (GetAuraDataByIndex throws
+-- mid-combat there). Captures every helpful aura's name and spell ID - the
+-- M1 B2 route for Maelstrom Weapon.
+local function Scan()
+	if GetAuraByIndex then
+		for i = 1, 40 do
+			local ok, d = pcall(GetAuraByIndex, "player", i, "HELPFUL")
+			if not ok then
+				log("SCAN", "error", str(d))
+				return
+			end
+			if not d then
+				log("SCAN", "end", "count=" .. tostring(i - 1))
+				return
+			end
+			log("SCAN", "idx=" .. tostring(i), str(d.name), "id=" .. str(d.spellId), "apps=" .. str(d.applications), "dur=" .. num(d.duration))
+		end
+		log("SCAN", "end", "count=40")
+	elseif UnitAura then
+		for i = 1, 40 do
+			local n, _, _, _, _, _, _, _, _, sid = UnitAura("player", i, "HELPFUL")
+			if not n then
+				log("SCAN", "end", "count=" .. tostring(i - 1))
+				return
+			end
+			log("SCAN", "idx=" .. tostring(i), str(n), "id=" .. str(sid))
+		end
+		log("SCAN", "end", "count=40")
+	end
+end
+
+-- Queued next-melee spells (SPEC 10.5 probe 1): /stl queue dumps every base
+-- ID's IsCurrentSpell boolean - the high-rank Heroic Strike probe.
+local function QueueDump()
+	if not IsCurrentSpell then
+		print("|cff88ccff[STL]|r no C_Spell.IsCurrentSpell on this client")
+		return
+	end
+	local parts = {}
+	for i = 1, #QUEUED_SPELLS do
+		local ok, v = pcall(IsCurrentSpell, QUEUED_SPELLS[i])
+		parts[i] = tostring(QUEUED_SPELLS[i]) .. "=" .. str(ok and v or "error")
+	end
+	log("QUEUE", table.concat(parts, " "))
+	print("|cff88ccff[STL]|r " .. table.concat(parts, " "))
+end
+
+-- Per-swing sampling: a QUEUE line only while something is actually queued,
+-- so long unqueued fights stay quiet.
+local function QueueSample()
+	if not IsCurrentSpell then
+		return
+	end
+	local queued = {}
+	for i = 1, #QUEUED_SPELLS do
+		local ok, v = pcall(IsCurrentSpell, QUEUED_SPELLS[i])
+		if ok and v then
+			queued[#queued + 1] = QUEUED_SPELLS[i]
+		end
+	end
+	if #queued > 0 then
+		log("QUEUE", "at-swing", table.concat(queued, ","))
 	end
 end
 
@@ -132,6 +300,8 @@ function handlers.PLAYER_LOGIN()
 	end
 	StartSession()
 	log("CLIENT", isForever and "forever" or "classic", "interface=" .. tostring(interface))
+	log("CAPS", "count=" .. tostring(GetAuraCount ~= nil), "cp=" .. tostring(GetComboPoints ~= nil))
+	SpeedProbe("login")
 	if not lib then
 		log("ERROR", LIB_NAME .. " not loaded")
 		return
@@ -164,10 +334,16 @@ end
 
 function handlers.PLAYER_REGEN_DISABLED()
 	log("COMBAT", "enter")
+	AuraProbe("combat-enter")
+	SpeedProbe("combat-enter")
+	AuraCount("combat-enter")
 end
 
 function handlers.PLAYER_REGEN_ENABLED()
 	log("COMBAT", "leave")
+	AuraProbe("combat-leave")
+	SpeedProbe("combat-leave")
+	AuraCount("combat-leave")
 end
 
 function handlers.PLAYER_DEAD()
@@ -195,6 +371,52 @@ function handlers.UNIT_SPELLCAST_SUCCEEDED(unit, _, spellID)
 		log("CAST", spellID)
 	else
 		log("CAST", spellID, GetSpellName(spellID))
+
+		-- SnD requires combo points, so its cast instant is the guaranteed
+		-- positive-points read: the decisive CP sample needs no manual timing.
+		if GetComboPoints and (spellID == 5171 or spellID == 6774) then
+			local ok, cp = pcall(GetComboPoints, "player", "target")
+			log("CP", "at-snd", num(cp), "sec=" .. str(issecretvalue and issecretvalue(cp)))
+		end
+	end
+end
+
+function handlers.UNIT_SPELLCAST_START(unit, _, spellID)
+	if unit ~= "player" then
+		return
+	end
+	if issecretvalue and issecretvalue(spellID) then
+		log("CASTSTART", spellID)
+	else
+		log("CASTSTART", spellID, GetSpellName(spellID))
+	end
+end
+
+function handlers.UNIT_SPELLCAST_INTERRUPTED(unit, _, spellID)
+	if unit ~= "player" then
+		return
+	end
+	log("CASTSTOP", "interrupted", spellID)
+end
+
+-- Attack-speed change edge (findings section 9 item 3: fires live in combat,
+-- weapon swap and SotC haste change; the UnitAttackSpeed reads behind it are
+-- secret in combat). Whether it fires at dynamic/proc-haste application
+-- instants is open item 4 - these lines answer it in any capture, and they
+-- are the tight-semantics candidate generator for the Deadly Aspects design
+-- (fires only on real attack-speed changes; on-hit procs that do not change
+-- attack speed do not fire it).
+function handlers.UNIT_ATTACK_SPEED(unit)
+	if unit ~= "player" then
+		return
+	end
+	if UnitAttackSpeed then
+		local mh, oh, rgd = UnitAttackSpeed("player")
+		local s = issecretvalue
+		log("ATKSPEED", "mh=" .. num(mh), "oh=" .. num(oh), "rgd=" .. num(rgd),
+			"sec=" .. str(s and (s(mh) or s(oh) or s(rgd))))
+	else
+		log("ATKSPEED", "no UnitAttackSpeed on this client")
 	end
 end
 
@@ -202,6 +424,17 @@ if isForever then
 	-- The library's own Forever swing anchor and parry source.
 	function handlers.PLAYER_SWING(swingDuration, swingType)
 		log("SWING", SWING_TYPES[swingType] or str(swingType), "duration=" .. num(swingDuration))
+		QueueSample()
+	end
+
+	-- UNIT_AURA fires mid-combat on this client (findings section 4); every
+	-- aura change is the moment to re-run the by-name probe, so application,
+	-- refresh and removal edges all land in the log.
+	function handlers.UNIT_AURA(unit)
+		if unit == "player" then
+			AuraProbe("aura-event")
+			AuraCount("aura-event")
+		end
 	end
 
 	function handlers.UNIT_COMBAT(unitTarget, action)
@@ -235,7 +468,7 @@ frame:SetScript("OnEvent", function(_, event, ...)
 	handlers[event](...)
 end)
 for event in pairs(handlers) do
-	if event == "UNIT_SPELLCAST_SUCCEEDED" or event == "UNIT_COMBAT" then
+	if event == "UNIT_SPELLCAST_SUCCEEDED" or event == "UNIT_SPELLCAST_START" or event == "UNIT_SPELLCAST_INTERRUPTED" or event == "UNIT_COMBAT" or event == "UNIT_AURA" or event == "UNIT_ATTACK_SPEED" then
 		frame:RegisterUnitEvent(event, "player")
 	else
 		frame:RegisterEvent(event)
@@ -252,6 +485,22 @@ SlashCmdList.SWINGTESTLOG = function(msg)
 		print("|cff88ccff[STL]|r noted: " .. rest)
 	elseif cmd == "state" then
 		DumpState("manual")
+	elseif cmd == "aura" then
+		AuraProbe("manual")
+		print("|cff88ccff[STL]|r aura probe logged (" .. table.concat(GetWatch(), ", ") .. ")")
+	elseif cmd == "scan" then
+		Scan()
+	elseif cmd == "speed" then
+		SpeedProbe("manual")
+	elseif cmd == "cp" then
+		ComboPoints()
+	elseif cmd == "queue" then
+		QueueDump()
+	elseif cmd == "watch" then
+		if rest ~= "" then
+			SwingTestLogDB.watch = { rest }
+		end
+		print("|cff88ccff[STL]|r watching: " .. table.concat(GetWatch(), ", "))
 	elseif cmd == "echo" then
 		SwingTestLogDB.echo = not SwingTestLogDB.echo
 		print("|cff88ccff[STL]|r chat echo " .. (SwingTestLogDB.echo and "on" or "off"))
@@ -262,6 +511,10 @@ SlashCmdList.SWINGTESTLOG = function(msg)
 	else
 		print("|cff88ccff[STL]|r " .. (session and #session.entries or 0) .. " entries this session. Commands:")
 		print("  /stl note <text> - mark a test step   /stl state - dump swing state")
+		print("  /stl aura - probe watched auras by name   /stl scan - index-scan auras")
+		print("  /stl watch <name> - set the watched aura   /stl queue - queued-spell dump")
+		print("  /stl cp - log combo points (mid-combat CP probe)")
+		print("  /stl speed - log attack speeds + secrecy flags")
 		print("  /stl echo - toggle chat echo   /stl clear - wipe all sessions")
 		print("  The file is written on /reload or logout.")
 	end

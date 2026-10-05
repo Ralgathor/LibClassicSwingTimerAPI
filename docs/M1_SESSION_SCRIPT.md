@@ -141,6 +141,228 @@ SPELL_AURA_APPLIED records instead (docs/HASTE_APPLICATION_FINDINGS.md s4).
    RESOLVED (2026-09-30): the join ran (two sessions, two weapon speeds);
    the log-only read settled the rule and the anomaly (findings 8.10 FINAL).
 
+### B4. By-name aura presence mid-combat (C_UnitAuras.GetAuraDataBySpellName) - SPEC 10.5 probe 6
+
+The one aura getter never probed on WoW: Forever. The 2026-09-30
+investigation (HASTE_APPLICATION_FINDINGS sections 4 and 7) closed
+GetPlayerAuraBySpellID (nil mid-combat with SnD up) and
+GetAuraDataByIndex (throws "Auras cannot be accessed when secret while
+tainted"); the section 7.1 source-level read assessed the stock UI's
+by-index path only - the by-name getter is engine-side C and was never
+tried. ForeverSwing's seal icon leans on it as its tier-1 read
+(ref/ForeverSwing/Class.lua, in the 4everSwingTimer repo), claiming it
+"still works when the game hides the names of individual buffs in
+combat". One probe settles whether that claim is open or refuted on
+this build.
+
+NOTE (2026-10-04 session): every /run line below fits the client's
+script-size cap. The first draft's mid-combat line did not ("cannot run
+script too large") and never executed. Partials from that session: the
+function exists, secrecy 2 re-confirmed for 5171, a plain localized
+name; the out-of-combat baseline printed nil but was run without
+confirming the buff was up, so it is not evidence; the mid-combat call
+is still pending at capture time (RESOLVED below). SwingTestLog automates the rerun: /stl watch <name> (default "Slice and Dice") arms AURA lines that record every by-name outcome on UNIT_AURA and combat transitions, /stl scan (out of combat) is the M1 B2 index capture, /stl queue dumps IsCurrentSpell, and CASTSTART lines join Slam casts to swing anchors (M1 B1) - the tool was extended for this on 2026-10-04 (docs/tools/SwingTestLog).
+RESOLVED (2026-10-04, build 70205): verdict 2 - dark. Nil at every
+in-combat probe, including the aura's application instants; full plain
+data out of combat on the same aura instance (and on the Well Fed
+control, id 1248406). Recorded in HASTE_APPLICATION_FINDINGS section
+7.1; evidence: docs/evidence/SwingTestLog-forever-2026-10-04.lua.
+
+Char: rogue with Slice and Dice (5171 rank 1 / 6774 rank 2; the call
+matches the name, not the ID) - the same aura the closed investigation
+used. Paladin alternative: Devotion Aura (10290, always on) or Seal of
+the Crusader (20162); substitute the spell ID below.
+
+Setup, out of combat (captures the localized name - hardcoding English
+names would not match on non-enUS clients, ForeverSwing's own caveat):
+
+```lua
+/run print("fn", C_UnitAuras and C_UnitAuras.GetAuraDataBySpellName) local s=C_Secrets and C_Secrets.GetSpellAuraSecrecy print("secrecy", s and s(5171))
+/run local i=C_Spell.GetSpellInfo(5171) AURANAME=i and i.name print("name",AURANAME)
+```
+
+Expected: the function exists (ForeverSwing nil-guards it); secrecy 2
+(ContextuallySecret - matches the 2026-09-30 classification probe); a
+plain name. All three confirmed 2026-10-04.
+
+Baseline, still out of combat, with the buff demonstrably up - for a
+rogue use a food or elixir buff and set AURANAME to it (SnD does not
+survive leaving combat; a nil with no buff up is a missing buff, not a
+dark API):
+
+```lua
+/run AURANAME="Well Fed"
+/run local ok,d=pcall(C_UnitAuras.GetAuraDataBySpellName,"player",AURANAME,"HELPFUL") print("ooc",ok,type(d),d and d.spellId,d and d.duration,d and d.expirationTime)
+```
+
+Expected: a full table, plain numbers (the by-ID call returned full data
+out of combat for 10290 on build 70124). If this fails with the buff
+definitely up, the call is dark on this client and the probe is moot.
+
+Mid-combat (open world, auto-attack a mob with the aura up; set
+AURANAME first - setup line 2, or AURANAME="Slice and Dice"):
+
+```lua
+/run local ok,d=pcall(C_UnitAuras.GetAuraDataBySpellName,"player",AURANAME,"HELPFUL") print("IC",ok,type(d))
+/run print("byID same moment", C_UnitAuras.GetPlayerAuraBySpellID(5171))
+```
+
+The by-ID line re-confirms the gate is active at that instant (expected
+nil), so a by-name table is a genuine divergence and not a missing buff.
+If the IC line printed a table, still in combat, dump the fields (print
+reveals the underlying number even for secret-flagged values, so pair
+each raw read with its issecretvalue flag):
+
+```lua
+/run local d=C_UnitAuras.GetAuraDataBySpellName("player",AURANAME,"HELPFUL") if type(d)=="table" then print(d.spellId,d.applications,d.duration,d.expirationTime) end
+/run local d=C_UnitAuras.GetAuraDataBySpellName("player",AURANAME,"HELPFUL") if type(d)=="table" then local s=issecretvalue print("sec",s(d.duration),s(d.expirationTime)) end
+```
+
+Verdicts - record in HASTE_APPLICATION_FINDINGS section 7.1, then flip
+SPEC 10.5's probe list and the seal rows in 4everSwingTimer's
+SPEC/BENCHMARK:
+
+1. Throws the "Auras cannot be accessed when secret" error: the by-name
+   getter shares the by-index gate. Presence stays closed - record it as
+   the last aura call probed and dark. ForeverSwing's tier-1 claim is
+   refuted on this build; its seal icon in combat is its tier-3 fallback
+   alone (last cast + learned duration, blind to early consumption).
+2. Returns nil: same verdict as GetPlayerAuraBySpellID - dark.
+3. Returns a table with secret (or zeroed) duration/expirationTime:
+   partial reopen. Presence alone, combined with UNIT_AURA (which fires
+   fine mid-combat), gives application/removal edges: Flurry proc
+   detection, Maelstrom Weapon stacks via applications if plain, seal
+   consumption at Judgement. Expiry stays unschedulable from the data,
+   but the removal edge observed at expiry closes the dynamic-haste
+   one-swing lag (section 6) without waiting for the next PLAYER_SWING
+   anchor.
+4. Returns a full plain table: aura state becomes a library signal
+   again - real expirationTime for the dynamic-haste table, Flurry,
+   Maelstrom Weapon, Seal of the Crusader expiry. The section 6 expiry
+   gap closes outright.
+
+Optional, for verdicts 3 or 4: repeat once mid-dungeon (restricted
+content is stricter - player SUCCEEDED spell IDs are unverified there,
+open item 5), and dump the whole table once (for k, v in pairs(d) with
+the issecretvalue guard per field) to map which fields stay plain.
+
+### B5. Aura-count and combo-point reads mid-combat (UNIT_AURA edge-inference gates)
+
+The 2026-10-04 capture found the one aura signal that survives combat:
+UNIT_AURA fires at every application and removal instant, unidentified
+(HASTE_APPLICATION_FINDINGS 7.1 item 4). Building inference on it is gated
+on two reads, both automated into SwingTestLog (docs/tools/SwingTestLog):
+
+1. `C_UnitAuras.GetAuraCount("player", "HELPFUL")` mid-combat: a plain
+   count gives every UNIT_AURA edge a direction (+1/-1) and cuts false
+   attribution. The tool logs a COUNT line on every UNIT_AURA fire and at
+   combat transitions whenever the function exists; its session CAPS line
+   records existence. Play any fight and read the lines.
+2. `GetComboPoints("player", "target")` mid-combat with combo points up:
+   a plain read makes SnD's expected expiry exact (duration is a known
+   function of combo points), shrinking the expiry-watch window from
+   9-21 s to milliseconds. Run `/stl cp` mid-fight with points up; the
+   tool logs the read and its issecretvalue flag.
+
+Char: rogue (the SnD fights are already the capture pattern). Verdicts -
+plain counts/points: the edge-inference design becomes implementable
+(file it in HASTE_APPLICATION_FINDINGS 7.1 item 4 and SPEC 10.5);
+secret/nil/throw: the edge channel alone is too ambiguous, record both as
+closed alongside the other aura reads, NeverSecret ask stays the only
+path.
+STATUS (2026-10-04 evening session, build 70205): the CAPS line read
+`count=false cp=true` - `GetAuraCount` does not exist on this client,
+that gate is CLOSED by nonexistence (no COUNT lines can ever appear).
+`GetComboPoints` exists and read `CP 0.000 sec=false` mid-combat, but
+2.3 s after the SnD cast consumed the points. RERUN: `/stl cp`
+immediately after a Sinister Strike (points up, before spending) - one
+read settles whether the edge-inference lead survives in weakened form
+(exact expiry expectation from CP, no direction corroborator) or is
+closed.
+
+Night update: both manual `/stl cp` reads missed the points window (the
+first mid-combat 2.3 s after the SnD cast consumed them; the night one
+out of combat, 5 s before the pull). The tool now auto-logs `CP at-snd`
+at every SnD cast (5171/6774) - an instant where points are guaranteed
+up mid-combat, since the cast itself requires them. The next SnD cast
+in any fight lands the decisive line with no user timing.
+
+RESOLVED (2026-10-04 night, build 70205): the gate is OPEN - CP at-snd
+read 1.000 and 2.000, sec=false both times, mid-combat at the cast
+instants. Full chain captured end to end: cast 5837.353 (CP 1) ->
+expected expiry 5846.353 -> fade edge at 5846.353 exactly (0 ms). The
+SnD-half design is implementable as filed (findings 7.1 item 4); the
+Flurry half still needs its crit-instant capture. One caveat recorded:
+an out-of-combat fade near a reload boundary fired late (+1.96 s,
+post-reload) - the mid-combat watch instances land at 0/+49/+2 ms.
+
+Flurry half (2026-10-05 correction: the trigger is DETERMINISTIC in
+classic data - every melee crit applies or refreshes Flurry while
+talented, so the crit alone is the application signal and the aura edge
+is optional corroboration, not identification; the probabilistic
+candidate+anchor-settler design is Deadly Aspects' problem, not
+Flurry's). Remaining unknowns for the capture (warrior at a higher
+cap): the engine rule on Forever (does every crit trigger it, both
+hands, refresh-on-crit) and the per-rank factor (talent read out of
+combat). Expiry is swing-count driven under the classic rule (crits
+refresh to 3 charges, swings consume them) - no combo-point read; the
+library owns the swing stream. The Redoubt edge-simultaneity re-capture
+is demoted to nice-to-have corroboration.
+
+The hunter talent proc Wowhead Forever lists as spell 19552 "Deadly
+Aspects" (classic-era 19552 = Quick Shots, the Improved Aspect of the
+Hawk proc) is a ranged proc-class dynamic-haste source - the third
+edge-inference family member after SnD (cast-class, chain validated)
+and Flurry (crit-class, capture pending), and the easiest of the three:
+its application correlates with PLAYER_SWING type 2 (the library logs
+every ranged swing), and its duration is fixed in classic data (12 s),
+so application and expiry are both edge-watchable with no combo-point
+dependency. The existing tool captures it with no changes.
+
+Char: hunter with Aspect of the Hawk and Improved Aspect of the Hawk
+(note the talent rank).
+
+1. Out of combat, proc up (shoot until it procs, then stop):
+   `/stl watch Deadly Aspects` (the Wowhead-Forever name; fall back to
+   any ranged haste buff visible) and `/stl aura` - the AURA line gives
+   the actual spell ID, duration and applications: the Forever ID
+   against classic 19552, the duration against 12 s.
+2. `/stl note deadly-aspects rank N`, then shoot a dummy or mob: the
+   tool logs every PLAYER_SWING type 2 (ranged anchors) and every
+   UNIT_AURA edge mid-combat; proc application edges should sit at
+   ranged-swing instants, and the anchor durations before/during/after
+   give the factor (base/hasted ratio, the SnD-rank-2 method; classic
+   reference 3/6/9/12/15 percent by rank - verify per rank on this
+   client).
+3. Let it fade mid-shooting: the fade edge vs application + duration
+   is the expiry-watch datum (time-fixed class, like SnD).
+
+This session also covers the ranged-reload probe (SPEC 10.5 probe 2)
+CAVEAT (application half, 2026-10-05 review): an aura-gain edge at a
+swing instant is expected from ANY on-hit effect (enchants, trinket and
+talent procs key off the same swings) - swing+edge is a candidate
+generator, not an identification. The settler is the next ranged
+anchor's plain speed payload: hasted = real proc (candidate confirmed),
+unchanged = revert (one shot of bounded error, self-correcting), with
+the fade edge at the expected expiry as the temporal cross-check.
+Step 2 analysis must therefore count false candidates - edges at
+swing instants followed by an UNCHANGED anchor speed - against real
+proc applications (anchor speed drops); if an enchanted weapon or
+on-hit trinket is available, capture with it up for the noise
+measurement.
+
+and the hunter checklist items (SPEC 7 item 4) in the same fights.
+
+The tool now also logs UNIT_ATTACK_SPEED (ATKSPEED lines, secrecy flags
+included): the event fires live in combat (verified: weapon swap and the
+SotC change) while its data reads are secret - if the B6 capture shows
+ATKSPEED lines at the proc application instants, it is a far tighter
+candidate generator than the aura edge (it fires only on real
+attack-speed changes; on-hit procs that do not change attack speed do
+not fire it), and it also answers the dynamic-haste fire question
+(haste findings open item 4: any SnD fight shows whether it fires at It also settles the universal Layer-1 question (findings 7.1 item 4): whether the edge fires for ranged-only and off-hand-only changes - the no-factor stale-invalidation layer that covers every haste source keys on that fire behavior. The tool also now logs SPEED lines (UnitAttackSpeed's three returns plus UnitRangedDamage, num()-masked with issecretvalue flags): automatic at login and at the combat enter/leave restriction flips, plus `/stl speed` for an on-demand mid-combat read - one fight re-verifies the findings 4.2 secrecy rule on the current build. CONFIRMED (2026-10-05, build 70205): UNIT_ATTACK_SPEED fires at the SnD application instant (simultaneous with the cast, mid-combat, secret payload) and at the expiry (+0.30 s after the fade edge, plain), and it DOUBLE-FIRES per change - any consumer must dedupe. The 4.2 secrecy rule is re-verified with a boundary nuance: the combat-enter instant still reads plain (the flip lands after the event). Remaining: the ranged-only proc case (Quick Shots) - this B6 capture settles it. Transition-parity design queued for verification (findings 7.1 item 4): UNIT_ATTACK_SPEED as the unified trigger with a tracked per-hand hasted state for direction - application = fire + identified cast/crit (SnD proven at 0 ms; Flurry deterministic), fade = fire with no identified trigger (un-haste immediately, the +0.30 s fade fire is known; kills the one-swing lag; the CP chain and the charge count become corroboration). Checks: SnD recast while active - expect NO fire (refresh changes no speed value; rogue, any session); Flurry charge-0 fire at the 3rd swing landing (warrior); the Deadly Aspects gain/fade pair ~12 s apart (this capture); bracket the combat-enter plain window (/stl speed in the first combat seconds). ROUND 1 (2026-10-05): refresh-no-fire CONFIRMED twice; fade fire twice more (+93/-24 ms vs CP-formula expiry, matching the recast duration - replace-on-recast confirmed); application fire 4 total. REMAINING: the mid-combat fade - every fade so far landed out of combat (the mobs died first); fight a training dummy and keep attacking through the SnD expiry: expect ATKSPEED x2, secret payload, at the expiry instant. ROUND 2 - CONFIRMED (2026-10-05): the mid-combat fade fired ATKSPEED x2 at +412 ms of the CP-formula expiry, payload <secret>, with the anchor transition visible in the same fight (hasted 1.403/1.485 up to the fire, unhasted 1.683/1.782 from 620 ms after it). The rogue side of the transition-parity design is COMPLETE; the SnD implementation is no longer capture-gated. Remaining: the warrior (Flurry charge-0) and hunter (Deadly Aspects pair) captures.
+the cast instants).
+
 ## Part C - addon beta checklist (SPEC section 7, items not yet covered in effect testing)
 
 1. Hunter: ranged bar per Auto Shot; strafe mid-shot reschedules once
