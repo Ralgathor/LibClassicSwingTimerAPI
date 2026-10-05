@@ -217,5 +217,28 @@ rogue (`Rolhgar`, dual-wield 1.683/1.782): two Slice and Dice fights
 under `NOTE snd-r1` plus the Well Fed out-of-combat control. It closes
 M1_SESSION_SCRIPT item B4 (verdict 2 - by-name nil mid-combat, full
 plain data out of combat on the same aura instance) and re-verifies the
-SnD rank 1 factor 1.2 on both hands on the new build. Recorded in
-`../HASTE_APPLICATION_FINDINGS.md` section 7.1. The 2026-10-05 morning refresh adds the SPEED/ATKSPEED-instrumented session: the 4.2 secrecy rule re-verified (plain out of combat including live hasted values at combat-leave; secret mid-combat; the combat-enter instant still plain - the flip lands after the event), UNIT_ATTACK_SPEED confirmed firing at the SnD application and expiry instants (double-fire per change), and the CP chain cross-validated again (at-snd 2.000 -> dur 12.000 -> fade edge +10 ms). The 2026-10-05 midday refresh adds the two recast fights: refresh-no-fire CONFIRMED twice (no ATKSPEED on a recast while SnD active), fade fires at +93/-24 ms of the CP-formula expiry matching the recast duration (replace-on-recast confirmed), CP plain mid-combat at 1.000 and 2.000 - with the one gap that every fade so far landed out of combat (the mid-combat fade fire is the remaining rogue check; a training dummy fight survives the expiry). Round 2 (training-dummy fight): the mid-combat fade CONFIRMED - ATKSPEED x2 at +412 ms of the CP-formula expiry, secret payload, anchors transitioning hasted-to-unhasted 620 ms after the fire, and the parity alternating (fresh application after the fade fired again). The rogue side of the transition-parity design is complete.
+SnD rank 1 factor 1.2 on both hands on the new build.
+Recorded in `../HASTE_APPLICATION_FINDINGS.md` section 7.1 (item 4 there
+holds the full investigation record).
+
+Session addenda, chronological (same file, same capture):
+
+- Night (2026-10-04): the combo-point gate opened - `CP at-snd`
+  1.000/2.000 sec=false at the SnD cast instants, the chain validated end
+  to end (cast 5837.353 -> expected expiry 5846.353 -> fade edge at 0 ms).
+- Morning (2026-10-05): the 4.2 secrecy rule re-verified (the combat-enter
+  instant reads plain - the flip lands after the event); UNIT_ATTACK_SPEED
+  confirmed firing at the SnD application and expiry instants (double-fire
+  per change); the CP chain cross-validated again (+10 ms).
+- Midday (2026-10-05): the recast fights - refresh-no-fire confirmed twice,
+  fade fires at +93/-24 ms matching the recast duration
+  (replace-on-recast confirmed), CP plain at 1.000 and 2.000.
+- Round 2 (2026-10-05): the mid-combat fade confirmed on the training
+  dummy - ATKSPEED x2 at +412 ms of the CP-formula expiry, secret payload,
+  the anchors transitioning hasted-to-unhasted 620 ms after the fire, the
+  parity alternating in one fight.
+- Oracle runs (2026-10-05, `/stl oracle`): the sink ACCEPTS secrets
+  (SetValue ok - the 12.x claim confirmed on this client), but every
+  reverse path is wrapped - the fill width, GetValue, and the layout
+  engine's anchored dependent frames all read back as secrets; the oracle
+  is closed, the sink is display-only on this build.

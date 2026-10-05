@@ -27,6 +27,8 @@ local IsCurrentSpell = C_Spell and C_Spell.IsCurrentSpell
 local GetAuraSecrecy = C_Secrets and C_Secrets.GetSpellAuraSecrecy
 local GetAuraCount = C_UnitAuras and C_UnitAuras.GetAuraCount
 local GetComboPoints = GetComboPoints
+local oracleBar
+local oracleAnchor
 local DEFAULT_WATCH = { "Slice and Dice" }
 local QUEUED_SPELLS = { 78, 845, 2973, 6807 } -- Heroic Strike, Cleave, Raptor Strike, Maul
 
@@ -131,6 +133,82 @@ end
 
 -- Combo points mid-combat (the second edge-inference gate, findings 7.1
 
+
+-- The value-sink oracle probe (findings 7.1 item 4 note, 2026-10-05): the
+-- 12.x notes claim widget sinks accept secret values (the client unwraps
+-- them in C; Lua never sees the number - the ForeverSwing engine-timer
+-- fill is this technique). If SetValue accepts a raw secret and the fill
+-- GEOMETRY reads plain, the width ratio recovers the number: an oracle for
+-- mid-combat speeds. The transition-parity design does NOT depend on it
+-- (a closable loophole class - 12.0.1 closed the GetValue path); this
+-- probe only measures. Run mid-combat.
+local function Oracle()
+	if not UnitAttackSpeed then
+		print("|cff88ccff[STL]|r no UnitAttackSpeed on this client")
+		return
+	end
+	local a = UnitAttackSpeed("player")
+	if not oracleBar then
+		oracleBar = CreateFrame("StatusBar", nil, UIParent)
+		oracleBar:SetSize(200, 8)
+		oracleBar:SetPoint("TOPLEFT", UIParent, "TOPLEFT", -400, -400)
+		oracleBar:SetStatusBarTexture([[Interface\Buttons\WHITE8X8]])
+		oracleBar:Show()
+	end
+	oracleBar:SetMinMaxValues(0, 10)
+	local s = issecretvalue
+	local ok, err = pcall(oracleBar.SetValue, oracleBar, a)
+	if not ok then
+		log("ORACLE", "SetValue ERROR", str(err))
+		print("|cff88ccff[STL]|r oracle: SetValue rejected the value")
+		return
+	end
+	if not (s and s(a)) then
+		log("ORACLE", "input=plain", num(a), "baseline")
+		print("|cff88ccff[STL]|r oracle: input is plain (out of combat baseline); run mid-combat for the probe")
+		return
+	end
+	-- Sink verdict: SetValue ACCEPTED the secret (build 70205).
+	log("ORACLE", "sink=ACCEPTED", "input=secret")
+	local fill = oracleBar:GetStatusBarTexture()
+	local fw = fill and fill:GetWidth() or 0
+	local gv = oracleBar:GetValue()
+	log("ORACLE", "fillw=" .. num(fw), "fillwSec=" .. str(s and s(fw)),
+		"getValue=" .. num(gv), "gvSec=" .. str(s and s(gv)))
+	if not (s and s(fw)) then
+		-- Unexpected: the fill geometry reads plain; derive directly.
+		local bw = oracleBar:GetWidth()
+		local derived = (type(fw) == "number" and type(bw) == "number" and bw > 0) and (fw / bw * 10) or nil
+		log("ORACLE", "derived=" .. num(derived), "derivedSec=" .. str(s and s(derived)))
+		print("|cff88ccff[STL]|r oracle logged: derived " .. num(derived))
+		return
+	end
+	-- Direct geometry is WRAPPED (build 70205: the fill width itself is
+	-- secret - a stronger lockdown than the 12.0.1 lore). The remaining
+	-- path: the layout engine positions a frame anchored to the fill's
+	-- right edge in C; if that frame's geometry reads plain, the ratio
+	-- recovers the number.
+	if not oracleAnchor then
+		oracleAnchor = CreateFrame("Frame", nil, oracleBar)
+		oracleAnchor:SetPoint("LEFT", fill, "RIGHT")
+		oracleAnchor:SetSize(1, 1)
+	end
+	local ax = oracleAnchor:GetLeft()
+	local barLeft = oracleBar:GetLeft()
+	local barW = oracleBar:GetWidth()
+	log("ORACLE", "anchorLeft=" .. num(ax), "anchorSec=" .. str(s and s(ax)),
+		"barLeft=" .. num(barLeft), "barLeftSec=" .. str(s and s(barLeft)))
+	if type(ax) == "number" and not (s and s(ax))
+		and type(barLeft) == "number" and not (s and s(barLeft))
+		and type(barW) == "number" and barW > 0 then
+		local derived = (ax - barLeft) / barW * 10
+		log("ORACLE", "ANCHOR-ORACLE derived=" .. num(derived), "derivedSec=" .. str(s and s(derived)))
+		print("|cff88ccff[STL]|r anchor oracle derived " .. num(derived))
+	else
+		log("ORACLE", "anchor path closed too")
+		print("|cff88ccff[STL]|r anchor path closed too - geometry fully wrapped")
+	end
+end
 -- The speed-secrecy probe (findings 4.2 re-check): UnitAttackSpeed's three
 -- returns plus UnitRangedDamage, each masked by num() and flagged by
 -- issecretvalue. /stl speed for an on-demand read (run one mid-fight); the
@@ -490,6 +568,8 @@ SlashCmdList.SWINGTESTLOG = function(msg)
 		print("|cff88ccff[STL]|r aura probe logged (" .. table.concat(GetWatch(), ", ") .. ")")
 	elseif cmd == "scan" then
 		Scan()
+	elseif cmd == "oracle" then
+		Oracle()
 	elseif cmd == "speed" then
 		SpeedProbe("manual")
 	elseif cmd == "cp" then
@@ -513,6 +593,7 @@ SlashCmdList.SWINGTESTLOG = function(msg)
 		print("  /stl note <text> - mark a test step   /stl state - dump swing state")
 		print("  /stl aura - probe watched auras by name   /stl scan - index-scan auras")
 		print("  /stl watch <name> - set the watched aura   /stl queue - queued-spell dump")
+		print("  /stl oracle - value-sink geometry probe (run mid-combat)")
 		print("  /stl cp - log combo points (mid-combat CP probe)")
 		print("  /stl speed - log attack speeds + secrecy flags")
 		print("  /stl echo - toggle chat echo   /stl clear - wipe all sessions")

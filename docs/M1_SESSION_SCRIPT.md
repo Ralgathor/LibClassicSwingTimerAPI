@@ -359,8 +359,40 @@ SotC change) while its data reads are secret - if the B6 capture shows
 ATKSPEED lines at the proc application instants, it is a far tighter
 candidate generator than the aura edge (it fires only on real
 attack-speed changes; on-hit procs that do not change attack speed do
-not fire it), and it also answers the dynamic-haste fire question
-(haste findings open item 4: any SnD fight shows whether it fires at It also settles the universal Layer-1 question (findings 7.1 item 4): whether the edge fires for ranged-only and off-hand-only changes - the no-factor stale-invalidation layer that covers every haste source keys on that fire behavior. The tool also now logs SPEED lines (UnitAttackSpeed's three returns plus UnitRangedDamage, num()-masked with issecretvalue flags): automatic at login and at the combat enter/leave restriction flips, plus `/stl speed` for an on-demand mid-combat read - one fight re-verifies the findings 4.2 secrecy rule on the current build. CONFIRMED (2026-10-05, build 70205): UNIT_ATTACK_SPEED fires at the SnD application instant (simultaneous with the cast, mid-combat, secret payload) and at the expiry (+0.30 s after the fade edge, plain), and it DOUBLE-FIRES per change - any consumer must dedupe. The 4.2 secrecy rule is re-verified with a boundary nuance: the combat-enter instant still reads plain (the flip lands after the event). Remaining: the ranged-only proc case (Quick Shots) - this B6 capture settles it. Transition-parity design queued for verification (findings 7.1 item 4): UNIT_ATTACK_SPEED as the unified trigger with a tracked per-hand hasted state for direction - application = fire + identified cast/crit (SnD proven at 0 ms; Flurry deterministic), fade = fire with no identified trigger (un-haste immediately, the +0.30 s fade fire is known; kills the one-swing lag; the CP chain and the charge count become corroboration). Checks: SnD recast while active - expect NO fire (refresh changes no speed value; rogue, any session); Flurry charge-0 fire at the 3rd swing landing (warrior); the Deadly Aspects gain/fade pair ~12 s apart (this capture); bracket the combat-enter plain window (/stl speed in the first combat seconds). ROUND 1 (2026-10-05): refresh-no-fire CONFIRMED twice; fade fire twice more (+93/-24 ms vs CP-formula expiry, matching the recast duration - replace-on-recast confirmed); application fire 4 total. REMAINING: the mid-combat fade - every fade so far landed out of combat (the mobs died first); fight a training dummy and keep attacking through the SnD expiry: expect ATKSPEED x2, secret payload, at the expiry instant. ROUND 2 - CONFIRMED (2026-10-05): the mid-combat fade fired ATKSPEED x2 at +412 ms of the CP-formula expiry, payload <secret>, with the anchor transition visible in the same fight (hasted 1.403/1.485 up to the fire, unhasted 1.683/1.782 from 620 ms after it). The rogue side of the transition-parity design is COMPLETE; the SnD implementation is no longer capture-gated. Remaining: the warrior (Flurry charge-0) and hunter (Deadly Aspects pair) captures.
+not fire it), and it also answers the dynamic-haste fire question.
+Tool notes: the tool logs UNIT_ATTACK_SPEED (ATKSPEED lines, secrecy flags,
+the double-fire visible) on every fire, and SPEED lines (UnitAttackSpeed's
+three returns plus UnitRangedDamage, num()-masked with issecretvalue flags)
+at login, at the combat enter/leave restriction flips, and on demand
+(`/stl speed`) - one fight re-verifies the findings 4.2 secrecy rule on the
+current build. The ATKSPEED lines settle whether the event fires at
+dynamic-haste cast instants (open item 4) and for ranged-only and
+off-hand-only changes (the Layer-1 question).
+
+CONFIRMED (2026-10-05, build 70205): UNIT_ATTACK_SPEED fires at the SnD
+application instant (simultaneous with the cast, mid-combat, secret
+payload) and at the expiry (+0.30 s after the fade edge, plain), and it
+double-fires per change - any consumer must dedupe. The 4.2 secrecy rule
+is re-verified with a boundary nuance: the combat-enter instant still
+reads plain (the flip lands after the event).
+
+ROUND 1 (2026-10-05): refresh-no-fire CONFIRMED twice; fade fire twice
+more (+93/-24 ms vs the CP-formula expiry, matching the recast duration -
+replace-on-recast confirmed); application fire 4 total; CP plain
+mid-combat at 1.000 and 2.000.
+
+ROUND 2 - CONFIRMED (2026-10-05): the mid-combat fade fired ATKSPEED x2
+at +412 ms of the CP-formula expiry, secret payload, with the anchor
+transition visible in the same fight (hasted 1.403/1.485 up to the fire,
+unhasted 1.683/1.782 from 620 ms after it). The rogue side of the
+transition-parity design is COMPLETE; the SnD implementation is no longer
+capture-gated. Remaining: the warrior (Flurry charge-0) and hunter
+(Deadly Aspects pair) captures.
+
+Transition-parity verification list (findings 7.1 item 4): SnD recast
+while active (expect NO fire); Flurry charge-0 fire at the 3rd swing's
+landing; the Deadly Aspects gain/fade pair ~12 s apart; the combat-enter
+plain-window bracket.
 the cast instants).
 
 ## Part C - addon beta checklist (SPEC section 7, items not yet covered in effect testing)

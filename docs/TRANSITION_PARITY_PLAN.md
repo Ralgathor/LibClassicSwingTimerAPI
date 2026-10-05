@@ -1,203 +1,306 @@
 # Transition-Parity Implementation Plan — UNIT_ATTACK_SPEED as the unified haste trigger
 
-Status: plan, 2026-10-05. Design and evidence: `HASTE_APPLICATION_FINDINGS.md`
-section 7.1 item 4 (all rogue-side pillars proven on build 70205). Pending
+Status: plan, 2026-10-05, revision 2 (review pass: the player gate, the Rule 4
+cast window, the expected-expiry gate on Rule 3, the back-dated un-haste, and
+the deferral of Phases B/C). Design and evidence: `HASTE_APPLICATION_FINDINGS.md`
+section 7.1 item 4 (all rogue-side pillars proven on build 70205). Phase A is
+the implementation contract and is the only phase that ships code. Phases B
+and C are design notes: no tables, registrations or fields land for them until
+their captures do (AGENTS.md rule 2 — no speculative surface). Pending
 captures: warrior (Flurry charge-0 fire) and hunter (Deadly Aspects gain/fade
-pair) — `M1_SESSION_SCRIPT.md` B6. This plan is the implementation contract:
-phase A is fully evidence-backed; phases B and C are scaffolding now, activated
-by their table entries when the captures land.
+pair) — `M1_SESSION_SCRIPT.md` B6.
 
 ## 1. Goal
 
-On WoW: Forever, kill the one-swing expiry lag of the dynamic-haste family and
-unify application/fade detection on one event: `UNIT_ATTACK_SPEED` fires at the
-instant any attack speed changes (proven: application simultaneous with the
-cast, 5 cases; fade at the expiry, 4 cases; refresh fires nothing, 2 cases;
-double-fire per change — dedupe required). The event carries no value and no
-hand; direction comes from classification plus the tracked state, and every
-decision is settled by the next plain anchor.
+On WoW: Forever, kill the one-swing expiry lag of the dynamic-haste family
+(today: Slice and Dice). `UNIT_ATTACK_SPEED` fires at every attack-speed
+transition (proven: application simultaneous with the cast, 5 cases; fade
+-24 to +412 ms after the combo-point-formula expiry, 4 cases including one
+mid-combat with a secret payload; refresh fires nothing, 2 cases; double-fire
+per change — dedupe required). The event carries no value and no hand, and it
+is ANONYMOUS: any attack-speed source fires it (Blade Flurry, Berserking,
+haste trinkets and potions, mob attack-speed debuffs, weapon swaps, seals,
+forms). So a fire alone never identifies an SnD fade; the fade is attributed
+by TIMING against the expected expiry computed at the cast (combo points read
+plain at the SUCCEEDED instant — proven, `CP at-snd 1.000/2.000 sec=false`;
+duration 9+3(n-1) — engine-verified). Every decision stays settled by the
+next plain PLAYER_SWING anchor.
 
-## 2. Rules (the handler contract)
+## 2. Rules (the handler contract, evaluated in this order)
 
-| # | UNIT_ATTACK_SPEED fire with... | Action |
+| # | UNIT_ATTACK_SPEED fire (player unit only) with... | Action |
 |---|---|---|
-| 1 | a recent SUCCEEDED of a dynamic-table spell | none — the SUCCEEDED path already applied the factor; the fire is corroboration |
-| 2 | a recent outgoing crit (Phase B) | apply the deterministic-proc factor (Flurry) |
-| 3 | no identified trigger, `unit.dynamicHasteActive` set | UN-HASTE now: progress-preserving lengthening; clear the flag; this kills the one-swing lag |
-| 4 | a recent SUCCEEDED of a non-dynamic spell, or a recent equipment change | none — snapshot family (M0): the in-flight swing completes on its old speed; the next anchor re-anchors (existing mechanism) |
-| 5 | no identified trigger, nothing tracked | Phase A: none (the anchor settles). Phase C: parity candidate for the probabilistic-proc class (Deadly Aspects) |
+| 0 | a previous fire < 50 ms ago | none — the double-fire duplicate |
+| 1 | a dynamic-table SUCCEEDED < 50 ms ago | none — the SUCCEEDED path already applied the factor (or correctly skipped a refresh) |
+| 4 | any other player SUCCEEDED < 50 ms ago, or an equipment change < 150 ms ago | none — snapshot family (M0): the in-flight swing completes on its old speed; the next anchor re-anchors (existing mechanism) |
+| 3 | `dynamicHasteActive` set AND the fire inside the expected-expiry window `[E - 0.25, E + 0.75]` | UN-HASTE, back-dated to `min(now, E)`; clear the flag — this kills the one-swing lag |
+| 5 | anything else | none — the next anchor settles any untracked transition (today's behavior) |
 
-The blanket Layer-1 stale-mark is REJECTED for snapshot fires (M0 — the
-in-flight expiry is not stale); only unexplained fires (Rule 5 candidates)
-may mark uncertainty, and Phase A does not implement it.
+Rule 2 (deterministic procs, Flurry) and the Phase C replacement of Rule 5
+are deferred; see sections 6 and 7.
+
+Design notes on the windows:
+
+- Rule 1 and the cast half of Rule 4 use 50 ms, not 150 ms: every captured
+  application fire is simultaneous with its cast (0 ms, same timestamp). A
+  tight window matters because rogues cast on every GCD — a wide "any cast"
+  window would swallow a real fade fire whenever an unrelated ability landed
+  near it. A swallowed fade falls back to the anchor clear (today's
+  behavior), never to a wrong rescale.
+- The equipment half of Rule 4 keeps 150 ms: the ordering of
+  PLAYER_EQUIPMENT_CHANGED vs the fire is uncaptured (checklist item 6).
+- The Rule 3 window: lower bound -0.25 s covers the earliest fire (-24 ms);
+  upper bound +0.75 s covers the latest (+412 ms) with margin. The one +1.96 s
+  outlier was an out-of-combat fade across a reload boundary and is
+  deliberately outside — it falls back to the anchor clear.
+- An unrelated speed transition that lands inside the window (e.g. a Blade
+  Flurry fade within ~1 s of the SnD expiry) is misattributed; the error is
+  bounded to one swing, self-corrected by the next anchor, and the flag clear
+  is near-correct anyway because SnD fades at E.
+
+The blanket Layer-1 stale-mark is REJECTED (M0 — snapshot in-flight expiries
+are not stale) and Phase A does not mark unexplained fires either.
 
 ## 3. Current code map (v2.2.0, MINOR 37)
 
 - `lib:UNIT_ATTACK_SPEED(_, unitGUID)` — line ~659. The classic proportional
-  rescale, per hand, each gated `and not isForever`; the reads run through
-  `ResolveSecret` (secret falls back to the cached speed, so on Forever the
-  classic path is inert twice over). Already registered for "player" and
-  "target" at line ~1072. Contains a windowed skip pattern
-  (`skipNextAttackSpeedUpdate` / `...Count`) — the dedupe precedent to reuse.
+  rescale, per hand, each gated `and not isForever`; reads run through
+  `ResolveSecret`. Registered for "player" and "target" at line ~1072. The
+  `skipNextAttackSpeedUpdate` block is set only from CLEU (refused on
+  Forever), so it is dead on Forever; the synthetic call from
+  `Unit:SwingEnd` (druid/paladin) is therefore unreachable there too.
+- `unit.isPlayer` — set ONLY on the target (`PLAYER_TARGET_CHANGED`, line
+  ~391): it means "the target is a player character" and is nil on
+  `self.player`. It must NOT be used to identify the player unit.
 - `lib:ApplyDynamicHaste(unit, factor)` — line ~495. Per-hand progress-
-  preserving shortening: `speed / factor`, `expiry = now + remaining / factor`,
-  50 ms young-swing guard, cancels and re-arms the hand's C_Timer, fires
-  `UNIT_SWING_TIMER_UPDATE`.
-- SUCCEEDED handler dynamic branch — line ~842: `if isForever and spell and
-  dynamic_haste_spells[spell] then if unit.dynamicHasteActive ~= spell then
-  unit.dynamicHasteActive = spell; self:ApplyDynamicHaste(...) end end`.
-  `dynamicHasteActive` stores the spell ID (single active source).
-- PLAYER_SWING anchor handler — lines ~610-635: the current expiry mechanism —
-  an anchor speed above `cachedSpeed * 1.02` clears `dynamicHasteActive`.
-  This is the one-swing lag Rule 3 removes; KEEP it as the settler/defense.
-- `lib:PLAYER_EQUIPMENT_CHANGED` — line ~950: slots 16/17/18 restart the
-  hands. The weapon-swap classification trigger.
-- `lib:UNIT_COMBAT` — line ~648: player PARRY only, calls ApplyParryHaste.
-  Phase B adds the outgoing-crit branch here.
-- `dynamic_haste_spells` — line ~93, populated per flavor; on Forever it
-  currently holds SnD rank 1 (5171 = 1.2).
-- No PLAYER_REGEN registration exists; combat-adjacent handlers are
-  PLAYER_ENTER_COMBAT / PLAYER_LEAVE_COMBAT (the auto-attack toggle).
+  preserving shortening: `speed / factor`, `expiry = now + remaining /
+  factor`, 50 ms young-swing guard, cancels and re-arms the hand's C_Timer,
+  fires `UNIT_SWING_TIMER_UPDATE`.
+- SUCCEEDED handler dynamic branch — line ~842: `if unit.dynamicHasteActive
+  ~= spell then unit.dynamicHasteActive = spell; ApplyDynamicHaste end`.
+- PLAYER_SWING anchor handler — lines ~619-630: an anchor speed above
+  `cachedSpeed * 1.02` clears `dynamicHasteActive`. KEEP as the settler and
+  the fallback for every fire Phase A declines.
+- `lib:PLAYER_EQUIPMENT_CHANGED` — line ~950: slots 16/17/18 restart the hands.
+- `Unit:ResetTransientState` — line ~155 (called by PLAYER_ENTERING_WORLD and
+  PLAYER_TARGET_CHANGED) and `lib:PLAYER_DEAD` — line ~984: neither clears
+  `dynamicHasteActive` today.
+- `dynamic_haste_spells` — line ~93; on Forever holds SnD rank 1
+  (5171 = 1.2), set at line ~1162.
+- Upvalue localization block — lines ~13-15.
 
-## 4. Phase A — all proven (implement now, Forever-gated)
+## 4. Phase A — implement now, Forever-gated
 
-A1. Unit state fields (on the Unit table, nil-initialized in the Unit
-    constructor): `atkSpeedLastFire`, `lastDynamicCast`, `lastEquipChange`.
+A1. Unit state fields (prototype defaults in the `Unit` table, nil):
+    `atkSpeedLastFire`, `lastDynamicCast`, `lastCast`, `lastEquipChange`,
+    `dynamicHasteFactor`, `dynamicHasteExpiry`.
+    Invariant: `dynamicHasteFactor` and `dynamicHasteExpiry` are written
+    together with `dynamicHasteActive` and only read while it is set, so the
+    anchor clear (A7) needs no change.
 
-A2. SUCCEEDED handler, dynamic branch: add `unit.lastDynamicCast = now`
-    (the Rule 1 classification window).
+A2. Duration table, next to `dynamic_haste_spells` (Forever block, line
+    ~1162):
+    ```
+    local dynamic_haste_duration = {}   -- declared with the other tables
+    dynamic_haste_duration[5171] = function(cp) return 9 + 3 * (cp - 1) end
+    ```
+    Localize `GetComboPoints` in the upvalue block (convention).
 
-A3. `lib:PLAYER_EQUIPMENT_CHANGED`: add
-    `if isForever then self.player.lastEquipChange = GetTime() end`
-    (the Rule 4 window).
+A3. SUCCEEDED handler (player unit, Forever):
+    - Set `unit.lastCast = now` for every SUCCEEDED (the Rule 4 cast window).
+      Place it so the auto-attack toggle (6603/6803) is EXCLUDED — the toggle
+      changes no speed and must not swallow a fade.
+    - Dynamic branch, rewritten:
+      ```
+      if isForever and spell and dynamic_haste_spells[spell] then
+          unit.lastDynamicCast = now
+          -- expected expiry from the at-cast combo points (plain, proven);
+          -- secret/unreadable -> nil -> Rule 3 disabled for this application
+          local cp = ResolveSecret(GetComboPoints("player", "target"), nil)
+          local duration = dynamic_haste_duration[spell]
+          local expiry = nil
+          if duration and type(cp) == "number" and cp >= 1 then
+              expiry = now + duration(cp)
+          end
+          if unit.dynamicHasteActive ~= spell then
+              unit.dynamicHasteActive = spell
+              unit.dynamicHasteFactor = dynamic_haste_spells[spell]
+              unit.dynamicHasteExpiry = expiry
+              self:ApplyDynamicHaste(unit, unit.dynamicHasteFactor)
+          else
+              -- refresh: no rescale (engine-verified); the recast REPLACES
+              -- the duration (verified: fades matched the recast's 9 s)
+              unit.dynamicHasteExpiry = expiry
+          end
+      end
+      ```
+    The refresh branch updating `dynamicHasteExpiry` is what makes a recast
+    at expiry safe: the late fade fire of the OLD aura (+0.3-0.4 s) is then
+    outside the NEW window and is ignored, and the library's swing stays
+    hasted — matching the engine, which re-applied the aura.
 
-A4. New `function lib:RemoveDynamicHaste(unit)` — the exact inverse of
+A4. `lib:PLAYER_EQUIPMENT_CHANGED`: as the FIRST statement, outside the
+    16/17/18 slot check (any slot can change speed, e.g. a glove haste
+    enchant): `if isForever then self.player.lastEquipChange = GetTime() end`.
+
+A5. New `function lib:RemoveDynamicHaste(unit, fadeTime)` — the inverse of
     ApplyDynamicHaste, per hand (main/off; ranged excluded until a dynamic
-    ranged spell is verified):
+    ranged spell is verified), back-dated to the fade instant:
     ```
-    speed = speed * factor
-    expiry = now + remaining * factor
-    same 50 ms young-swing guard (a fade at a swing boundary after the
-      anchor already re-anchored unhasted leaves dynamicHasteActive nil,
-      so the guard and the flag agree)
-    cancel + re-arm the hand's C_Timer; fire UNIT_SWING_TIMER_UPDATE
-    clear unit.dynamicHasteActive (after both hands)
+    local now = GetTime()
+    local factor = unit.dynamicHasteFactor
+    per hand, when speed > 0, expiry > now, and lastSwing < fadeTime - 0.05:
+        cancel the hand's timer
+        speed  = speed * factor
+        expiry = fadeTime + (expiry - fadeTime) * factor
+        fire UNIT_SWING_TIMER_UPDATE; re-arm the C_Timer (expiry - now)
+    after both hands: unit.dynamicHasteActive = nil
     ```
+    - `fadeTime = min(now, E)`: the aura edge lands at E (0/+49/+2 ms
+      measured) while the fire trails it by up to ~0.4 s; scaling from `now`
+      would leave a ~(lag x (factor-1)) error (60-80 ms at +412 ms). The
+      back-date mirrors `FOREVER_PARRY_EVENT_SKEW`.
+    - `lastSwing < fadeTime - 0.05` replaces the plain 50 ms young-swing
+      guard: a hand anchored after the fade already carries the unhasted
+      payload (and that anchor normally cleared the flag first).
+    - The flag is cleared even if no hand qualified (no stuck flag).
 
-A5. The Forever branch at the top of `lib:UNIT_ATTACK_SPEED` (player unit
-    only; the target unit keeps today's behavior):
+A6. The Forever branch in `lib:UNIT_ATTACK_SPEED`, immediately after
+    `local now = GetTime()` (before the skip block):
     ```
-    if isForever and unit.isPlayer then
-        local now = GetTime()
-        -- dedupe the double-fire (proven: two identical fires per change)
+    if isForever and unit == self.player then
+        -- Rule 0: dedupe the double-fire (proven: two identical fires per change)
         if unit.atkSpeedLastFire and now - unit.atkSpeedLastFire < 0.05 then
             unit.atkSpeedLastFire = now
             return
         end
         unit.atkSpeedLastFire = now
-        -- Rule 1: the dynamic cast already applied the factor
-        if unit.lastDynamicCast and now - unit.lastDynamicCast < 0.15 then
+        -- Rule 1: the dynamic cast already applied the factor / skipped a refresh
+        if unit.lastDynamicCast and now - unit.lastDynamicCast < 0.05 then
             return
         end
-        -- Rule 4: snapshot triggers (seal/form casts arrive via SUCCEEDED
-        -- with no dynamic-table entry; equipment changes via A3) — no action
-        if unit.lastEquipChange and now - unit.lastEquipChange < 0.15 then
+        -- Rule 4: snapshot triggers (M0): no action, the next anchor re-anchors
+        if (unit.lastCast and now - unit.lastCast < 0.05)
+            or (unit.lastEquipChange and now - unit.lastEquipChange < 0.15) then
             return
         end
-        -- Rule 3: un-haste the tracked dynamic source
-        if unit.dynamicHasteActive then
-            local factor = dynamic_haste_spells[unit.dynamicHasteActive]
-            if factor then
-                self:RemoveDynamicHaste(unit, factor)
-            end
-            return
+        -- Rule 3: the tracked source's fade, attributed by expected expiry
+        local expiry = unit.dynamicHasteExpiry
+        if unit.dynamicHasteActive and expiry
+            and now >= expiry - 0.25 and now <= expiry + 0.75 then
+            self:RemoveDynamicHaste(unit, math.min(now, expiry))
         end
-        -- Rule 5 (Phase A): no tracked source, no action; the next anchor
-        -- settles any untracked transition. Phase C replaces this branch.
+        -- Rule 5: no action; the next anchor settles
         return
     end
     ```
-    The classic path below is untouched (`not isForever` gates stay).
+    The target unit is unchanged: on Forever its classic path stays inert
+    (`not isForever` gates). The classic path below is untouched.
 
-A6. Anchor handler: no change — the `dynamicHasteActive` clear stays as the
-    settler and the defense against a missed fire.
+A7. Anchor handler: no change. The `dynamicHasteActive` clear stays as the
+    settler and the fallback for every declined fire (no CP read, fire
+    outside the window, fire swallowed by Rule 4, Improved SnD — see A10).
 
-A7. Dispatch-order caveat: at the cast instant the capture shows SUCCEEDED
-    dispatched before UNIT_ATTACK_SPEED (CAST logged before ATKSPEED at the
-    same timestamp). If the order ever flips, a cast fire could reach Rule 3
-    before the SUCCEEDED branch sets the flag — the un-haste would misfire
-    once and the next anchor corrects it (bounded one-swing error, the
-    standard class). The `lastDynamicCast` window makes the steady-state
-    order irrelevant after the first cast of each source.
+A8. Reset paths: clear `dynamicHasteActive` in `Unit:ResetTransientState`
+    (loading screens) and in `lib:PLAYER_DEAD` (the aura drops on death; its
+    fade fire is outside the window, so without this the flag stays set and
+    the first SnD cast after the resurrection is mistaken for a refresh).
+    These two lines run on every flavor, but the flag is only ever set on
+    Forever, so classic behavior is unchanged.
 
-A8. Parry interplay: ApplyParryHaste shortens remaining; RemoveDynamicHaste
-    lengthens it — both are remaining-time adjustments and compose. Add to
-    the verification list: a parry inside a fading SnD window.
+A9. Dispatch-order notes:
+    - Application: SUCCEEDED is dispatched before the fire (CAST logged
+      before ATKSPEED at the same timestamp). If the order flipped, the fire
+      would find no new `lastDynamicCast` and, for a fresh application, the
+      flag not yet set -> Rule 5 no-op, then SUCCEEDED applies: harmless.
+    - Early removal (cancel, death handled by A8): the fire is outside the
+      window -> ignored; the next anchor clears the flag (today's behavior).
+    - Weapon swap with SnD up: the swap fire is Rule 4 (if the ordering
+      holds, checklist 6) or outside the window; the flag survives, which is
+      correct. If the anchor expiry-clear misfires on the new base, tighten
+      the clear's cache update there (pre-existing exposure, unchanged).
 
-A9. Weapon swap while a dynamic source is active: the equipment window makes
-    the fire a Rule 4 no-action; PLAYER_EQUIPMENT_CHANGED restarts the hands,
-    the next anchors arrive hasted on the new base, and `dynamicHasteActive`
-    survives (correct — the aura is still up). Verify in-game; if the anchor
-    expiry-clear misfires on the new base (speed comparison against the
-    post-swap cache), tighten the clear's cache update there.
+A10. OPEN DECISION — Improved Slice and Dice. The 9+3(n-1) function is
+     verified untalented. The classic talent lengthens the duration
+     (+15/30/45%); its Forever value and talent-tree position are
+     unverified. Default (recommended): ship the untalented formula only.
+     A talented rogue's fade fire then lands after the window, is ignored,
+     and falls back to the anchor clear — no regression, just no gain for
+     talented rogues until a capture verifies the multiplier and its
+     out-of-combat talent read. Do not widen the window to cover it: a
+     window several seconds wide multiplies misattribution.
 
-## 5. Phase B — deterministic procs (activate on the warrior capture)
+A11. Parry interplay: ApplyParryHaste shortens remaining; RemoveDynamicHaste
+     lengthens it — both are remaining-time adjustments and compose
+     (checklist 7).
 
-- Add `unit.lastCrit` set in the UNIT_COMBAT outgoing-crit branch
-  (WOUND CRITICAL on the target tokens — the findings' validated filters).
-- Add `deterministic_proc_spells = { [flurryAuraOrTalentID] = factor }`,
-  populated only after the capture verifies the Forever engine rule (every
-  crit applies/refreshes; both hands; refresh-on-crit) and the per-rank
-  factor.
-- The handler's Rule 2 window: `if unit.lastCrit and now - unit.lastCrit
-  < 0.15 and deterministic_proc_spells[...] then apply; return end`.
-  Flurry application = crit + fire; Flurry fade = fire with no crit and no
-  cast while the flag is set (Rule 3 generalizes: the tracked-source flag
-  names which factor to remove). The charge count is the cross-check only.
+## 5. Classic flavors
 
-## 6. Phase C — probabilistic procs (activate on the hunter capture)
+Zero behavior change: every new branch is Forever-gated, the classic
+UNIT_ATTACK_SPEED path is untouched, the A8 clears touch a field only Forever
+sets, and `luac -p` (or `luajit -bl`) must stay clean.
 
-- Parity state per hand: `unit.rangedHasted` (and melee equivalents),
-  initialized at combat enter — register PLAYER_REGEN_DISABLED
-  (Forever-gated) and read the three speeds in the plain window (proven:
-  the reads are plain at the PLAYER_REGEN_DISABLED instant); the library
-  already caches `rangedBaseSpeed` for the comparison. ResolveSecret keeps
-  the read safe if the window is missed.
-- `probabilistic_proc_spells = { [deadlyAspectsID] = factor }` after the
-  capture (ID, factor by talent rank, and the fire pair ~12 s apart).
-- Rule 5 becomes: fire + no trigger + nothing tracked -> if the parity says
-  "not hasted" and a probabilistic entry exists for the class, apply the
-  factor as a CANDIDATE to the in-flight swing; the next anchor confirms
-  (hasted -> keep; unchanged -> revert to the pre-candidate expiry, which
-  must be stashed for the revert). Parity says "hasted" -> fade of an
-  untracked/probabilistic source: un-haste with the tracked candidate factor.
+## 6. Phase B — deterministic procs (Flurry): DEFERRED, no code until the warrior capture
 
-## 7. Classic flavors
+Prerequisites the capture and design must settle before any code lands:
 
-Zero behavior change: every new line is Forever-gated (`isForever`), the
-classic UNIT_ATTACK_SPEED path is untouched, and `luajit -bl` must stay
-clean. Phase A touches no table the classic flavors read.
+- Engine rule on Forever: every crit applies/refreshes; both hands;
+  refresh-on-crit; per-rank factor; charge-0 fade fires the event.
+- Crit/fire ordering: UNIT_COMBAT trails the engine by 0.10-0.30 s (the
+  parry-skew finding), so the fire most likely arrives BEFORE the crit.
+  A "recent crit" window at fire time cannot work; the design needs a
+  pending fire that a crit arriving within ~0.35 s resolves.
+- Crit attribution: UNIT_COMBAT on target tokens also reports other
+  players' and pets' crits on that target, once per token naming it. Group
+  play would generate false Flurry applications; the capture must show a
+  filter that isolates the player's own crits, or Phase B is not viable.
+- Factor bookkeeping: Flurry is not in `dynamic_haste_spells`; Rule 3 uses
+  `dynamicHasteFactor` (A1), which already generalizes. Flurry's fade is
+  swing-count driven, so its Rule 3 attribution is the third hasted swing
+  after the last crit, not a timed window.
+
+## 7. Phase C — probabilistic procs (Deadly Aspects): DEFERRED, no code until the hunter capture
+
+Prerequisites:
+
+- ID, factor by talent rank, duration, and the fire pair ~12 s apart.
+- Parity is corrupted by any unexplained transition (debuffs, trinkets) and
+  stays wrong for the rest of the fight if only toggled. Re-derive it at
+  every anchor from the plain payload against the combat-enter baseline,
+  rather than only flipping it per fire.
+- Baseline: the plain PLAYER_REGEN_DISABLED read (proven plain at that
+  instant), NOT `rangedBaseSpeed` — that is the tooltip weapon speed and
+  excludes quiver haste. A fight entered with a haste buff already up
+  starts from a hasted baseline; the anchor re-derivation covers it.
+- Candidate revert needs the pre-candidate expiry stashed.
 
 ## 8. In-game verification checklist (Phase A)
 
 1. SnD cast mid-swing: one UPDATE at the cast (existing) and NO second
-   UPDATE from the ATKSPEED fire (Rule 1 window).
-2. SnD expiry mid-combat on a dummy: UPDATE at the fade fire with lengthened
-   expiry (Rule 3); the next anchor agrees; no double-UPDATE from the
-   anchor clear.
-3. SnD recast while active: no UPDATE at all (refresh: no fire, guard holds).
-4. Recast after a fade: application UPDATE once (parity alternation).
-5. Paladin seal cast / swap mid-combat: NO UPDATE at the fire (Rule 4); the
-   in-flight swing completes on its old speed (M0); the next anchor
-   re-anchors.
-6. Weapon swap with SnD active: no un-haste; the next anchors hasted on the
-   new base.
-7. Parry inside a fading SnD window: both adjustments compose; one swing of
-   bounded error at most.
-8. Restricted content (dungeon): no Lua errors; Rule 3 needs no data read,
-   so restricted darkness changes nothing.
-9. Classic Era smoke: zero behavior change (`issecretvalue` nil there; all
-   new branches Forever-gated).
+   UPDATE from the fire (Rule 1).
+2. SnD expiry mid-combat on a dummy: UPDATE at the fade fire with the
+   back-dated lengthened expiry (Rule 3); the next anchor agrees within
+   tens of ms.
+3. SnD recast while active: no UPDATE (refresh: no fire, flag holds); the
+   later fade lands in the RECAST's window.
+4. SnD recast within ~0.4 s AFTER expiry (before the late fade fire): no
+   un-haste from the old aura's fire; the swing stays hasted.
+5. Recast after a fade: application UPDATE once (parity alternation).
+6. Weapon swap with SnD active: log the order of EQUIP vs ATKSPEED; no
+   un-haste; the next anchors hasted on the new base.
+7. Parry inside a fading SnD window: both adjustments compose; at most one
+   swing of bounded error.
+8. Blade Flurry used and fading while SnD is up: no un-haste outside the
+   SnD window.
+9. Mob attack-speed slow applied/removed while SnD is up (e.g. a Thunder
+   Clap mob): no un-haste outside the SnD window.
+10. Death with SnD up, resurrect, cast SnD: the cast applies (A8).
+11. Talented rogue (Improved SnD): no wrong un-haste; anchor-clear fallback
+    (A10).
+12. Duel / player target: target swing timer behavior unchanged.
+13. Restricted content (dungeon): no Lua errors; a secret CP read disables
+    Rule 3 for that cast and falls back to the anchor clear.
+14. Classic Era smoke: zero behavior change.
 
 ## 9. Release discipline
 
