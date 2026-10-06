@@ -209,6 +209,154 @@ local function Oracle()
 		print("|cff88ccff[STL]|r anchor path closed too - geometry fully wrapped")
 	end
 end
+-- The engine-drawn cooldown icon (SinkView, timeline concept 2026-10-05):
+-- the oracle closed every read path but never looked at the screen - its
+-- bar sat off-screen. This draws the technique where the tester can see it:
+-- a 10 s StatusBar fed the cooldown's secret remaining time every frame, an
+-- icon anchored to the fill's right edge, and two engine-drawn references
+-- from the same DurationObject - a Cooldown swipe and a FontString sink.
+-- PASS: mid-combat the icon slides right to left along the 0-10 s ticks,
+-- agrees with the text, and reaches the left edge as the swipe ends.
+-- Display-only: nothing here reads the geometry back.
+local SINK_WINDOW = 10
+local SINK_WIDTH = 300
+local AUTO_ATTACK = { [6603] = true, [6803] = true } -- classic / Forever toggle IDs
+local GetCooldownDuration = C_Spell and C_Spell.GetSpellCooldownDuration
+local GetSpellTexture = (C_Spell and C_Spell.GetSpellTexture) or GetSpellTexture
+local lastCastSpell
+local sinkView
+
+local function SinkViewCooldown(f)
+	local dur = GetCooldownDuration(f.spell)
+	if not dur or not f.cd.SetCooldownFromDurationObject then
+		return
+	end
+	local ok, err = pcall(f.cd.SetCooldownFromDurationObject, f.cd, dur)
+	if not ok and not f.cdErr then
+		f.cdErr = true
+		log("SINKVIEW", "SetCooldownFromDurationObject ERROR", str(err))
+	end
+end
+
+local function SinkViewUpdate(f)
+	local dur = GetCooldownDuration(f.spell)
+	if not dur then
+		return
+	end
+	local remaining = dur:GetRemainingDuration()
+	local secret = issecretvalue and issecretvalue(remaining) or false
+	if secret ~= f.lastSecret then
+		f.lastSecret = secret
+		log("SINKVIEW", "remaining=" .. (secret and "secret" or "plain"), "spell=" .. f.spell)
+	end
+	local ok, err = pcall(f.bar.SetValue, f.bar, remaining)
+	if not ok and not f.valueErr then
+		f.valueErr = true
+		log("SINKVIEW", "SetValue ERROR", str(err))
+	end
+	if secret then
+		ok, err = pcall(f.remainText.SetText, f.remainText, remaining)
+		if not ok and not f.textErr then
+			f.textErr = true
+			log("SINKVIEW", "SetText ERROR", str(err))
+		end
+	else
+		f.remainText:SetText(format("%.1f", remaining))
+	end
+end
+
+local function SinkViewBuild()
+	local f = CreateFrame("Frame", nil, UIParent)
+	f:SetSize(SINK_WIDTH + 64, 72)
+	f:SetPoint("TOP", UIParent, "TOP", 0, -160)
+	f:SetMovable(true)
+	f:EnableMouse(true)
+	f:RegisterForDrag("LeftButton")
+	f:SetScript("OnDragStart", f.StartMoving)
+	f:SetScript("OnDragStop", f.StopMovingOrSizing)
+	local bg = f:CreateTexture(nil, "BACKGROUND")
+	bg:SetAllPoints()
+	bg:SetColorTexture(0, 0, 0, 0.6)
+
+	f.title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+	f.title:SetPoint("TOPLEFT", f, "TOPLEFT", 10, -6)
+	f.remainText = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	f.remainText:SetPoint("TOPRIGHT", f, "TOPRIGHT", -54, -6)
+
+	local bar = CreateFrame("StatusBar", nil, f)
+	bar:SetSize(SINK_WIDTH, 20)
+	bar:SetPoint("TOPLEFT", f, "TOPLEFT", 10, -22)
+	bar:SetStatusBarTexture([[Interface\Buttons\WHITE8X8]])
+	bar:SetStatusBarColor(0.48, 0.25, 0.72, 0.35)
+	bar:SetMinMaxValues(0, SINK_WINDOW)
+	bar:SetValue(0)
+	f.bar = bar
+	local track = bar:CreateTexture(nil, "BACKGROUND")
+	track:SetAllPoints()
+	track:SetColorTexture(1, 1, 1, 0.08)
+
+	for s = 0, SINK_WINDOW, 2 do
+		local tick = bar:CreateTexture(nil, "OVERLAY")
+		tick:SetColorTexture(1, 1, 1, 0.5)
+		tick:SetSize(1, 6)
+		tick:SetPoint("TOP", bar, "BOTTOMLEFT", s / SINK_WINDOW * SINK_WIDTH, 0)
+		local label = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+		label:SetPoint("TOP", tick, "BOTTOM", 0, -1)
+		label:SetText(s)
+	end
+
+	-- The technique under test: the layout engine places the icon from the
+	-- secret fill width.
+	f.icon = bar:CreateTexture(nil, "OVERLAY")
+	f.icon:SetSize(20, 20)
+	f.icon:SetPoint("CENTER", bar:GetStatusBarTexture(), "RIGHT")
+
+	-- Reference: the native swipe from the same DurationObject.
+	f.cd = CreateFrame("Cooldown", nil, f, "CooldownFrameTemplate")
+	f.cd:SetSize(36, 36)
+	f.cd:SetPoint("TOPRIGHT", f, "TOPRIGHT", -10, -18)
+	f.cd:SetHideCountdownNumbers(false)
+	f.cdIcon = f:CreateTexture(nil, "ARTWORK")
+	f.cdIcon:SetAllPoints(f.cd)
+
+	f:RegisterEvent("SPELL_UPDATE_COOLDOWN")
+	f:SetScript("OnEvent", SinkViewCooldown)
+	f:SetScript("OnUpdate", SinkViewUpdate)
+	return f
+end
+
+local function SinkView(arg)
+	if arg == "off" then
+		if sinkView and sinkView:IsShown() then
+			sinkView:Hide()
+			log("SINKVIEW", "stop")
+		end
+		print("|cff88ccff[STL]|r sink view hidden")
+		return
+	end
+	if not GetCooldownDuration then
+		log("SINKVIEW", "no C_Spell.GetSpellCooldownDuration on this client")
+		print("|cff88ccff[STL]|r no C_Spell.GetSpellCooldownDuration on this client")
+		return
+	end
+	local spell = tonumber(arg) or lastCastSpell
+	if not spell then
+		print("|cff88ccff[STL]|r cast the spell once first, or /stl sinkview <spellID>")
+		return
+	end
+	sinkView = sinkView or SinkViewBuild()
+	sinkView.spell = spell
+	sinkView.lastSecret, sinkView.valueErr, sinkView.textErr, sinkView.cdErr = nil, nil, nil, nil
+	local name = GetSpellName(spell) or "?"
+	local texture = GetSpellTexture(spell)
+	sinkView.title:SetText(format("sink view: %s (%d)", name, spell))
+	sinkView.icon:SetTexture(texture)
+	sinkView.cdIcon:SetTexture(texture)
+	SinkViewCooldown(sinkView)
+	sinkView:Show()
+	log("SINKVIEW", "start", "spell=" .. spell, name)
+	print(format("|cff88ccff[STL]|r sink view on %s (%d) - drag to move, /stl sinkview off to hide", name, spell))
+end
 -- The speed-secrecy probe (findings 4.2 re-check): UnitAttackSpeed's three
 -- returns plus UnitRangedDamage, each masked by num() and flagged by
 -- issecretvalue. /stl speed for an on-demand read (run one mid-fight); the
@@ -449,6 +597,9 @@ function handlers.UNIT_SPELLCAST_SUCCEEDED(unit, _, spellID)
 		log("CAST", spellID)
 	else
 		log("CAST", spellID, GetSpellName(spellID))
+		if not AUTO_ATTACK[spellID] then
+			lastCastSpell = spellID
+		end
 
 		-- SnD requires combo points, so its cast instant is the guaranteed
 		-- positive-points read: the decisive CP sample needs no manual timing.
@@ -570,6 +721,8 @@ SlashCmdList.SWINGTESTLOG = function(msg)
 		Scan()
 	elseif cmd == "oracle" then
 		Oracle()
+	elseif cmd == "sinkview" then
+		SinkView(rest:lower())
 	elseif cmd == "speed" then
 		SpeedProbe("manual")
 	elseif cmd == "cp" then
@@ -594,6 +747,7 @@ SlashCmdList.SWINGTESTLOG = function(msg)
 		print("  /stl aura - probe watched auras by name   /stl scan - index-scan auras")
 		print("  /stl watch <name> - set the watched aura   /stl queue - queued-spell dump")
 		print("  /stl oracle - value-sink geometry probe (run mid-combat)")
+		print("  /stl sinkview [spellID|off] - engine-drawn cooldown icon (visual test)")
 		print("  /stl cp - log combo points (mid-combat CP probe)")
 		print("  /stl speed - log attack speeds + secrecy flags")
 		print("  /stl echo - toggle chat echo   /stl clear - wipe all sessions")

@@ -395,6 +395,33 @@ landing; the Deadly Aspects gain/fade pair ~12 s apart; the combat-enter
 plain-window bracket.
 the cast instants).
 
+### B7. Engine-drawn cooldown icon (value-sink visual check) - any class
+
+The oracle runs (2026-10-05) proved `StatusBar:SetValue` accepts secrets
+and that every read-back path is secret, but the probe bar sat off-screen:
+nobody has seen whether an icon anchored to a secret fill lands in the
+right place. This is the timeline concept's engine-drawn row. Display-only;
+it cannot reopen the oracle.
+
+1. Pick a spell with a cooldown between 6 and 30 s and cast it once out of
+   combat (or note its spell ID).
+2. `/stl sinkview` (follows the last spell cast) or `/stl sinkview <id>`.
+   A movable panel appears: a 10 s bar with 0-10 s ticks, the spell icon
+   riding the fill edge, a number top-right, and a native cooldown swipe
+   at the right end. Out of combat everything reads plain - the baseline.
+3. Pull a dummy or a mob, cast the spell mid-combat, and watch one full
+   cooldown. Mark it: `/stl note sinkview <pass|fail> <what you saw>`.
+4. `/stl sinkview off`, `/reload`.
+
+PASS: mid-combat the icon parks at the right edge while more than 10 s
+remain, then slides right to left along the ticks, agrees with the number
+and the swipe, and reaches the left edge as the swipe ends. FAIL modes to
+note: the icon freezes, jumps to one edge, vanishes, or drifts from the
+swipe. The log carries `SINKVIEW remaining=secret` at the flip and an
+ERROR line if `SetValue`, `SetText` or `SetCooldownFromDurationObject`
+rejects the secret. Countdown digits on the swipe need the "Show cooldown
+numbers" option; the swipe alone is enough.
+
 ## Part C - addon beta checklist (SPEC section 7, items not yet covered in effect testing)
 
 1. Hunter: ranged bar per Auto Shot; strafe mid-shot reschedules once
