@@ -357,6 +357,471 @@ local function SinkView(arg)
 	log("SINKVIEW", "start", "spell=" .. spell, name)
 	print(format("|cff88ccff[STL]|r sink view on %s (%d) - drag to move, /stl sinkview off to hide", name, spell))
 end
+
+-- Timeline probes (4everActionTimeline docs/PROBE_SESSION.md, probes 1-15).
+-- Every read goes through num()/str(), so a secret logs as <secret> and the
+-- line itself is the verdict evidence. Each API call is pcall-wrapped and
+-- nothing does math on a value before checking that it is plain.
+local GetSpellCooldown = C_Spell and C_Spell.GetSpellCooldown
+local IsSpellUsable = C_Spell and C_Spell.IsSpellUsable
+local GetSpellInfoTable = C_Spell and C_Spell.GetSpellInfo
+local GetAtlasInfo = C_Texture and C_Texture.GetAtlasInfo
+local IsEventValid = C_EventUtils and C_EventUtils.IsEventValid
+local UnitCastingInfo, UnitChannelInfo = UnitCastingInfo, UnitChannelInfo
+local GetShapeshiftFormID, GetShapeshiftForm = GetShapeshiftFormID, GetShapeshiftForm
+local UnitPower, UnitPowerType = UnitPower, UnitPowerType
+local GCD_SPELL = 61304 -- the modern client's GCD spell; may not exist on Forever
+local CD_WATCH_INTERVAL = 0.2
+local ATLAS_VIEW_COLUMNS = 8
+local ATLAS_VIEW_CELL = 48
+-- docs/ASSETS.md in 4everActionTimeline: every atlas the Native skin uses.
+local TIMELINE_ATLASES = {
+	"combattimeline-line-left", "combattimeline-line-right", "combattimeline-line-break-mask",
+	"combattimeline-cooldown-divider", "combattimeline-pip", "combattimeline-line-icontrail",
+	"UI-HUD-CoolDownManager-Mask", "UI-HUD-CoolDownManager-IconOverlay",
+	"UI-HUD-CoolDownManager-Bar", "UI-HUD-CoolDownManager-Bar-BG",
+	"combattimeline-fx-pause", "combattimeline-fx-pause-icon", "combattimeline-fx-queued",
+	"cast_standard_pipglow",
+}
+-- Edge-clamp chevron guesses (retail names); /stl atlas show <names> adds more.
+local CHEVRON_CANDIDATES = {
+	"uitools-icon-chevron-right", "uitools-icon-chevron-left", "common-icon-forwardarrow",
+	"common-icon-backarrow", "NPE_ArrowRight", "NPE_ArrowLeft",
+}
+-- Functions the timeline would cache into upvalues (AGENTS.md: verify first).
+local API_PATHS = {
+	"C_SpellBook.GetNumSpellBookSkillLines", "C_SpellBook.GetSpellBookSkillLineInfo",
+	"C_SpellBook.GetSpellBookItemInfo", "C_SpellBook.GetSpellBookItemName",
+	"C_SpellBook.FindSpellBookSlotForSpell", "C_SpellBook.IsSpellKnown",
+	"GetNumSpellTabs", "GetSpellTabInfo", "GetSpellBookItemInfo", "IsSpellKnown", "FindBaseSpellByID",
+	"C_Spell.GetSpellCooldown", "C_Spell.GetSpellCooldownDuration", "C_Spell.IsSpellUsable",
+	"C_Spell.GetSpellInfo", "C_Spell.GetSpellTexture", "C_Spell.IsCurrentSpell", "C_Spell.IsAutoRepeatSpell",
+	"UnitCastingInfo", "UnitChannelInfo", "GetShapeshiftFormID", "GetShapeshiftForm",
+	"GetInventoryItemTexture", "C_Texture.GetAtlasInfo", "C_CooldownViewer.GetCooldownViewerCategorySet",
+	"Settings.RegisterVerticalLayoutCategory", "Settings.RegisterProxySetting", "Settings.CreateDropdown",
+	"EventRegistry.RegisterCallback", "EditModeManagerFrame.IsEditModeActive", "MenuUtil.CreateContextMenu",
+	"ScriptAnimationUtil.ShakeFrame", "debugprofilestop", "C_Timer.NewTicker", "C_EventUtils.IsEventValid",
+}
+local API_EVENTS = {
+	"CHARACTER_POINTS_CHANGED", "PLAYER_TALENT_UPDATE", "TRAIT_CONFIG_UPDATED", "ACTIVE_TALENT_GROUP_CHANGED",
+	"SPELLS_CHANGED", "LEARNED_SPELL_IN_TAB", "UNIT_SPELLCAST_DELAYED", "UNIT_SPELLCAST_CHANNEL_UPDATE",
+	"SPELL_UPDATE_COOLDOWN", "SPELL_UPDATE_USABLE", "UPDATE_SHAPESHIFT_FORM", "ENCOUNTER_START",
+}
+local cdWatch = {} -- spellID -> last logged state key
+local cdTicker
+local atlasView
+local editProbe
+local editActive = false
+
+local function plain(x)
+	return x ~= nil and not (issecretvalue and issecretvalue(x))
+end
+
+local function isSecret(x)
+	return issecretvalue and issecretvalue(x) or false
+end
+
+-- A spell ID, a spell name the client knows, or nothing (the last spell cast).
+local function ResolveSpell(arg)
+	if arg == nil or arg == "" then
+		return lastCastSpell
+	end
+	local id = tonumber(arg)
+	if id then
+		return id
+	end
+	if GetSpellInfoTable then
+		local ok, info = pcall(GetSpellInfoTable, arg)
+		if ok and type(info) == "table" and plain(info.spellID) then
+			return info.spellID
+		end
+	end
+end
+
+-- "8042 8056 8050" gives three IDs; anything else is one spell name.
+local function SpellList(rest)
+	local list = {}
+	if rest == "" or rest:match("^[%d%s]+$") then
+		for id in rest:gmatch("%d+") do
+			list[#list + 1] = tonumber(id)
+		end
+		if #list == 0 and lastCastSpell then
+			list[1] = lastCastSpell
+		end
+	else
+		list[1] = ResolveSpell(rest)
+	end
+	return list
+end
+
+local function CooldownLine(spell)
+	if not GetSpellCooldown then
+		return "no C_Spell.GetSpellCooldown"
+	end
+	local info = GetSpellCooldown(spell)
+	if type(info) ~= "table" then
+		return "info=" .. str(info)
+	end
+	local line = "start=" .. num(info.startTime) .. " dur=" .. num(info.duration) .. " active=" .. str(info.isActive)
+		.. " enabled=" .. str(info.isEnabled) .. " mod=" .. num(info.modRate)
+	if GetCooldownDuration then
+		local dur = GetCooldownDuration(spell, true)
+		line = line .. " remain=" .. (dur and dur.GetRemainingDuration and num(dur:GetRemainingDuration()) or "nil")
+	end
+	return line
+end
+
+local function UsableLine(spell)
+	if not IsSpellUsable then
+		return "no C_Spell.IsSpellUsable"
+	end
+	local usable, noPower = IsSpellUsable(spell)
+	return "usable=" .. str(usable) .. " noPower=" .. str(noPower)
+end
+
+local function SpellLabel(spell)
+	return tostring(spell) .. " " .. (GetSpellName(spell) or "?")
+end
+
+-- Probes 3 and 10 (isActive, GCD), calibration reads and delayed-start reads.
+local function CooldownProbe(spell, reason)
+	local ok, line = pcall(CooldownLine, spell)
+	log("CD", reason, SpellLabel(spell), ok and line or ("ERROR " .. str(line)))
+end
+
+-- Probe 12: usability readability.
+local function UsableProbe(spell, reason)
+	local ok, line = pcall(UsableLine, spell)
+	log("USABLE", reason, SpellLabel(spell), ok and line or ("ERROR " .. str(line)))
+end
+
+-- Probe 5: resource secrecy.
+local function PowerProbe(reason)
+	if not UnitPower then
+		log("POWER", reason, "no UnitPower")
+		return
+	end
+	local okT, _, token = pcall(UnitPowerType, "player")
+	local ok, power = pcall(UnitPower, "player")
+	log("POWER", reason, "type=" .. (okT and str(token) or "ERROR"), "power=" .. (ok and num(power) or "ERROR"))
+end
+
+-- Probe 15: the form/stance read.
+local function FormProbe(reason)
+	local okI, id, okF, index = true, "n/a", true, "n/a"
+	if GetShapeshiftFormID then
+		okI, id = pcall(GetShapeshiftFormID)
+	end
+	if GetShapeshiftForm then
+		okF, index = pcall(GetShapeshiftForm)
+	end
+	log("FORM", reason, "formID=" .. (okI and str(id) or "ERROR"), "index=" .. (okF and str(index) or "ERROR"))
+end
+
+-- Probe 11: is the player's own cast time plain? len is end - start.
+local function CastInfoProbe(kind, reason)
+	local fn = kind == "channel" and UnitChannelInfo or UnitCastingInfo
+	if not fn then
+		log("CASTINFO", reason, kind, "no info API")
+		return
+	end
+	local ok, name, _, _, startMS, endMS = pcall(fn, "player")
+	if not ok then
+		log("CASTINFO", reason, kind, "ERROR", str(name))
+		return
+	end
+	local length, left
+	if plain(startMS) and plain(endMS) then
+		length = format("%.3f", (endMS - startMS) / 1000)
+		left = format("%.3f", endMS / 1000 - GetTime())
+	elseif isSecret(startMS) or isSecret(endMS) then
+		length, left = "<secret>", "<secret>"
+	else
+		length, left = "none", "none"
+	end
+	log("CASTINFO", reason, kind, str(name), "len=" .. length, "left=" .. left)
+end
+
+-- Probes 3/12 mid-fight without typing: one line per watched spell whenever
+-- its state changes (a plain remaining time is left out of the change test,
+-- so a running cooldown does not log every tick).
+local function CdWatchTick()
+	for spell, last in pairs(cdWatch) do
+		local okC, cd = pcall(CooldownLine, spell)
+		local okU, usable = pcall(UsableLine, spell)
+		local line = (okC and cd or "cd ERROR") .. " " .. (okU and usable or "usable ERROR")
+		local key = line:gsub(" remain=[%d%.%-]+", "")
+		if key ~= last then
+			cdWatch[spell] = key
+			log("CDWATCH", SpellLabel(spell), line)
+		end
+	end
+end
+
+local function CdWatch(rest)
+	if rest == "off" then
+		wipe(cdWatch)
+		if cdTicker then
+			cdTicker:Cancel()
+			cdTicker = nil
+		end
+		print("|cff88ccff[STL]|r cooldown watch off")
+		return
+	end
+	local list = SpellList(rest)
+	if #list == 0 then
+		print("|cff88ccff[STL]|r cast the spell once first, or /stl cdwatch <spellID ...>")
+		return
+	end
+	for i = 1, #list do
+		cdWatch[list[i]] = ""
+	end
+	cdTicker = cdTicker or C_Timer.NewTicker(CD_WATCH_INTERVAL, CdWatchTick)
+	local names = {}
+	for spell in pairs(cdWatch) do
+		names[#names + 1] = SpellLabel(spell)
+	end
+	print("|cff88ccff[STL]|r watching cooldowns: " .. table.concat(names, ", "))
+end
+
+-- Probe 14: atlas existence, plus an on-screen preview for the by-eye look.
+local function AtlasProbe(names, reason)
+	if not GetAtlasInfo then
+		log("ATLAS", reason, "no C_Texture.GetAtlasInfo")
+		print("|cff88ccff[STL]|r no C_Texture.GetAtlasInfo on this client")
+		return
+	end
+	local missing = 0
+	for i = 1, #names do
+		local ok, info = pcall(GetAtlasInfo, names[i])
+		if ok and type(info) == "table" then
+			log("ATLAS", reason, names[i], "found", tostring(info.width) .. "x" .. tostring(info.height))
+		else
+			missing = missing + 1
+			log("ATLAS", reason, names[i], ok and "MISSING" or "ERROR")
+		end
+	end
+	print(format("|cff88ccff[STL]|r atlas %s: %d checked, %d missing (details in the log)", reason, #names, missing))
+end
+
+local function AtlasShow(names)
+	if not atlasView then
+		local f = CreateFrame("Frame", nil, UIParent)
+		f:SetPoint("CENTER", UIParent, "CENTER", 0, 120)
+		f:SetMovable(true)
+		f:EnableMouse(true)
+		f:RegisterForDrag("LeftButton")
+		f:SetScript("OnDragStart", f.StartMoving)
+		f:SetScript("OnDragStop", f.StopMovingOrSizing)
+		local bg = f:CreateTexture(nil, "BACKGROUND")
+		bg:SetAllPoints()
+		bg:SetColorTexture(0, 0, 0, 0.7)
+		f.cells = {}
+		atlasView = f
+	end
+	for _, cell in ipairs(atlasView.cells) do
+		cell.tex:Hide()
+		cell.label:Hide()
+	end
+	local rows = math.ceil(#names / ATLAS_VIEW_COLUMNS)
+	atlasView:SetSize(math.min(#names, ATLAS_VIEW_COLUMNS) * ATLAS_VIEW_CELL + 8, rows * (ATLAS_VIEW_CELL + 12) + 8)
+	for i = 1, #names do
+		local cell = atlasView.cells[i]
+		if not cell then
+			cell = { tex = atlasView:CreateTexture(nil, "ARTWORK"), label = atlasView:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall") }
+			atlasView.cells[i] = cell
+		end
+		local col, row = (i - 1) % ATLAS_VIEW_COLUMNS, math.floor((i - 1) / ATLAS_VIEW_COLUMNS)
+		cell.tex:ClearAllPoints()
+		cell.tex:SetPoint("TOPLEFT", atlasView, "TOPLEFT", 4 + col * ATLAS_VIEW_CELL + 4, -4 - row * (ATLAS_VIEW_CELL + 12))
+		cell.tex:SetSize(ATLAS_VIEW_CELL - 8, ATLAS_VIEW_CELL - 8)
+		local ok, set = pcall(cell.tex.SetAtlas, cell.tex, names[i])
+		cell.tex:SetShown(ok and set ~= false)
+		cell.label:ClearAllPoints()
+		cell.label:SetPoint("TOP", cell.tex, "BOTTOM", 0, -1)
+		cell.label:SetText(tostring(i))
+		cell.label:Show()
+		log("ATLASVIEW", tostring(i), names[i], (ok and set ~= false) and "drawn" or "not drawn")
+	end
+	atlasView:Show()
+	print("|cff88ccff[STL]|r atlas preview: cell numbers map to names in the log - /stl atlas show off to hide")
+end
+
+local function Atlas(rest)
+	local verb, args = rest:match("^(%S*)%s*(.-)$")
+	if verb == "show" then
+		if args == "off" then
+			if atlasView then
+				atlasView:Hide()
+			end
+			return
+		end
+		local names = {}
+		for name in args:gmatch("%S+") do
+			names[#names + 1] = name
+		end
+		if #names == 0 then
+			for _, list in ipairs({ TIMELINE_ATLASES, CHEVRON_CANDIDATES }) do
+				for i = 1, #list do
+					names[#names + 1] = list[i]
+				end
+			end
+		end
+		AtlasShow(names)
+	elseif rest ~= "" then
+		local names = {}
+		for name in rest:gmatch("%S+") do
+			names[#names + 1] = name
+		end
+		AtlasProbe(names, "manual")
+	else
+		AtlasProbe(TIMELINE_ATLASES, "timeline")
+		AtlasProbe(CHEVRON_CANDIDATES, "chevron")
+	end
+end
+
+-- Probe 8: Cooldown Manager coverage for the current class.
+local function CdmProbe()
+	local cv = C_CooldownViewer
+	if not cv then
+		log("CDM", "no C_CooldownViewer")
+		print("|cff88ccff[STL]|r no C_CooldownViewer on this client")
+		return
+	end
+	local okA, available = true, "n/a"
+	if cv.IsCooldownViewerAvailable then
+		okA, available = pcall(cv.IsCooldownViewerAvailable)
+	end
+	local cvar = GetCVar and GetCVar("cooldownViewerEnabled")
+	log("CDM", "available=" .. (okA and str(available) or "ERROR"), "cvar=" .. str(cvar))
+	local categories = Enum and Enum.CooldownViewerCategory
+	if not (cv.GetCooldownViewerCategorySet and categories) then
+		log("CDM", "no category API")
+		return
+	end
+	for name, value in pairs(categories) do
+		local ok, set = pcall(cv.GetCooldownViewerCategorySet, value)
+		if ok and type(set) == "table" then
+			local spells = {}
+			for i = 1, #set do
+				local okI, info = pcall(cv.GetCooldownViewerCooldownInfo, set[i])
+				spells[i] = (okI and type(info) == "table") and SpellLabel(info.spellID) or tostring(set[i])
+			end
+			log("CDM", name, "count=" .. #set, table.concat(spells, ", "))
+		else
+			log("CDM", name, ok and ("set=" .. str(set)) or "ERROR")
+		end
+	end
+	print("|cff88ccff[STL]|r Cooldown Manager coverage logged")
+end
+
+-- Every function and event the timeline would rely on: present or nil.
+local function ApiProbe(reason)
+	local missing = {}
+	for i = 1, #API_PATHS do
+		local value = _G
+		for part in API_PATHS[i]:gmatch("[^%.]+") do
+			value = type(value) == "table" and value[part] or nil
+		end
+		if value == nil then
+			missing[#missing + 1] = API_PATHS[i]
+		end
+	end
+	log("API", reason, "checked=" .. #API_PATHS, "missing=" .. (#missing > 0 and table.concat(missing, ",") or "none"))
+	if IsEventValid then
+		local invalid = {}
+		for i = 1, #API_EVENTS do
+			local ok, valid = pcall(IsEventValid, API_EVENTS[i])
+			if not (ok and valid) then
+				invalid[#invalid + 1] = API_EVENTS[i]
+			end
+		end
+		log("API", reason, "events=" .. #API_EVENTS, "invalid=" .. (#invalid > 0 and table.concat(invalid, ",") or "none"))
+	end
+end
+
+-- Probe 9: ForeverCDM's Edit Mode pattern. It registers no Blizzard system:
+-- it listens for EventRegistry EditMode.Enter/Exit, unlocks its own drag
+-- handle while Edit Mode is open and stores the position itself. PASS: the
+-- box turns draggable only inside Edit Mode, and survives /reload.
+local function EditProbeRefresh()
+	if not editProbe then
+		return
+	end
+	editProbe:EnableMouse(editActive)
+	editProbe.label:SetText(editActive and "STL Edit Mode probe - drag me" or "STL Edit Mode probe (locked)")
+end
+
+local function EditProbeBuild()
+	local f = CreateFrame("Frame", "SwingTestLogEditModeProbe", UIParent)
+	f:SetSize(200, 40)
+	f:SetMovable(true)
+	f:SetClampedToScreen(true)
+	f:RegisterForDrag("LeftButton")
+	local bg = f:CreateTexture(nil, "BACKGROUND")
+	bg:SetAllPoints()
+	bg:SetColorTexture(0.82, 0.38, 0.12, 0.35)
+	f.label = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+	f.label:SetPoint("CENTER")
+	local saved = SwingTestLogDB.editProbe
+	f:ClearAllPoints()
+	if type(saved) == "table" and saved.x then
+		f:SetPoint("CENTER", UIParent, "BOTTOMLEFT", saved.x, saved.y)
+	else
+		f:SetPoint("CENTER", UIParent, "CENTER", 0, -200)
+	end
+	f:SetScript("OnDragStart", function(self)
+		if editActive then
+			self:StartMoving()
+		end
+	end)
+	f:SetScript("OnDragStop", function(self)
+		self:StopMovingOrSizing()
+		local x, y = self:GetCenter()
+		SwingTestLogDB.editProbe = { x = x, y = y }
+		self:ClearAllPoints()
+		self:SetPoint("CENTER", UIParent, "BOTTOMLEFT", x, y)
+		log("EDITMODE", "moved", num(x), num(y))
+	end)
+	if EventRegistry and EventRegistry.RegisterCallback then
+		EventRegistry:RegisterCallback("EditMode.Enter", function()
+			editActive = true
+			log("EDITMODE", "enter")
+			EditProbeRefresh()
+		end, f)
+		EventRegistry:RegisterCallback("EditMode.Exit", function()
+			editActive = false
+			log("EDITMODE", "exit")
+			EditProbeRefresh()
+		end, f)
+	else
+		log("EDITMODE", "no EventRegistry")
+	end
+	local manager = EditModeManagerFrame
+	if manager and manager.IsEditModeActive then
+		editActive = manager:IsEditModeActive() and true or false
+	end
+	local systems = manager and manager.registeredSystemFrames
+	log("EDITMODE", "built", "active=" .. tostring(editActive), "systems=" .. (type(systems) == "table" and #systems or "n/a"),
+		"snap=" .. tostring(manager and manager.IsSnapEnabled ~= nil))
+	return f
+end
+
+local function EditMode(rest)
+	if rest == "off" then
+		SwingTestLogDB.editProbe = nil
+		if editProbe then
+			editProbe:Hide()
+		end
+		print("|cff88ccff[STL]|r Edit Mode probe off (position forgotten)")
+		return
+	end
+	SwingTestLogDB.editProbe = SwingTestLogDB.editProbe or {}
+	editProbe = editProbe or EditProbeBuild()
+	editProbe:Show()
+	EditProbeRefresh()
+	print("|cff88ccff[STL]|r Edit Mode probe shown - open Edit Mode, drag it, close, /reload")
+end
 -- The speed-secrecy probe (findings 4.2 re-check): UnitAttackSpeed's three
 -- returns plus UnitRangedDamage, each masked by num() and flagged by
 -- issecretvalue. /stl speed for an on-demand read (run one mid-fight); the
@@ -518,6 +983,7 @@ end
 -- Game events
 local frame = CreateFrame("Frame")
 local handlers = {}
+local registerFailures = {}
 
 function handlers.PLAYER_LOGIN()
 	playerGUID = UnitGUID("player")
@@ -528,6 +994,17 @@ function handlers.PLAYER_LOGIN()
 	log("CLIENT", isForever and "forever" or "classic", "interface=" .. tostring(interface))
 	log("CAPS", "count=" .. tostring(GetAuraCount ~= nil), "cp=" .. tostring(GetComboPoints ~= nil))
 	SpeedProbe("login")
+	ApiProbe("login")
+	for i = 1, #registerFailures do
+		log("REGFAIL", registerFailures[i])
+	end
+	PowerProbe("login")
+	FormProbe("login")
+	if SwingTestLogDB.editProbe then
+		-- The probe was on before this reload: rebuild it at the saved spot.
+		editProbe = EditProbeBuild()
+		EditProbeRefresh()
+	end
 	if not lib then
 		log("ERROR", LIB_NAME .. " not loaded")
 		return
@@ -563,6 +1040,8 @@ function handlers.PLAYER_REGEN_DISABLED()
 	AuraProbe("combat-enter")
 	SpeedProbe("combat-enter")
 	AuraCount("combat-enter")
+	PowerProbe("combat-enter")
+	FormProbe("combat-enter")
 end
 
 function handlers.PLAYER_REGEN_ENABLED()
@@ -570,6 +1049,8 @@ function handlers.PLAYER_REGEN_ENABLED()
 	AuraProbe("combat-leave")
 	SpeedProbe("combat-leave")
 	AuraCount("combat-leave")
+	PowerProbe("combat-leave")
+	FormProbe("combat-leave")
 end
 
 function handlers.PLAYER_DEAD()
@@ -599,6 +1080,13 @@ function handlers.UNIT_SPELLCAST_SUCCEEDED(unit, _, spellID)
 		log("CAST", spellID, GetSpellName(spellID))
 		if not AUTO_ATTACK[spellID] then
 			lastCastSpell = spellID
+			-- Probes 10 and 3 plus the calibration read: the GCD and the spell's
+			-- own cooldown just after the cast (out of combat these are plain;
+			-- a delayed-start spell such as Stealth reads not yet started).
+			C_Timer.After(0.05, function()
+				CooldownProbe(GCD_SPELL, "gcd")
+				CooldownProbe(spellID, "post-cast")
+			end)
 		end
 
 		-- SnD requires combo points, so its cast instant is the guaranteed
@@ -619,6 +1107,7 @@ function handlers.UNIT_SPELLCAST_START(unit, _, spellID)
 	else
 		log("CASTSTART", spellID, GetSpellName(spellID))
 	end
+	CastInfoProbe("cast", "start")
 end
 
 function handlers.UNIT_SPELLCAST_INTERRUPTED(unit, _, spellID)
@@ -627,6 +1116,52 @@ function handlers.UNIT_SPELLCAST_INTERRUPTED(unit, _, spellID)
 	end
 	log("CASTSTOP", "interrupted", spellID)
 end
+
+-- The cast lane's remaining edges (probe 11 and the stop/fail/channel rules).
+local function CastEdge(tag, kind)
+	return function(unit, _, spellID)
+		if unit ~= "player" then
+			return
+		end
+		log("CASTEDGE", tag, spellID, plain(spellID) and GetSpellName(spellID) or "")
+		if kind then
+			CastInfoProbe(kind, tag)
+		end
+	end
+end
+
+handlers.UNIT_SPELLCAST_STOP = CastEdge("stop")
+handlers.UNIT_SPELLCAST_FAILED = CastEdge("failed")
+handlers.UNIT_SPELLCAST_DELAYED = CastEdge("delayed", "cast")
+handlers.UNIT_SPELLCAST_CHANNEL_START = CastEdge("channel-start", "channel")
+handlers.UNIT_SPELLCAST_CHANNEL_UPDATE = CastEdge("channel-update", "channel")
+handlers.UNIT_SPELLCAST_CHANNEL_STOP = CastEdge("channel-stop")
+
+function handlers.UPDATE_SHAPESHIFT_FORM()
+	FormProbe("event")
+end
+
+-- Probe 1: marks the boss pull in the log, so the CAST lines around it can be
+-- checked for secret spell IDs.
+function handlers.ENCOUNTER_START(encounterID, encounterName)
+	log("ENCOUNTER", "start", encounterID, encounterName)
+end
+
+function handlers.ENCOUNTER_END(encounterID, encounterName, _, _, success)
+	log("ENCOUNTER", "end", encounterID, encounterName, "success=" .. str(success))
+end
+
+-- Talent changes mark the timeline's calibration cache stale: which of these
+-- events exists and fires on Forever?
+local function TalentEvent(name)
+	return function()
+		log("TALENT", name)
+	end
+end
+
+handlers.CHARACTER_POINTS_CHANGED = TalentEvent("CHARACTER_POINTS_CHANGED")
+handlers.PLAYER_TALENT_UPDATE = TalentEvent("PLAYER_TALENT_UPDATE")
+handlers.TRAIT_CONFIG_UPDATED = TalentEvent("TRAIT_CONFIG_UPDATED")
 
 -- Attack-speed change edge (findings section 9 item 3: fires live in combat,
 -- weapon swap and SotC haste change; the UnitAttackSpeed reads behind it are
@@ -669,6 +1204,10 @@ if isForever then
 	function handlers.UNIT_COMBAT(unitTarget, action)
 		if unitTarget == "player" and not (issecretvalue and issecretvalue(action)) and action == "PARRY" then
 			log("PARRY", "you parried (UNIT_COMBAT)")
+		elseif unitTarget == "target" and (isSecret(action) or action ~= "WOUND") then
+			-- Probe 2: a dodged or parried Sunder/Heroic Strike shows up here
+			-- next to its CAST line (or the missing one).
+			log("TGTCOMBAT", action)
 		end
 	end
 else
@@ -696,11 +1235,19 @@ end
 frame:SetScript("OnEvent", function(_, event, ...)
 	handlers[event](...)
 end)
+-- An event this client lacks must not break the rig: registration is
+-- pcall-wrapped and failures are logged once the session starts.
 for event in pairs(handlers) do
-	if event == "UNIT_SPELLCAST_SUCCEEDED" or event == "UNIT_SPELLCAST_START" or event == "UNIT_SPELLCAST_INTERRUPTED" or event == "UNIT_COMBAT" or event == "UNIT_AURA" or event == "UNIT_ATTACK_SPEED" then
-		frame:RegisterUnitEvent(event, "player")
+	local ok
+	if event == "UNIT_COMBAT" then
+		ok = pcall(frame.RegisterUnitEvent, frame, event, "player", "target")
+	elseif event:match("^UNIT_") then
+		ok = pcall(frame.RegisterUnitEvent, frame, event, "player")
 	else
-		frame:RegisterEvent(event)
+		ok = pcall(frame.RegisterEvent, frame, event)
+	end
+	if not ok then
+		registerFailures[#registerFailures + 1] = event
 	end
 end
 
@@ -725,6 +1272,38 @@ SlashCmdList.SWINGTESTLOG = function(msg)
 		SinkView(rest:lower())
 	elseif cmd == "speed" then
 		SpeedProbe("manual")
+	elseif cmd == "cd" or cmd == "usable" then
+		local list = SpellList(rest)
+		if #list == 0 then
+			print("|cff88ccff[STL]|r cast the spell once first, or /stl " .. cmd .. " <spellID ...|name>")
+		end
+		for i = 1, #list do
+			if cmd == "cd" then
+				CooldownProbe(list[i], "manual")
+			else
+				UsableProbe(list[i], "manual")
+			end
+		end
+		if #list > 0 then
+			print("|cff88ccff[STL]|r " .. cmd .. " logged for " .. #list .. " spell(s)")
+		end
+	elseif cmd == "cdwatch" then
+		CdWatch(rest)
+	elseif cmd == "power" then
+		PowerProbe("manual")
+		print("|cff88ccff[STL]|r power logged")
+	elseif cmd == "form" then
+		FormProbe("manual")
+		print("|cff88ccff[STL]|r form logged")
+	elseif cmd == "atlas" then
+		Atlas(rest)
+	elseif cmd == "cdm" then
+		CdmProbe()
+	elseif cmd == "editmode" then
+		EditMode(rest:lower())
+	elseif cmd == "api" then
+		ApiProbe("manual")
+		print("|cff88ccff[STL]|r API presence logged")
 	elseif cmd == "cp" then
 		ComboPoints()
 	elseif cmd == "queue" then
@@ -750,6 +1329,11 @@ SlashCmdList.SWINGTESTLOG = function(msg)
 		print("  /stl sinkview [spellID|off] - engine-drawn cooldown icon (visual test)")
 		print("  /stl cp - log combo points (mid-combat CP probe)")
 		print("  /stl speed - log attack speeds + secrecy flags")
+		print("  Timeline probes: /stl cd|usable [IDs|name] - cooldown / usability read")
+		print("  /stl cdwatch <IDs>|off - log cooldown+usable changes every 0.2 s")
+		print("  /stl power   /stl form   /stl api   /stl cdm - Cooldown Manager coverage")
+		print("  /stl atlas [names] - atlas check   /stl atlas show [names|off] - preview")
+		print("  /stl editmode [off] - Edit Mode drag probe (ForeverCDM pattern)")
 		print("  /stl echo - toggle chat echo   /stl clear - wipe all sessions")
 		print("  The file is written on /reload or logout.")
 	end

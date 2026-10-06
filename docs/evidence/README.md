@@ -242,3 +242,38 @@ Session addenda, chronological (same file, same capture):
   reverse path is wrapped - the fill width, GetValue, and the layout
   engine's anchored dependent frames all read back as secrets; the oracle
   is closed, the sink is display-only on this build.
+
+---
+
+# Evidence: timeline probe session, build 70235 (2026-10-06)
+
+### `SwingTestLog-forever-2026-10-06.lua`
+
+Verbatim `SwingTestLogDB` SavedVariables from the WoW: Forever beta
+(client 1.60.1.70235, library 2.2.0 stable / MINOR 37), recorded by the
+harness in `../tools/SwingTestLog/` extended with the timeline probe
+commands (`/stl cd`, `usable`, `cdwatch`, `power`, `form`, `atlas`, `cdm`,
+`editmode`, `api`; CASTINFO, CASTEDGE, post-cast CD, TGTCOMBAT, FORM,
+POWER, ENCOUNTER and TALENT lines). The file holds the last 20 sessions;
+the probe sessions start at 18:48 (earlier sessions are older captures on
+build 70205/70235).
+
+It answers 4everActionTimeline's probes 1-15 and the follow-up Part G.
+The script, step notes and verdicts live in that repo's
+`docs/PROBE_SESSION.md`. Sessions, chronological:
+
+- 18:48 Paladin (`Ralgathor`): atlas check (all 14 timeline atlases plus
+  six chevron candidates present), Cooldown Manager coverage (racials
+  only), the Edit Mode drag probe and its `/reload` persistence.
+- 18:55-19:22 Warrior (`Paumeredic`, level 6): `isActive` plain in combat
+  and true during the GCD; `IsSpellUsable` plain; `UnitPower` secret
+  always; Heroic Strike SUCCEEDED at the swing, including on
+  dodge/parry/miss (TGTCOMBAT plain but unattributed).
+- 19:23 Rogue (`Rolhgar`): GCD spell 61304 absent; Stealth reads
+  `enabled=false` while active; sink view secret in combat, no errors.
+- 19:27 Paladin: cast time plain in combat, pushback re-read accurate,
+  INTERRUPTED repeating, channel ID differing from SUCCEEDED; the
+  Witherfang boss pull (encounter 3353) with every spell ID plain.
+- 19:41-20:02 follow-up: mana resource-short read plain; Sprint, Evasion
+  and Stealth off the GCD; cooldown start ~0.2 s ahead of SUCCEEDED; the
+  energy GCD measured at 1.0 s in combat from `isActive` flips.
