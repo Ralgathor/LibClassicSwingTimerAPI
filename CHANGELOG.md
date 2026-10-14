@@ -7,14 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Known unverified in this build: the WoW: Forever entries below - no in-game capture yet. Multi-Shot / Aimed Shot no-reset: UNIT_SPELLCAST_START behavior, melee cadence across the cast. Rapid Fire: whether the engine rescales the in-flight swing at all, and the factor (1.40 vs 1.41). Capture plan: docs/M1_SESSION_SCRIPT.md B8.
+Known unverified in this build: the WoW: Forever entries below - no in-game capture yet. Multi-Shot / Aimed Shot no-reset: UNIT_SPELLCAST_START behavior, melee cadence across the cast. Rapid Fire: whether the engine rescales the in-flight swing at all, and the factor (1.40 vs 1.41). Capture plan: docs/M1_SESSION_SCRIPT.md B8. The event `reason` argument, the single-frame dispatch, the target-change STOP and the Forever target registration below: no in-game pass on any client yet (`luajit -bl` syntax check only); the duplicate-dispatch fix wants a two-copy test (an addon embedding MINOR 37 loaded together with this build).
 
 ### Added
+
+* `reason` argument on `UNIT_SWING_TIMER_START` / `UNIT_SWING_TIMER_UPDATE` and their legacy `SWING_TIMER_*` variants (all clients), appended after `hand` so existing consumers are unaffected. START: `"swing"` (a swing seen by the game), `"reset"`, `"clip"`, `"attack"`; UPDATE: `"haste"`, `"parry"`, `"pause"`, `"autoshot"`, `"movement"`. On WoW: Forever this tells consumers which starts come from the game's own `PLAYER_SWING` (`"swing"`) and which are the library's reconstruction.
 
 * Rapid Fire (3045) mid-swing haste on WoW: Forever: the cast now rescales the in-flight main-hand, off-hand and ranged swings by 1.4 (Wowhead Forever lists +41%, the forever-hunter wiki +40%), through the dynamic-haste path Slice and Dice uses. `ApplyDynamicHaste` gains an optional ranged factor, fed from a new `dynamic_ranged_haste_spells` table, so the Slice and Dice rescale keeps leaving ranged alone. The rescale is not undone when the buff fades; the next swing re-anchors on its true speed, as with Slice and Dice. Classic flavors unchanged (they rescale ranged via UNIT_ATTACK_SPEED).
 
 ### Fixed
 
+* Fire every event once when several addons embed different library versions (all clients): each copy created its own event frame, and after a LibStub upgrade the older copy's frame kept dispatching into the shared library, so every game event was handled twice (START / STOP / START per swing). The frame is now shared through `lib.frame` and taken over by a newer copy; handlers dispatch through a private table and the `lib.EVENT_NAME` entries are blanked, which also silences frames left behind by copies up to MINOR 37.
+* Cancel the swing timers on PLAYER_ENTERING_WORLD and PLAYER_TARGET_CHANGED (all clients): the reset dropped the timer handles without cancelling them, so an old timer still ran later, firing a stray STOP and cancelling the new target's swing if it had started by then. A swing still in flight now ends with an immediate STOP before `UNIT_SWING_TIMER_INFO_INITIALIZED`, as on PLAYER_DEAD.
+* No target swings on WoW: Forever: the spellcast and attack-speed events were still registered for `target`, so a target's completed cast started swings that no swing event ever confirmed. They are now registered for the player only there; the target stays parked, as the README already stated.
 * Do not reset the melee swing when a Multi-Shot (2643) or Aimed Shot (19434, 20900-20904) cast completes on WoW: Forever. Forever turns Multi-Shot into a 0.5 s cast and Aimed Shot into a 2 s cast, both flagged "Do Not Reset Combat Timers" (Wowhead Forever data; rank IDs checked there - Multi-Shot has no rank beyond 2643); the generic cast-completion reset would otherwise push the melee timer back for weaving hunters. Classic flavors unchanged.
 
 ## [2.2.0] - 2026-10-02

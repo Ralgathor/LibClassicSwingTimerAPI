@@ -9,7 +9,8 @@ The library runs on WoW: Forever (the Classic-rule-set mainline client) and fire
 * Swing detection uses the native `PLAYER_SWING` event (the client refuses the combat log there). The player's main-hand, off-hand and ranged swings are all anchored by it, including in restricted content where weapon-speed APIs return secret values.
 * Cast-completion resets, instant-with-reset spells and no-reset exceptions follow the Classic Era spell tables — the client reuses classic-era spell IDs.
 * Parry haste is reflected mid-swing on the player, via the defender-anchored `UNIT_COMBAT` event (probe-verified on the beta). Other mid-swing modifications (haste changes) are still reflected at the next swing; no addon-facing event exists for those (report filed with Blizzard).
-* Target swing tracking is unsupported on WoW: Forever — `UnitSwingTimerInfo("target", ...)` returns no data there.
+* Target swing tracking is unsupported on WoW: Forever — no `UNIT_SWING_TIMER_*` event other than `UNIT_SWING_TIMER_INFO_INITIALIZED` fires for `"target"`, and `UnitSwingTimerInfo("target", ...)` always reports a parked state (no swing in flight).
+* Only `UNIT_SWING_TIMER_START` events with reason `"swing"` come from the game's own swing event. The other reasons (cast resets, clips, haste, parry, ...) are the library's reconstruction of the Classic rules; any drift is corrected at the next swing, which then arrives as `UNIT_SWING_TIMER_STOP` followed by `UNIT_SWING_TIMER_START`.
 * The game's own swing timer bars (controlled by the `showSwingTimer` CVar) coexist with this library's events; disable the CVar if you only want addon-driven bars.
 
 ## Usage example:
@@ -64,7 +65,7 @@ The LibClassicSwingTimerAPI fire the events as WeakAuras custom events that can 
 
 ### UNIT_SWING_TIMER_INFO_INITIALIZED
 
-Fired after the initialization of swing information for the unit. The UnitSwingTimerInfo method is only usable after this event.
+Fired after the initialization of swing information for the unit. The UnitSwingTimerInfo method is only usable after this event. It fires again for the player after every loading screen, and for the target on every target change: treat it as "reset everything for this unit". Swings still in flight at that moment end with `UNIT_SWING_TIMER_STOP` first.
 
 | Property | Description |  
 | ----------- | ----------- |
@@ -80,17 +81,37 @@ Fired when a weapon or ranged swing starts.
 | speed | number - weapon speed |
 | expirationTime | number - end of swing relative to GetTime() |
 | hand | string - the hand that start to swing ("mainhand", "offhand" or "ranged") |
+| reason | string - why the swing started, see below |
+
+| reason | Meaning |
+| ----------- | ----------- |
+| "swing" | A swing seen by the game: an auto attack, an Auto Shot / wand shot, or an on-next-swing ability (Heroic Strike, Raptor Strike, Maul...) |
+| "reset" | A spell cast, channel end, Feign Death, Volley or weapon swap restarted the timer |
+| "clip" | The swing came due during a cast and restarted; `UNIT_SWING_TIMER_CLIPPED` follows |
+| "attack" | Auto-attack was switched on (off-hand start) |
+
+The first off-hand swing after auto-attack is switched on (or after a reset that comes before the first off-hand hit) arrives as `UNIT_SWING_TIMER_UPDATE`, not `UNIT_SWING_TIMER_START`: the off hand starts half-way through its cycle, so `expirationTime` is `speed / 2` away.
 
 ### UNIT_SWING_TIMER_UPDATE
 
-Fired when weapon speed changes.
+Fired when an in-flight swing's end time changes: a weapon speed change, and also parry haste, the end of a pause, or a delayed Auto Shot. `speed` is the weapon speed, not the time left: `expirationTime - speed` is not the swing's start after an update.
 
 | Property | Description |  
 | ----------- | ----------- |
 | unitId | string - type of the unit ("player" or "target") |
 | speed | number - weapon speed |
 | expirationTime | number - end of swing relative to GetTime() |
-| hand | string - the hand speed that update ("mainhand" or "offhand") |
+| hand | string - the hand speed that update ("mainhand", "offhand" or "ranged") |
+| reason | string - why the swing changed, see below |
+
+| reason | Meaning |
+| ----------- | ----------- |
+| "haste" | Attack speed changed mid-swing |
+| "parry" | The unit parried: its main-hand swing comes sooner |
+| "pause" | A swing paused by `UNIT_SWING_TIMER_PAUSED` resumes |
+| "autoshot" | Classic Era: the Auto Shot cast started |
+| "movement" | Auto Shot delayed by movement |
+| any START reason | The first off-hand swing (see `UNIT_SWING_TIMER_START`) |
 
 ### UNIT_SWING_TIMER_CLIPPED
 
@@ -103,7 +124,7 @@ Fired if a weapon swing is clipped by a spell cast.
 
 ### UNIT_SWING_TIMER_PAUSED
 
-Fired if a weapon swing is paused by a spell cast.
+Fired if a weapon swing is paused by a spell cast. The resume arrives as `UNIT_SWING_TIMER_UPDATE` with reason `"pause"`.
 
 | Property | Description |  
 | ----------- | ----------- |
@@ -112,7 +133,7 @@ Fired if a weapon swing is paused by a spell cast.
 
 ### UNIT_SWING_TIMER_STOP
 
-Fired when a weapon or ranged swing ends.
+Fired when a weapon or ranged swing ends: it ran to its end time, or a new swing came before that time (then `UNIT_SWING_TIMER_START` follows right away), or the unit died, or `UNIT_SWING_TIMER_INFO_INITIALIZED` reset it. A swing restarted by a reset gets no STOP, only a new `UNIT_SWING_TIMER_START`.
 
 | Property | Description |  
 | ----------- | ----------- |
@@ -169,16 +190,18 @@ Fired when a weapon or ranged swing starts.
 | speed | number - weapon speed |
 | expirationTime | number - end of swing relative to GetTime() |
 | hand | string - the hand that start to swing ("mainhand", "offhand" or "ranged") |
+| reason | string - why the swing started (see UNIT_SWING_TIMER_START) |
 
 ### SWING_TIMER_UPDATE
 
-Fired when weapon speed changes.
+Fired when an in-flight swing's end time changes (see UNIT_SWING_TIMER_UPDATE).
 
 | Property | Description |  
 | ----------- | ----------- |
 | speed | number - weapon speed |
 | expirationTime | number - end of swing relative to GetTime() |
-| hand | string - the hand speed that update ("mainhand" or "offhand") |
+| hand | string - the hand speed that update ("mainhand", "offhand" or "ranged") |
+| reason | string - why the swing changed (see UNIT_SWING_TIMER_UPDATE) |
 
 ### SWING_TIMER_CLIPPED
 

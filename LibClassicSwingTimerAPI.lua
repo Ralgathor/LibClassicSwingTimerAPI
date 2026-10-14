@@ -6,7 +6,13 @@ if not lib then
 	return
 end
 
-local frame = CreateFrame("Frame")
+-- One event frame across LibStub upgrades: a newer copy takes over the frame
+-- (re-registered below), so the previous copy's events are not dispatched twice.
+local frame = lib.frame or CreateFrame("Frame")
+lib.frame = frame
+frame:UnregisterAllEvents()
+-- Event handlers by event name, filled after the lib:EVENT_NAME methods are defined.
+local eventHandlers = {}
 local tooltip_name = loadedAddonName .. "Tooltip"
 local tooltip = CreateFrame("GameTooltip", tooltip_name, nil, "GameTooltipTemplate")
 
@@ -151,17 +157,44 @@ function Unit:CalculateDelta()
 	end
 end
 
+-- End every swing still in flight. Park each stopped hand (expiration = last
+-- swing, as the login seed does) before firing STOP: a cancelled swing keeps
+-- its future expiration otherwise, and UnitSwingTimerInfo would report it in
+-- flight until then. Shared by PLAYER_DEAD and ResetTransientState.
+function Unit:StopSwings()
+	if self.mainTimer and not self.mainTimer:IsCancelled() then
+		self.mainTimer:Cancel()
+		self.mainExpirationTime = self.lastMainSwing
+		self.callbacks:Fire("UNIT_SWING_TIMER_STOP", self.id, "mainhand")
+	end
+	if self.offTimer and not self.offTimer:IsCancelled() then
+		self.offTimer:Cancel()
+		self.offExpirationTime = self.lastOffSwing
+		self.callbacks:Fire("UNIT_SWING_TIMER_STOP", self.id, "offhand")
+	end
+	if self.rangedTimer and not self.rangedTimer:IsCancelled() then
+		self.rangedTimer:Cancel()
+		self.rangedExpirationTime = self.lastRangedSwing
+		self.callbacks:Fire("UNIT_SWING_TIMER_STOP", self.id, "ranged")
+	end
+end
+
 -- Clear the unit's transient timers and cast state. Shared by the full
 -- re-anchoring on PLAYER_ENTERING_WORLD and PLAYER_TARGET_CHANGED.
 function Unit:ResetTransientState()
+	-- Stop before dropping: an orphaned timer would still run SwingEnd later,
+	-- firing a stray STOP and cancelling whatever swing the hand has by then.
+	self:StopSwings()
+	self.mainTimer = nil
+	self.offTimer = nil
+	self.rangedTimer = nil
 	if self.feignDeathTimer then
 		self.feignDeathTimer:Cancel()
 	end
 	self.feignDeathTimer = nil
-
-	self.mainTimer = nil
-	self.offTimer = nil
-	self.rangedTimer = nil
+	if self.calculaDeltaTimer then
+		self.calculaDeltaTimer:Cancel()
+	end
 	self.calculaDeltaTimer = nil
 
 	self.casting = false
@@ -174,7 +207,9 @@ function Unit:ResetTransientState()
 	self.skipNextAttackSpeedUpdateCount = 0
 end
 
-function Unit:SwingStart(hand, startTime, isReset)
+function Unit:SwingStart(hand, startTime, reason)
+	-- A swing seen by the game ends the previous one (STOP); any other reason restarts it.
+	local isReset = reason ~= "swing"
 	if hand == "mainhand" then
 		if self.mainTimer and not self.mainTimer:IsCancelled() then
 			self.mainTimer:Cancel()
@@ -186,7 +221,7 @@ function Unit:SwingStart(hand, startTime, isReset)
 		local mainSpeed = ResolveSecret(UnitAttackSpeed(self.id), self.mainSpeed)
 		self.mainSpeed = mainSpeed
 		self.mainExpirationTime = self.lastMainSwing + self.mainSpeed
-		self.callbacks:Fire("UNIT_SWING_TIMER_START", self.id, self.mainSpeed, self.mainExpirationTime, hand)
+		self.callbacks:Fire("UNIT_SWING_TIMER_START", self.id, self.mainSpeed, self.mainExpirationTime, hand, reason)
 		if self.mainSpeed > 0 and self.mainExpirationTime - GetTime() > 0 then
 			self.mainTimer = C_Timer.NewTimer(self.mainExpirationTime - GetTime(), function()
 				self:SwingEnd("mainhand")
@@ -212,9 +247,9 @@ function Unit:SwingStart(hand, startTime, isReset)
 		if self.offSpeed > 0 and self.firstOffSwing == false and self.isAttacking then
 			self.offExpirationTime = self.lastOffSwing + (self.offSpeed / 2)
 			self:CalculateDelta()
-			self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", self.id, self.offSpeed, self.offExpirationTime, hand)
+			self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", self.id, self.offSpeed, self.offExpirationTime, hand, reason)
 		elseif self.offSpeed > 0 then
-			self.callbacks:Fire("UNIT_SWING_TIMER_START", self.id, self.offSpeed, self.offExpirationTime, hand)
+			self.callbacks:Fire("UNIT_SWING_TIMER_START", self.id, self.offSpeed, self.offExpirationTime, hand, reason)
 			self.calculaDeltaTimer = C_Timer.NewTimer(self.offSpeed / 2, function()
 				self:CalculateDelta()
 			end)
@@ -236,7 +271,7 @@ function Unit:SwingStart(hand, startTime, isReset)
 			self.lastRangedSwing = startTime
 			self.rangedExpirationTime = self.lastRangedSwing + self.rangedSpeed
 			self.autoShotCastTime = 0.52 * (self.rangedSpeed / self.rangedBaseSpeed)
-			self.callbacks:Fire("UNIT_SWING_TIMER_START", self.id, self.rangedSpeed, self.rangedExpirationTime, hand)
+			self.callbacks:Fire("UNIT_SWING_TIMER_START", self.id, self.rangedSpeed, self.rangedExpirationTime, hand, reason)
 			if self.rangedExpirationTime - GetTime() > 0 then
 				self.rangedTimer = C_Timer.NewTimer(self.rangedExpirationTime - GetTime(), function()
 					self:SwingEnd("ranged")
@@ -256,14 +291,14 @@ function Unit:SwingEnd(hand)
 	end
 	if (self.class == "DRUID" or self.class == "PALADIN") and self.skipNextAttackSpeedUpdate then
 		self.skipNextAttackSpeedUpdate = nil
-		lib:UNIT_ATTACK_SPEED("UNIT_ATTACK_SPEED", self.GUID)
+		eventHandlers.UNIT_ATTACK_SPEED(lib, "UNIT_ATTACK_SPEED", self.GUID)
 	end
 	self.callbacks:Fire("UNIT_SWING_TIMER_STOP", self.id, hand)
 	if (self.casting or self.channeling) and self.isAttacking and hand ~= "ranged" then
 		-- Retail clips only the main-hand swing; classic-era clients clip both hands.
 		if (isRetail and hand == "mainhand") or isClassicOrBCCOrWrathOrCata or isMists then
 			local now = GetTime()
-			self:SwingStart(hand, now, true)
+			self:SwingStart(hand, now, "clip")
 			self.callbacks:Fire("UNIT_SWING_TIMER_CLIPPED", self.id, hand)
 		end
 	end
@@ -472,7 +507,7 @@ function lib:ApplyParryHaste(unit)
 		remaining = 0 -- the engine has already fired (or fires at its next update)
 	end
 	unit.mainExpirationTime = now + remaining
-	self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.mainSpeed, unit.mainExpirationTime, "mainhand")
+	self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.mainSpeed, unit.mainExpirationTime, "mainhand", "parry")
 	if unit.mainSpeed > 0 and unit.mainExpirationTime - now > 0 then
 		unit.mainTimer = C_Timer.NewTimer(unit.mainExpirationTime - now, function()
 			unit:SwingEnd("mainhand")
@@ -503,7 +538,7 @@ function lib:ApplyDynamicHaste(unit, factor, rangedFactor)
 		end
 		unit.mainSpeed = unit.mainSpeed / factor
 		unit.mainExpirationTime = now + (unit.mainExpirationTime - now) / factor
-		self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.mainSpeed, unit.mainExpirationTime, "mainhand")
+		self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.mainSpeed, unit.mainExpirationTime, "mainhand", "haste")
 		unit.mainTimer = C_Timer.NewTimer(unit.mainExpirationTime - now, function()
 			unit:SwingEnd("mainhand")
 		end)
@@ -515,7 +550,7 @@ function lib:ApplyDynamicHaste(unit, factor, rangedFactor)
 		end
 		unit.offSpeed = unit.offSpeed / factor
 		unit.offExpirationTime = now + (unit.offExpirationTime - now) / factor
-		self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.offSpeed, unit.offExpirationTime, "offhand")
+		self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.offSpeed, unit.offExpirationTime, "offhand", "haste")
 		unit.offTimer = C_Timer.NewTimer(unit.offExpirationTime - now, function()
 			unit:SwingEnd("offhand")
 		end)
@@ -527,7 +562,7 @@ function lib:ApplyDynamicHaste(unit, factor, rangedFactor)
 		end
 		unit.rangedSpeed = unit.rangedSpeed / rangedFactor
 		unit.rangedExpirationTime = now + (unit.rangedExpirationTime - now) / rangedFactor
-		self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.rangedSpeed, unit.rangedExpirationTime, "ranged")
+		self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.rangedSpeed, unit.rangedExpirationTime, "ranged", "haste")
 		unit.rangedTimer = C_Timer.NewTimer(unit.rangedExpirationTime - now, function()
 			unit:SwingEnd("ranged")
 		end)
@@ -551,13 +586,13 @@ function lib:COMBAT_LOG_EVENT_UNFILTERED(_, ts, subEvent, _, sourceGUID, _, _, _
 		end
 		if isOffHand then
 			unit.firstOffSwing = true
-			unit:SwingStart("offhand", now, false)
+			unit:SwingStart("offhand", now, "swing")
 		else
 			unit.firstMainSwing = true
-			unit:SwingStart("mainhand", now, false)
+			unit:SwingStart("mainhand", now, "swing")
 		end
 		if isWrath or isCata then
-			unit:SwingStart("ranged", now, true)
+			unit:SwingStart("ranged", now, "reset")
 		end
 	elseif (subEvent == "SPELL_AURA_APPLIED" or subEvent == "SPELL_AURA_REMOVED") then
 		local spell = amount
@@ -572,9 +607,9 @@ function lib:COMBAT_LOG_EVENT_UNFILTERED(_, ts, subEvent, _, sourceGUID, _, _, _
 		local spell = amount
 		if reset_ranged_swing[spell] then
 			if (isRetail or isMists) then
-				unit:SwingStart("mainhand", GetTime(), true)
+				unit:SwingStart("mainhand", GetTime(), "reset")
 			else
-				unit:SwingStart("ranged", GetTime(), true)
+				unit:SwingStart("ranged", GetTime(), "reset")
 			end
 		end
 	elseif subEvent == "SPELL_CAST_START" then
@@ -584,7 +619,7 @@ function lib:COMBAT_LOG_EVENT_UNFILTERED(_, ts, subEvent, _, sourceGUID, _, _, _
 				unit.rangedTimer:Cancel()
 			end
 			unit.rangedExpirationTime = now + unit.autoShotCastTime
-			unit.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.rangedSpeed, unit.rangedExpirationTime, "ranged")
+			unit.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.rangedSpeed, unit.rangedExpirationTime, "ranged", "autoshot")
 			if unit.rangedExpirationTime - now > 0 then
 				unit.rangedTimer = C_Timer.NewTimer(unit.rangedExpirationTime - now, function()
 					unit:SwingEnd("ranged")
@@ -655,7 +690,7 @@ function lib:PLAYER_SWING(_, swingDuration, swingType)
 	else
 		unit.rangedSpeed = swingDuration
 	end
-	unit:SwingStart(hand, GetTime(), false)
+	unit:SwingStart(hand, GetTime(), "swing")
 end
 
 --[[	WoW: Forever parry signal (registered on Forever only). CLEU is refused on
@@ -699,7 +734,7 @@ function lib:UNIT_ATTACK_SPEED(_, unitGUID)
 		local timeLeft = (unit.lastMainSwing + unit.mainSpeed - now) * multiplier
 		unit.mainSpeed = mainSpeedNew
 		unit.mainExpirationTime = now + timeLeft
-		self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.mainSpeed, unit.mainExpirationTime, "mainhand")
+		self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.mainSpeed, unit.mainExpirationTime, "mainhand", "haste")
 		if unit.mainSpeed > 0 and unit.mainExpirationTime - GetTime() > 0 then
 			unit.mainTimer = C_Timer.NewTimer(unit.mainExpirationTime - GetTime(), function()
 				unit:SwingEnd("mainhand")
@@ -717,7 +752,7 @@ function lib:UNIT_ATTACK_SPEED(_, unitGUID)
 		if unit.calculaDeltaTimer ~= nil then
 			unit.calculaDeltaTimer:Cancel()
 		end
-		self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.offSpeed, unit.offExpirationTime, "offhand")
+		self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.offSpeed, unit.offExpirationTime, "offhand", "haste")
 		if unit.offSpeed > 0 and unit.offExpirationTime - GetTime() > 0 then
 			unit.offTimer = C_Timer.NewTimer(unit.offExpirationTime - GetTime(), function()
 				unit:SwingEnd("offhand")
@@ -733,7 +768,7 @@ function lib:UNIT_ATTACK_SPEED(_, unitGUID)
 		local timeLeft = (unit.lastRangedSwing + unit.rangedSpeed - now) * multiplier
 		unit.rangedSpeed = rangedSpeedNew
 		unit.rangedExpirationTime = now + timeLeft
-		self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.rangedSpeed, unit.rangedExpirationTime, "ranged")
+		self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.rangedSpeed, unit.rangedExpirationTime, "ranged", "haste")
 		if unit.rangedSpeed > 0 and unit.rangedExpirationTime - GetTime() > 0 then
 			unit.rangedTimer = C_Timer.NewTimer(unit.rangedExpirationTime - GetTime(), function()
 				unit:SwingEnd("ranged")
@@ -756,7 +791,7 @@ function lib:UNIT_SPELLCAST_INTERRUPTED_OR_FAILED(_, unitType, _, spell)
 			if unit.mainExpirationTime < GetTime() and unit.isAttacking then
 				unit.mainExpirationTime = unit.mainExpirationTime + unit.mainSpeed
 			end
-			self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.mainSpeed, unit.mainExpirationTime, "mainhand")
+			self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.mainSpeed, unit.mainExpirationTime, "mainhand", "pause")
 			if unit.mainExpirationTime - GetTime() > 0 then
 				unit.mainTimer = C_Timer.NewTimer(unit.mainExpirationTime - GetTime(), function()
 					unit:SwingEnd("mainhand")
@@ -767,7 +802,7 @@ function lib:UNIT_SPELLCAST_INTERRUPTED_OR_FAILED(_, unitType, _, spell)
 			if unit.offExpirationTime < GetTime() and unit.isAttacking then
 				unit.offExpirationTime = unit.offExpirationTime + unit.offSpeed
 			end
-			self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.offSpeed, unit.offExpirationTime, "offhand")
+			self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.offSpeed, unit.offExpirationTime, "offhand", "pause")
 			if unit.offExpirationTime - GetTime() > 0 then
 				unit.offTimer = C_Timer.NewTimer(unit.offExpirationTime - GetTime(), function()
 					unit:SwingEnd("offhand")
@@ -800,28 +835,28 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, unitType, _, spell)
 	-- (verified: a queued next-melee ability double-anchored with identical expiry),
 	-- so the SUCCEEDED anchor is skipped there like the ranged Auto Shot one.
 	if spell ~= nil and next_melee_spells[spell] and not isForever then
-		unit:SwingStart("mainhand", now, false)
+		unit:SwingStart("mainhand", now, "swing")
 		if isWrath or isCata then
-			unit:SwingStart("ranged", now, true)
+			unit:SwingStart("ranged", now, "reset")
 		end
 	end
 	if (spell and reset_swing_spells[spell]) or (unit.casting and not unit.preventSwingReset) then
 		if isRetail then		
-			unit:SwingStart("mainhand", now, true)
+			unit:SwingStart("mainhand", now, "reset")
 		else
 			-- Do not skip the attack speed update if we reset the timer
 			unit.skipNextAttackSpeedUpdate = nil
-			unit:SwingStart("mainhand", now, true)
-			unit:SwingStart("offhand", now, true)
+			unit:SwingStart("mainhand", now, "reset")
+			unit:SwingStart("offhand", now, "reset")
 		end
 	end
 	-- On WoW: Forever the native PLAYER_SWING is the ranged anchor; the SUCCEEDED
 	-- anchor would double-fire every shot (identical STOP/START pairs per arrow).
 	if spell and ranged_swing[spell] and not isForever then
 		if (isRetail or isMists) then		
-			unit:SwingStart("mainhand", now, false)
+			unit:SwingStart("mainhand", now, "swing")
 		else
-			unit:SwingStart("ranged", now, false)
+			unit:SwingStart("ranged", now, "swing")
 		end
 	end
 	if spell and pause_swing_spells[spell] and unit.pauseSwingTime then
@@ -829,7 +864,7 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, unitType, _, spell)
 		unit.pauseSwingTime = nil
 		if unit.mainSpeed > 0 then
 			unit.mainExpirationTime = unit.mainExpirationTime + offset
-			self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.mainSpeed, unit.mainExpirationTime, "mainhand")
+			self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.mainSpeed, unit.mainExpirationTime, "mainhand", "pause")
 			if unit.mainExpirationTime - now > 0 then
 				unit.mainTimer = C_Timer.NewTimer(unit.mainExpirationTime - now, function()
 					unit:SwingEnd("mainhand")
@@ -838,7 +873,7 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, unitType, _, spell)
 		end
 		if unit.offSpeed > 0 then
 			unit.offExpirationTime = unit.offExpirationTime + offset
-			self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.offSpeed, unit.offExpirationTime, "offhand")
+			self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.offSpeed, unit.offExpirationTime, "offhand", "pause")
 			if unit.offExpirationTime - now > 0 then
 				unit.offTimer = C_Timer.NewTimer(unit.offExpirationTime - now, function()
 					unit:SwingEnd("offhand")
@@ -878,10 +913,10 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, unitType, _, spell)
 			local start, _, enabled = GetSpellCooldownCompat and GetSpellCooldownCompat(spell)
 			if enabled == 1 then -- Reset ranged swing when FD CD start
 				start = ResolveSecret(start, GetTime()) -- cooldown startTime is secret in restricted content
-				unit:SwingStart("mainhand", start, true)
-				unit:SwingStart("offhand", start, true)
+				unit:SwingStart("mainhand", start, "reset")
+				unit:SwingStart("offhand", start, "reset")
 				if isClassicOrBCCOrWrathOrCata then
-					unit:SwingStart("ranged", start, true)
+					unit:SwingStart("ranged", start, "reset")
 				end
 				if unit.feignDeathTimer then
 					unit.feignDeathTimer:Cancel()
@@ -896,11 +931,11 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, unitType, _, spell)
 	end
 	if isMists and spell == 114089 then  -- Wind Lash main hand cast
 		unit.firstMainSwing = true
-		unit:SwingStart("mainhand", now, false)
+		unit:SwingStart("mainhand", now, "swing")
 	end
 	if isMists and spell == 114093 then  -- Wind Lash off-hand cast
 		unit.firstOffSwing = true
-		unit:SwingStart("offhand", now, false)
+		unit:SwingStart("offhand", now, "swing")
 	end
 end
 
@@ -953,10 +988,10 @@ function lib:UNIT_SPELLCAST_CHANNEL_STOP(_, unitType, _, spell)
 	unit.channeling = false
 	unit.preventSwingReset = unit.auraPreventSwingReset or false
 	if (spell and reset_swing_on_channel_stop_spells[spell]) then
-		unit:SwingStart("mainhand", now, true)
+		unit:SwingStart("mainhand", now, "reset")
 		if not isRetail then
-			unit:SwingStart("offhand", now, true)
-			unit:SwingStart("ranged", now, true)
+			unit:SwingStart("offhand", now, "reset")
+			unit:SwingStart("ranged", now, "reset")
 		end
 	end
 end
@@ -964,10 +999,10 @@ end
 function lib:PLAYER_EQUIPMENT_CHANGED(_, equipmentSlot)
 	if equipmentSlot == 16 or equipmentSlot == 17 or equipmentSlot == 18 then
 		local now = GetTime()
-		self.player:SwingStart("mainhand", now, true)
-		self.player:SwingStart("offhand", now, true)
+		self.player:SwingStart("mainhand", now, "reset")
+		self.player:SwingStart("offhand", now, "reset")
 		if isClassicOrBCCOrWrathOrCata then
-			self.player:SwingStart("ranged", now, true)
+			self.player:SwingStart("ranged", now, "reset")
 		end
 		if isClassicOrBCCOrWrathOrCata and equipmentSlot == 18 then
 			self.player.rangedBaseSpeed = self.player:GetRangedBaseSpeed()
@@ -983,7 +1018,7 @@ function lib:PLAYER_ENTER_COMBAT()
 		if self.player.offTimer then
 			self.player.offTimer:Cancel()
 		end
-		self.player:SwingStart("offhand", now, true)
+		self.player:SwingStart("offhand", now, "attack")
 	end
 end
 
@@ -1000,24 +1035,7 @@ function lib:PLAYER_DEAD()
 	if not unit then
 		return
 	end
-	-- Park each stopped hand (expiration = last swing, as the login seed does)
-	-- before firing STOP: a cancelled swing keeps its future expiration
-	-- otherwise, and UnitSwingTimerInfo would report it in flight until then.
-	if unit.mainTimer and not unit.mainTimer:IsCancelled() then
-		unit.mainTimer:Cancel()
-		unit.mainExpirationTime = unit.lastMainSwing
-		self.callbacks:Fire("UNIT_SWING_TIMER_STOP", unit.id, "mainhand")
-	end
-	if unit.offTimer and not unit.offTimer:IsCancelled() then
-		unit.offTimer:Cancel()
-		unit.offExpirationTime = unit.lastOffSwing
-		self.callbacks:Fire("UNIT_SWING_TIMER_STOP", unit.id, "offhand")
-	end
-	if unit.rangedTimer and not unit.rangedTimer:IsCancelled() then
-		unit.rangedTimer:Cancel()
-		unit.rangedExpirationTime = unit.lastRangedSwing
-		self.callbacks:Fire("UNIT_SWING_TIMER_STOP", unit.id, "ranged")
-	end
+	unit:StopSwings()
 	unit.casting = false
 	unit.channeling = false
 	unit.isAttacking = false
@@ -1058,7 +1076,7 @@ function lib:UNIT_SPELLCAST_FAILED_QUIET(_, unitType, _, spell)
 			recastDelay = recastDelay + self.player.autoShotCastTime
 		end
 		self.player.rangedExpirationTime = GetTime() + recastDelay
-		self.player.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", self.player.id, self.player.rangedSpeed, self.player.rangedExpirationTime, "ranged")
+		self.player.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", self.player.id, self.player.rangedSpeed, self.player.rangedExpirationTime, "ranged", "movement")
 		if self.player.rangedExpirationTime - GetTime() > 0 then
 			self.player.rangedTimer = C_Timer.NewTimer(self.player.rangedExpirationTime - GetTime(), function()
 				self.player:SwingEnd("ranged")
@@ -1067,37 +1085,55 @@ function lib:UNIT_SPELLCAST_FAILED_QUIET(_, unitType, _, spell)
 	end
 end
 
+-- Register an event and move its lib:EVENT_NAME handler into the private
+-- dispatch table, blanking the lib entry: copies up to MINOR 37 created their
+-- own frame that calls lib[event] directly, so blanking makes those frames
+-- inert instead of dispatching every event twice. Optional args are unit ids.
+local function noop() end
+local function register(event, ...)
+	eventHandlers[event] = lib[event]
+	lib[event] = noop
+	if ... then
+		frame:RegisterUnitEvent(event, ...)
+	else
+		frame:RegisterEvent(event)
+	end
+end
+
 -- WoW: Forever refuses CLEU registration silently and only exposes swings through
 -- its native event; it is unknown whether PLAYER_SWING exists on retail 12.x.
 if isForever then
-	frame:RegisterEvent("PLAYER_SWING")
-	frame:RegisterEvent("UNIT_COMBAT")
+	register("PLAYER_SWING")
+	register("UNIT_COMBAT")
 else
-	frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+	register("COMBAT_LOG_EVENT_UNFILTERED")
 end
-frame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
-frame:RegisterEvent("PLAYER_ENTER_COMBAT")
-frame:RegisterEvent("PLAYER_LEAVE_COMBAT")
-frame:RegisterEvent("PLAYER_DEAD")
-frame:RegisterEvent("PLAYER_ENTERING_WORLD")
-frame:RegisterEvent("PLAYER_TARGET_CHANGED")
-frame:RegisterEvent("START_AUTOREPEAT_SPELL")
-frame:RegisterEvent("STOP_AUTOREPEAT_SPELL")
-frame:RegisterUnitEvent("UNIT_ATTACK_SPEED", "player", "target")
-frame:RegisterUnitEvent("UNIT_SPELLCAST_START", "player", "target")
-frame:RegisterUnitEvent("UNIT_SPELLCAST_INTERRUPTED", "player", "target")
-frame:RegisterUnitEvent("UNIT_SPELLCAST_FAILED", "player", "target")
-frame:RegisterUnitEvent("UNIT_SPELLCAST_FAILED_QUIET", "player")
-frame:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player", "target")
-frame:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_START", "player", "target")
-frame:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_STOP", "player", "target")
-frame:RegisterEvent("ADDON_LOADED")
+register("PLAYER_EQUIPMENT_CHANGED")
+register("PLAYER_ENTER_COMBAT")
+register("PLAYER_LEAVE_COMBAT")
+register("PLAYER_DEAD")
+register("PLAYER_ENTERING_WORLD")
+register("PLAYER_TARGET_CHANGED")
+register("START_AUTOREPEAT_SPELL")
+register("STOP_AUTOREPEAT_SPELL")
+-- WoW: Forever has no target swing source (PLAYER_SWING is player-only), so the
+-- target's casts would only start swings that nothing ever anchors: player only there.
+local targetUnit = not isForever and "target" or nil
+register("UNIT_ATTACK_SPEED", "player", targetUnit)
+register("UNIT_SPELLCAST_START", "player", targetUnit)
+register("UNIT_SPELLCAST_INTERRUPTED", "player", targetUnit)
+register("UNIT_SPELLCAST_FAILED", "player", targetUnit)
+register("UNIT_SPELLCAST_FAILED_QUIET", "player")
+register("UNIT_SPELLCAST_SUCCEEDED", "player", targetUnit)
+register("UNIT_SPELLCAST_CHANNEL_START", "player", targetUnit)
+register("UNIT_SPELLCAST_CHANNEL_STOP", "player", targetUnit)
+register("ADDON_LOADED")
 
 frame:SetScript("OnEvent", function(_, event, ...)
 	if event == "COMBAT_LOG_EVENT_UNFILTERED" then
-		lib[event](lib, event, CombatLogGetCurrentEventInfo())
+		eventHandlers[event](lib, event, CombatLogGetCurrentEventInfo())
 	else
-		lib[event](lib, event, ...)
+		eventHandlers[event](lib, event, ...)
 	end
 end)
 
