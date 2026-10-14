@@ -1235,6 +1235,20 @@ if isClassic or isForever then
 		[1510] = true, -- Volley (rank 1)	
 	}
 
+	-- WoW: Forever turns these into cast-time shots flagged "Do Not Reset
+	-- Combat Timers" (Wowhead Forever data, 2026-10-14): completing the cast
+	-- must not reset the melee swing. Rank IDs checked on Wowhead Forever
+	-- 2026-10-14. Unverified in game: the UNIT_SPELLCAST_START behavior.
+	if isForever then
+		noreset_swing_spells[2643] = true -- Multi-Shot (0.5 s cast; single rank on Forever)
+		noreset_swing_spells[19434] = true -- Aimed Shot (rank 1, 2 s cast)
+		noreset_swing_spells[20900] = true -- Aimed Shot (rank 2)
+		noreset_swing_spells[20901] = true -- Aimed Shot (rank 3)
+		noreset_swing_spells[20902] = true -- Aimed Shot (rank 4)
+		noreset_swing_spells[20903] = true -- Aimed Shot (rank 5)
+		noreset_swing_spells[20904] = true -- Aimed Shot (rank 6)
+	end
+
 	prevent_reset_swing_auras = {}
 
 	pause_swing_spells = {}

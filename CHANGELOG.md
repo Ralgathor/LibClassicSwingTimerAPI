@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Known unverified in this build: the WoW: Forever Multi-Shot / Aimed Shot no-reset entries below - no in-game capture yet (UNIT_SPELLCAST_START behavior, melee cadence across the cast).
+
+### Fixed
+
+* Do not reset the melee swing when a Multi-Shot (2643) or Aimed Shot (19434, 20900-20904) cast completes on WoW: Forever. Forever turns Multi-Shot into a 0.5 s cast and Aimed Shot into a 2 s cast, both flagged "Do Not Reset Combat Timers" (Wowhead Forever data; rank IDs checked there - Multi-Shot has no rank beyond 2643); the generic cast-completion reset would otherwise push the melee timer back for weaving hunters. Classic flavors unchanged.
+
 ## [2.2.0] - 2026-10-02
 
 Stable release of the 2.2.0 betas: WoW: Forever support (entries below, from 2.2.0-beta1 on) plus the fixes in this section.
