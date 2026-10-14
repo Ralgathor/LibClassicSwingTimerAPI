@@ -523,6 +523,38 @@ mechanics) and update the [Unreleased] changelog entry for step 1.
 4. Dungeon pull mid-fight: no Lua errors, bars accurate (restricted content).
 5. Reload: settings, position, palette persist.
 
+## Part D - [Unreleased] build regression (event reason, single-frame dispatch, reschedule helper)
+
+Covers the Unreleased CHANGELOG entries: the `reason` argument on
+START/UPDATE, the shared event frame, `Unit:StopSwings` on target change and
+loading screens, player-only unit events on Forever, and the
+`Unit:Reschedule` helper. Everything here touches every client, so it runs
+on Classic Era and WoW: Forever, plus one client with Slam for D9.
+
+Rig: SwingTestLog (logs `reason=` on every START/UPDATE line; `reason=-`
+means an older library copy won), BugSack on (pass = zero Lua errors for
+the whole session), `/stl note TEST Dn <name>` before each step. After the
+session: `/reload`, then
+`luajit docs/tools/analyze-swingtestlog.lua <SavedVariables/SwingTestLog.lua>`.
+Save the raw log in `docs/evidence/` and write a report like
+`CLASSIC_ERA_REGRESSION_2026-10-02.md`.
+
+| # | Client | Do | Expect |
+|---|---|---|---|
+| D1 | Era, Forever | Melee a dummy ~1 min; repeat dual-wielding | `START ... reason=swing` per swing, analyzer shows no drift; the first off-hand swing after the attack toggle is `UPDATE offhand ... reason=attack` |
+| D2 | Era, Forever | Get parried (fight a mob from the front) | `UPDATE mainhand ... reason=parry`, landing matches the analyzer's prediction |
+| D3 | Era, Forever | Slice and Dice (or Flurry) mid-swing | `UPDATE ... reason=haste` |
+| D4 | Era, Forever | Hunter: Auto Shot a dummy, then strafe during the shot | `START ranged ... reason=swing`; Era also `UPDATE ranged ... reason=autoshot` per shot; strafing gives `UPDATE ranged ... reason=movement` |
+| D5 | Era | Hard-cast a spell while meleeing: once early in the swing, once as it comes due | `START ... reason=reset`; then `START ... reason=clip` followed by `CLIPPED` |
+| D6 | Era | Mid-fight, switch target away from a mob that is swinging at you | Immediate `STOP target`, then `INIT target`; no stray `STOP target` later at the old swing's landing |
+| D7 | Forever | Target a caster mob while it hard-casts | No target events other than `INIT target` (no `START target`) |
+| D8 | Era, Forever | Die mid-swing (in-place resurrection); separately, take a loading screen mid-swing | One STOP per active hand, `/stl state` reads PARKED, nothing stray afterwards |
+| D9 | Wrath, Cata or Mists | Slam while meleeing; also interrupt a Slam | `PAUSED`, then `UPDATE ... reason=pause`; exactly one STOP per swing (the helper's cancel-before-rearm) |
+| D10 | Era (or Forever) | Load this build with a local MINOR bump to 38 (do not commit it - release step) next to an addon embedding 2.2.0 (MINOR 37) | One START per swing, `reason=` set (this copy won). Control: with MINOR left at 37 the old copy wins (`reason=-`) and the fix does not run; before the fix every swing logs START/STOP/START in the same frame (analyzer "early restart") |
+
+Minimum: D1-D8. D9 is the only exercise of the reschedule helper's one
+behavior change; D10 needs a second addon that embeds 2.2.0.
+
 ## Exit criteria
 
 All A/B items recorded (verdicts in the respective plan docs); C green with

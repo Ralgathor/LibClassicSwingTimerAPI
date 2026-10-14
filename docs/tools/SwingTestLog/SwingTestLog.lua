@@ -964,8 +964,10 @@ local function StartSession()
 end
 
 -- Library callbacks
-local function OnSwing(event, unit, speed, expiration, hand)
-	log(event:sub(18), unit, hand, "speed=" .. num(speed), "left=" .. num(expiration and expiration - GetTime()))
+local function OnSwing(event, unit, speed, expiration, hand, reason)
+	-- reason: trailing START/UPDATE argument since the [Unreleased] build; "-" on older libraries.
+	log(event:sub(18), unit, hand, "speed=" .. num(speed), "left=" .. num(expiration and expiration - GetTime()),
+		"reason=" .. (reason or "-"))
 end
 
 local function OnHand(event, unit, hand)
