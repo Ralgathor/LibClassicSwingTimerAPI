@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Known unverified in this build: the WoW: Forever Multi-Shot / Aimed Shot no-reset entries below - no in-game capture yet (UNIT_SPELLCAST_START behavior, melee cadence across the cast).
+Known unverified in this build: the WoW: Forever entries below - no in-game capture yet. Multi-Shot / Aimed Shot no-reset: UNIT_SPELLCAST_START behavior, melee cadence across the cast. Rapid Fire: whether the engine rescales the in-flight swing at all, and the factor (1.40 vs 1.41). Capture plan: docs/M1_SESSION_SCRIPT.md B8.
+
+### Added
+
+* Rapid Fire (3045) mid-swing haste on WoW: Forever: the cast now rescales the in-flight main-hand, off-hand and ranged swings by 1.4 (Wowhead Forever lists +41%, the forever-hunter wiki +40%), through the dynamic-haste path Slice and Dice uses. `ApplyDynamicHaste` gains an optional ranged factor, fed from a new `dynamic_ranged_haste_spells` table, so the Slice and Dice rescale keeps leaving ranged alone. The rescale is not undone when the buff fades; the next swing re-anchors on its true speed, as with Slice and Dice. Classic flavors unchanged (they rescale ranged via UNIT_ATTACK_SPEED).
 
 ### Fixed
 

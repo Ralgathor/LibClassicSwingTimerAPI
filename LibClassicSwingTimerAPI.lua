@@ -91,6 +91,7 @@ local pause_swing_spells = {}
 local ranged_swing = {}
 local reset_ranged_swing = {}
 local dynamic_haste_spells = {}
+local dynamic_ranged_haste_spells = {}
 
 local Unit = {
 	id = nil,
@@ -485,14 +486,15 @@ end
 	the in-flight swing proportionally - the same rule as the classic
 	UNIT_ATTACK_SPEED rescale, expressed as remaining time divided by the
 	haste factor. Both hands (verified: SnD affects main and off hand).
-	Ranged is excluded: no dynamic-haste ranged spell is verified.
+	Ranged is rescaled only when a rangedFactor is passed, from the
+	dynamic_ranged_haste_spells table (Rapid Fire - unverified in game).
 	Young-swing guard: a cast landing at a swing boundary arrives after the
 	PLAYER_SWING anchor has already re-anchored with the hasted payload (the
 	engine applies the aura before the anchor fires - observed in the 2026-09-30
 	capture: a cast SUCCEEDED at the same instant as an anchor already reporting
 	the new speed), so a swing younger than 50 ms is left alone: rescaling it
 	would double-apply the factor, and it would gain less than 5 ms anyway. ]]
-function lib:ApplyDynamicHaste(unit, factor)
+function lib:ApplyDynamicHaste(unit, factor, rangedFactor)
 	local now = GetTime()
 	if unit.mainSpeed > 0 and unit.mainExpirationTime and unit.mainExpirationTime > now
 		and unit.lastMainSwing and now - unit.lastMainSwing > 0.05 then
@@ -516,6 +518,18 @@ function lib:ApplyDynamicHaste(unit, factor)
 		self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.offSpeed, unit.offExpirationTime, "offhand")
 		unit.offTimer = C_Timer.NewTimer(unit.offExpirationTime - now, function()
 			unit:SwingEnd("offhand")
+		end)
+	end
+	if rangedFactor and unit.rangedSpeed > 0 and unit.rangedExpirationTime and unit.rangedExpirationTime > now
+		and unit.lastRangedSwing and now - unit.lastRangedSwing > 0.05 then
+		if unit.rangedTimer then
+			unit.rangedTimer:Cancel()
+		end
+		unit.rangedSpeed = unit.rangedSpeed / rangedFactor
+		unit.rangedExpirationTime = now + (unit.rangedExpirationTime - now) / rangedFactor
+		self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.rangedSpeed, unit.rangedExpirationTime, "ranged")
+		unit.rangedTimer = C_Timer.NewTimer(unit.rangedExpirationTime - now, function()
+			unit:SwingEnd("ranged")
 		end)
 	end
 end
@@ -842,7 +856,7 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, unitType, _, spell)
 	if isForever and spell and dynamic_haste_spells[spell] then
 		if unit.dynamicHasteActive ~= spell then
 			unit.dynamicHasteActive = spell
-			self:ApplyDynamicHaste(unit, dynamic_haste_spells[spell])
+			self:ApplyDynamicHaste(unit, dynamic_haste_spells[spell], dynamic_ranged_haste_spells[spell])
 		end
 	end
 
@@ -1160,6 +1174,13 @@ if isClassic or isForever then
 	-- engine applies those from the next swing only.
 	if isForever then
 		dynamic_haste_spells[5171] = 1.2 -- Slice and Dice (rank 1, +20%)
+		-- Rapid Fire: the one exception to the capture-verified rule above.
+		-- Dynamic behavior and the factor are NOT captured yet (Wowhead
+		-- Forever lists 41%, the forever-hunter wiki 40%): verify with
+		-- docs/M1_SESSION_SCRIPT.md B8 step 3, and remove both entries if the
+		-- engine only hastes the next swing.
+		dynamic_haste_spells[3045] = 1.4 -- Rapid Fire (melee hands)
+		dynamic_ranged_haste_spells[3045] = 1.4 -- Rapid Fire (ranged)
 	end
 
 	prevent_swing_speed_update = {
