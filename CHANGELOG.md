@@ -15,6 +15,10 @@ Known unverified in this build: the WoW: Forever entries below - no in-game capt
 
 * Rapid Fire (3045) mid-swing haste on WoW: Forever: the cast now rescales the in-flight main-hand, off-hand and ranged swings by 1.4 (Wowhead Forever lists +41%, the forever-hunter wiki +40%), through the dynamic-haste path Slice and Dice uses. `ApplyDynamicHaste` gains an optional ranged factor, fed from a new `dynamic_ranged_haste_spells` table, so the Slice and Dice rescale keeps leaving ranged alone. The rescale is not undone when the buff fades; the next swing re-anchors on its true speed, as with Slice and Dice. Classic flavors unchanged (they rescale ranged via UNIT_ATTACK_SPEED).
 
+### Changed
+
+* Internal: every in-flight swing reschedule (parry haste, haste rescale, pause resume, Auto Shot cast window, movement delay) goes through one `Unit:Reschedule` helper (all clients). Behavior is unchanged except that a pause resume now cancels the hand's existing timer before arming the new one, so a swing that started during the pause can no longer leave two timers (and two STOPs) behind. Needs a regression pass on Classic Era and on a client with pause spells (Wrath, Cata, Mists: Slam).
+
 ### Fixed
 
 * Fire every event once when several addons embed different library versions (all clients): each copy created its own event frame, and after a LibStub upgrade the older copy's frame kept dispatching into the shared library, so every game event was handled twice (START / STOP / START per swing). The frame is now shared through `lib.frame` and taken over by a newer copy; handlers dispatch through a private table and the `lib.EVENT_NAME` entries are blanked, which also silences frames left behind by copies up to MINOR 37.

@@ -179,6 +179,30 @@ function Unit:StopSwings()
 	end
 end
 
+local handFields = {
+	mainhand = {timer = "mainTimer", speed = "mainSpeed", expiration = "mainExpirationTime"},
+	offhand = {timer = "offTimer", speed = "offSpeed", expiration = "offExpirationTime"},
+	ranged = {timer = "rangedTimer", speed = "rangedSpeed", expiration = "rangedExpirationTime"},
+}
+
+-- Move an in-flight swing's end time: cancel the hand's timer, store the new
+-- expiration, fire UNIT_SWING_TIMER_UPDATE with the hand's speed (callers store
+-- a changed speed first), and re-arm the timer while the swing is still ahead.
+function Unit:Reschedule(hand, expirationTime, reason)
+	local fields = handFields[hand]
+	if self[fields.timer] then
+		self[fields.timer]:Cancel()
+	end
+	self[fields.expiration] = expirationTime
+	self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", self.id, self[fields.speed], expirationTime, hand, reason)
+	local remaining = expirationTime - GetTime()
+	if remaining > 0 then
+		self[fields.timer] = C_Timer.NewTimer(remaining, function()
+			self:SwingEnd(hand)
+		end)
+	end
+end
+
 -- Clear the unit's transient timers and cast state. Shared by the full
 -- re-anchoring on PLAYER_ENTERING_WORLD and PLAYER_TARGET_CHANGED.
 function Unit:ResetTransientState()
@@ -496,7 +520,6 @@ function lib:ApplyParryHaste(unit)
 	if engineRemaining >= speed or engineRemaining <= 0.2 * speed then
 		return -- before this swing started, or under the 20% floor: no effect
 	end
-	unit.mainTimer:Cancel()
 	if engineRemaining > 0.6 * speed then
 		engineRemaining = engineRemaining - 0.4 * speed -- full cut
 	else
@@ -506,13 +529,7 @@ function lib:ApplyParryHaste(unit)
 	if remaining < 0 then
 		remaining = 0 -- the engine has already fired (or fires at its next update)
 	end
-	unit.mainExpirationTime = now + remaining
-	self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.mainSpeed, unit.mainExpirationTime, "mainhand", "parry")
-	if unit.mainSpeed > 0 and unit.mainExpirationTime - now > 0 then
-		unit.mainTimer = C_Timer.NewTimer(unit.mainExpirationTime - now, function()
-			unit:SwingEnd("mainhand")
-		end)
-	end
+	unit:Reschedule("mainhand", now + remaining, "parry")
 end
 
 
@@ -533,39 +550,18 @@ function lib:ApplyDynamicHaste(unit, factor, rangedFactor)
 	local now = GetTime()
 	if unit.mainSpeed > 0 and unit.mainExpirationTime and unit.mainExpirationTime > now
 		and unit.lastMainSwing and now - unit.lastMainSwing > 0.05 then
-		if unit.mainTimer then
-			unit.mainTimer:Cancel()
-		end
 		unit.mainSpeed = unit.mainSpeed / factor
-		unit.mainExpirationTime = now + (unit.mainExpirationTime - now) / factor
-		self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.mainSpeed, unit.mainExpirationTime, "mainhand", "haste")
-		unit.mainTimer = C_Timer.NewTimer(unit.mainExpirationTime - now, function()
-			unit:SwingEnd("mainhand")
-		end)
+		unit:Reschedule("mainhand", now + (unit.mainExpirationTime - now) / factor, "haste")
 	end
 	if unit.offSpeed > 0 and unit.offExpirationTime and unit.offExpirationTime > now
 		and unit.lastOffSwing and now - unit.lastOffSwing > 0.05 then
-		if unit.offTimer then
-			unit.offTimer:Cancel()
-		end
 		unit.offSpeed = unit.offSpeed / factor
-		unit.offExpirationTime = now + (unit.offExpirationTime - now) / factor
-		self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.offSpeed, unit.offExpirationTime, "offhand", "haste")
-		unit.offTimer = C_Timer.NewTimer(unit.offExpirationTime - now, function()
-			unit:SwingEnd("offhand")
-		end)
+		unit:Reschedule("offhand", now + (unit.offExpirationTime - now) / factor, "haste")
 	end
 	if rangedFactor and unit.rangedSpeed > 0 and unit.rangedExpirationTime and unit.rangedExpirationTime > now
 		and unit.lastRangedSwing and now - unit.lastRangedSwing > 0.05 then
-		if unit.rangedTimer then
-			unit.rangedTimer:Cancel()
-		end
 		unit.rangedSpeed = unit.rangedSpeed / rangedFactor
-		unit.rangedExpirationTime = now + (unit.rangedExpirationTime - now) / rangedFactor
-		self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.rangedSpeed, unit.rangedExpirationTime, "ranged", "haste")
-		unit.rangedTimer = C_Timer.NewTimer(unit.rangedExpirationTime - now, function()
-			unit:SwingEnd("ranged")
-		end)
+		unit:Reschedule("ranged", now + (unit.rangedExpirationTime - now) / rangedFactor, "haste")
 	end
 end
 
@@ -615,16 +611,7 @@ function lib:COMBAT_LOG_EVENT_UNFILTERED(_, ts, subEvent, _, sourceGUID, _, _, _
 	elseif subEvent == "SPELL_CAST_START" then
 		local spell = amount
 		if isClassic and spell and ranged_swing[spell] and now > (unit.rangedExpirationTime - unit.autoShotCastTime) then
-			if unit.rangedTimer and not unit.rangedTimer:IsCancelled() then
-				unit.rangedTimer:Cancel()
-			end
-			unit.rangedExpirationTime = now + unit.autoShotCastTime
-			unit.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.rangedSpeed, unit.rangedExpirationTime, "ranged", "autoshot")
-			if unit.rangedExpirationTime - now > 0 then
-				unit.rangedTimer = C_Timer.NewTimer(unit.rangedExpirationTime - now, function()
-					unit:SwingEnd("ranged")
-				end)
-			end
+			unit:Reschedule("ranged", now + unit.autoShotCastTime, "autoshot")
 		end
 	end
 end
@@ -727,53 +714,26 @@ function lib:UNIT_ATTACK_SPEED(_, unitGUID)
 	end
 	offSpeedNew = offSpeedNew or 0
 	if mainSpeedNew > 0 and unit.mainSpeed > 0 and mainSpeedNew ~= unit.mainSpeed and not isForever then
-		if unit.mainTimer then
-			unit.mainTimer:Cancel()
-		end
 		local multiplier = mainSpeedNew / unit.mainSpeed
 		local timeLeft = (unit.lastMainSwing + unit.mainSpeed - now) * multiplier
 		unit.mainSpeed = mainSpeedNew
-		unit.mainExpirationTime = now + timeLeft
-		self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.mainSpeed, unit.mainExpirationTime, "mainhand", "haste")
-		if unit.mainSpeed > 0 and unit.mainExpirationTime - GetTime() > 0 then
-			unit.mainTimer = C_Timer.NewTimer(unit.mainExpirationTime - GetTime(), function()
-				unit:SwingEnd("mainhand")
-			end)
-		end
+		unit:Reschedule("mainhand", now + timeLeft, "haste")
 	end
 	if offSpeedNew > 0 and unit.offSpeed > 0 and offSpeedNew ~= unit.offSpeed and not isForever then
-		if unit.offTimer then
-			unit.offTimer:Cancel()
-		end
 		local multiplier = offSpeedNew / unit.offSpeed
 		local timeLeft = (unit.lastOffSwing + unit.offSpeed - now) * multiplier
 		unit.offSpeed = offSpeedNew
-		unit.offExpirationTime = now + timeLeft
 		if unit.calculaDeltaTimer ~= nil then
 			unit.calculaDeltaTimer:Cancel()
 		end
-		self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.offSpeed, unit.offExpirationTime, "offhand", "haste")
-		if unit.offSpeed > 0 and unit.offExpirationTime - GetTime() > 0 then
-			unit.offTimer = C_Timer.NewTimer(unit.offExpirationTime - GetTime(), function()
-				unit:SwingEnd("offhand")
-			end)
-		end
+		unit:Reschedule("offhand", now + timeLeft, "haste")
 	end
 	local rangedSpeedNew = GetRangedSpeed(unit.id, unit.rangedSpeed) or 0
 	if rangedSpeedNew > 0 and unit.rangedSpeed > 0 and rangedSpeedNew ~= unit.rangedSpeed and not isForever then
-		if unit.rangedTimer then
-			unit.rangedTimer:Cancel()
-		end
 		local multiplier = rangedSpeedNew / unit.rangedSpeed
 		local timeLeft = (unit.lastRangedSwing + unit.rangedSpeed - now) * multiplier
 		unit.rangedSpeed = rangedSpeedNew
-		unit.rangedExpirationTime = now + timeLeft
-		self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.rangedSpeed, unit.rangedExpirationTime, "ranged", "haste")
-		if unit.rangedSpeed > 0 and unit.rangedExpirationTime - GetTime() > 0 then
-			unit.rangedTimer = C_Timer.NewTimer(unit.rangedExpirationTime - GetTime(), function()
-				unit:SwingEnd("ranged")
-			end)
-		end
+		unit:Reschedule("ranged", now + timeLeft, "haste")
 	end
 end
 
@@ -788,26 +748,18 @@ function lib:UNIT_SPELLCAST_INTERRUPTED_OR_FAILED(_, unitType, _, spell)
 	if spell and pause_swing_spells[spell] and unit.pauseSwingTime then
 		unit.pauseSwingTime = nil
 		if unit.mainSpeed > 0 then
-			if unit.mainExpirationTime < GetTime() and unit.isAttacking then
-				unit.mainExpirationTime = unit.mainExpirationTime + unit.mainSpeed
+			local expirationTime = unit.mainExpirationTime
+			if expirationTime < GetTime() and unit.isAttacking then
+				expirationTime = expirationTime + unit.mainSpeed
 			end
-			self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.mainSpeed, unit.mainExpirationTime, "mainhand", "pause")
-			if unit.mainExpirationTime - GetTime() > 0 then
-				unit.mainTimer = C_Timer.NewTimer(unit.mainExpirationTime - GetTime(), function()
-					unit:SwingEnd("mainhand")
-				end)
-			end
+			unit:Reschedule("mainhand", expirationTime, "pause")
 		end
 		if unit.offSpeed > 0 then
-			if unit.offExpirationTime < GetTime() and unit.isAttacking then
-				unit.offExpirationTime = unit.offExpirationTime + unit.offSpeed
+			local expirationTime = unit.offExpirationTime
+			if expirationTime < GetTime() and unit.isAttacking then
+				expirationTime = expirationTime + unit.offSpeed
 			end
-			self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.offSpeed, unit.offExpirationTime, "offhand", "pause")
-			if unit.offExpirationTime - GetTime() > 0 then
-				unit.offTimer = C_Timer.NewTimer(unit.offExpirationTime - GetTime(), function()
-					unit:SwingEnd("offhand")
-				end)
-			end
+			unit:Reschedule("offhand", expirationTime, "pause")
 		end
 	end
 end
@@ -863,22 +815,10 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, unitType, _, spell)
 		local offset = now - unit.pauseSwingTime
 		unit.pauseSwingTime = nil
 		if unit.mainSpeed > 0 then
-			unit.mainExpirationTime = unit.mainExpirationTime + offset
-			self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.mainSpeed, unit.mainExpirationTime, "mainhand", "pause")
-			if unit.mainExpirationTime - now > 0 then
-				unit.mainTimer = C_Timer.NewTimer(unit.mainExpirationTime - now, function()
-					unit:SwingEnd("mainhand")
-				end)
-			end
+			unit:Reschedule("mainhand", unit.mainExpirationTime + offset, "pause")
 		end
 		if unit.offSpeed > 0 then
-			unit.offExpirationTime = unit.offExpirationTime + offset
-			self.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", unit.id, unit.offSpeed, unit.offExpirationTime, "offhand", "pause")
-			if unit.offExpirationTime - now > 0 then
-				unit.offTimer = C_Timer.NewTimer(unit.offExpirationTime - now, function()
-					unit:SwingEnd("offhand")
-				end)
-			end
+			unit:Reschedule("offhand", unit.offExpirationTime + offset, "pause")
 		end
 	end	
 	-- WoW: Forever dynamic-haste mid-swing rescale (capture-verified
@@ -1064,9 +1004,6 @@ function lib:UNIT_SPELLCAST_FAILED_QUIET(_, unitType, _, spell)
 	end
 	spell = ResolveSecret(spell, nil)
 	if (isClassic or isForever) and spell and ranged_swing[spell] and unit.isShooting then
-		if self.player.rangedTimer and not self.player.rangedTimer:IsCancelled() then
-			self.player.rangedTimer:Cancel()
-		end
 		-- Recast delay after a movement cancel. Classic-era clients: 0.5s retry
 		-- plus the auto shot cast time. WoW: Forever (measured on the beta): the
 		-- engine retries every ~0.5s while moving and the shot lands ~0.5s after
@@ -1075,13 +1012,7 @@ function lib:UNIT_SPELLCAST_FAILED_QUIET(_, unitType, _, spell)
 		if not isForever then
 			recastDelay = recastDelay + self.player.autoShotCastTime
 		end
-		self.player.rangedExpirationTime = GetTime() + recastDelay
-		self.player.callbacks:Fire("UNIT_SWING_TIMER_UPDATE", self.player.id, self.player.rangedSpeed, self.player.rangedExpirationTime, "ranged", "movement")
-		if self.player.rangedExpirationTime - GetTime() > 0 then
-			self.player.rangedTimer = C_Timer.NewTimer(self.player.rangedExpirationTime - GetTime(), function()
-				self.player:SwingEnd("ranged")
-			end)
-		end
+		self.player:Reschedule("ranged", GetTime() + recastDelay, "movement")
 	end
 end
 
