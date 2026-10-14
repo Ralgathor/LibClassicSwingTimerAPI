@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-10-14
+
+Stable release of 2.3.0-beta1: no code changes since the beta (the entries below are the release content).
+
+Verified in game on this build: the M1 Part D regression pass (docs/M1_SESSION_SCRIPT.md) - the event `reason` argument, the single-frame dispatch, the target-change STOP, the WoW: Forever target registration and the `Unit:Reschedule` pause-resume fix - and the duplicate-dispatch two-copy test (an addon embedding MINOR 37 loaded together with this build).
+
+Known unverified in this release: the WoW: Forever Multi-Shot / Aimed Shot no-reset (UNIT_SPELLCAST_START behavior, melee cadence across the cast) and the Rapid Fire mid-swing rescale (whether the engine rescales the in-flight swing at all, and the factor, 1.40 vs 1.41) - no in-game capture yet. Capture plan: docs/M1_SESSION_SCRIPT.md B8.
+
 ## [2.3.0-beta1] - 2026-10-14
 
 Known unverified in this build: the WoW: Forever entries below - no in-game capture yet. Multi-Shot / Aimed Shot no-reset: UNIT_SPELLCAST_START behavior, melee cadence across the cast. Rapid Fire: whether the engine rescales the in-flight swing at all, and the factor (1.40 vs 1.41). Capture plan: docs/M1_SESSION_SCRIPT.md B8. The event `reason` argument, the single-frame dispatch, the target-change STOP, the Forever target registration and the `Unit:Reschedule` helper below: no in-game pass on any client yet (`luajit -bl` syntax check only); the duplicate-dispatch fix wants a two-copy test (an addon embedding MINOR 37 loaded together with this build). Regression plan: docs/M1_SESSION_SCRIPT.md Part D.
