@@ -422,6 +422,93 @@ ERROR line if `SetValue`, `SetText` or `SetCooldownFromDurationObject`
 rejects the secret. Countdown digits on the swipe need the "Show cooldown
 numbers" option; the swipe alone is enough.
 
+### B8. Hunter shot mechanics (forever-hunter wiki review, 2026-10-14)
+
+Source: the forever-hunter wiki (github.com/classic-hunter/forever-hunter/
+wiki - Shot Mechanics, Spell and Ability Mechanics, Forever Beta Changes)
+and Wowhead Forever spell data, cross-checked against the library on
+2026-10-14. Commit c747275 shipped the no-reset entries step 1 verifies;
+steps 2-5 are capture-only (no code until a verdict).
+
+Out of scope on purpose: the wiki's "melee attacks reset the ranged swing
+timer" - parked as a probable beta bug until the beta ends. Do not
+capture-chase it here; note it with `/stl note` if it shows up.
+
+Char: hunter with Multi-Shot, Aimed Shot (any rank - all six exist on
+Forever: 19434, 20900-20904; Multi-Shot is single-rank 2643), Rapid Fire
+(3045) and Disengage (781), a ranged weapon and a melee weapon. Use a
+dummy or a slow-hitting mob you can stand in melee with.
+
+Rig: SwingTestLog armed (CAST/CASTSTART, SWING and ATKSPEED lines, plus the
+library's START/UPDATE/STOP/CLIPPED). The tool does not log FAILED_QUIET or
+the autorepeat edges, so add this chat probe (250 chars, fits the script
+cap; GetTime clock, so it joins the log by timestamp - screenshot the chat
+or run /chatlog):
+
+```lua
+/run HP=HP or CreateFrame("Frame") for _,e in ipairs({"UNIT_SPELLCAST_FAILED_QUIET","START_AUTOREPEAT_SPELL","STOP_AUTOREPEAT_SPELL"}) do HP:RegisterEvent(e) end HP:SetScript("OnEvent",function(_,e,u,_,s) print(format("HP %.3f",GetTime()),e,u,s) end)
+```
+
+Mark every step with `/stl note b8-<n> <what you did>`.
+
+1. Multi-Shot and Aimed Shot in melee (verifies c747275). Melee the dummy
+   (no Auto Shot), cast Multi-Shot a few times mid-swing, then Aimed Shot
+   a few times. The library rule needs the cast to fire
+   UNIT_SPELLCAST_START: read the log for CASTSTART 2643 / 194xx-209xx
+   about 0.5 s / 2 s before the CAST line.
+   - CASTSTART present, next SWING mainhand on the old cadence (gap from
+     the previous anchor = weapon speed), no library STOP+START pair at
+     the CAST instant: entries correct as shipped.
+   - CASTSTART present, next SWING one full weapon speed after the CAST
+     line: the engine does reset - revert the entry for that spell.
+   - No CASTSTART (hidden cast, like Auto Shot): the entry is inert; no
+     change needed, record it.
+   - Note the spell ID on the CAST lines - it must be one of the IDs above.
+2. Aimed Shot clip window. Start Aimed Shot just before a melee swing is
+   due (swing bar more than half drained) so the swing comes due inside
+   the 2 s cast. Read the next SWING mainhand line against the library's
+   CLIPPED line:
+   - SWING lands on its due time during the cast: the library's CLIPPED
+     restart (Unit:SwingEnd, `hand ~= "ranged"` branch) is wrong for
+     no-reset casts - fix candidate: skip the clip when
+     preventSwingReset is set.
+   - SWING lands at the cast end (or later): the clip model is right;
+     record the landing offset from the CAST line.
+3. Rapid Fire mid-cycle (dynamic vs snapshot). Two passes:
+   (a) Auto Shot the dummy from range, cast Rapid Fire mid-cycle;
+   (b) melee the dummy, cast Rapid Fire mid-swing.
+   For each, read the anchor straddling the cast:
+   - The swing in flight lands early (remaining time divided by the
+     factor) and the next payload is hasted: dynamic - the shipped entries
+     (dynamic_haste_spells and dynamic_ranged_haste_spells 3045) stand;
+     check the library UPDATE matches the landing.
+   - The swing in flight lands on its old time and only the next one is
+     hasted: snapshot - remove both 3045 entries (the payload already
+     re-anchors; the shipped rescale would land swings early).
+   - Factor: base/hasted payload ratio. Wowhead Forever lists 41%, the
+     wiki 40% - the payload settles 1.40 vs 1.41 (shipped: 1.4). Also note whether
+     ATKSPEED fires at the cast and at the fade 15 s later.
+4. Disengage with Auto Shot on. Start Auto Shot, step into melee range,
+   Disengage (781, flagged "Stops auto-attack" on Wowhead Forever):
+   - HP STOP_AUTOREPEAT_SPELL at the cast, no further SWING ranged: the
+     library's isShooting clears - no change.
+   - No STOP_AUTOREPEAT_SPELL but ranged SWING lines stop: the library's
+     ranged bar keeps predicting shots - fix candidate: clear isShooting
+     on SUCCEEDED 781 (Forever).
+   - Also note whether melee auto-attack stops (PLAYER_LEAVE_COMBAT line).
+5. Auto Shot during a cast (wiki contradiction). Auto Shot from range and
+   cast Aimed Shot repeatedly through several cycles:
+   - Ranged SWING lines keep their cadence through the casts, no HP
+     FAILED_QUIET 75: Forever Beta Changes is right (Auto Shot fires
+     during casts) - the library's no-ranged-pause rule stands.
+   - HP FAILED_QUIET 75 lines during the cast, ranged SWING delayed: Shot
+     Mechanics is right (a cast blocks the shot and starts the 0.5 s
+     retry) - the FAILED_QUIET handler already models it; check its UPDATE
+     matches the landing.
+
+Verdicts: record in FOREVER_API_FINDINGS (new subsection, hunter shot
+mechanics) and update the [Unreleased] changelog entry for step 1.
+
 ## Part C - addon beta checklist (SPEC section 7, items not yet covered in effect testing)
 
 1. Hunter: ranged bar per Auto Shot; strafe mid-shot reschedules once
