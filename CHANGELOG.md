@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Known unverified in this build: the WoW: Forever entries below - no in-game capture yet. Multi-Shot / Aimed Shot no-reset: UNIT_SPELLCAST_START behavior, melee cadence across the cast. Rapid Fire: whether the engine rescales the in-flight swing at all, and the factor (1.40 vs 1.41). Capture plan: docs/M1_SESSION_SCRIPT.md B8. The event `reason` argument, the single-frame dispatch, the target-change STOP and the Forever target registration below: no in-game pass on any client yet (`luajit -bl` syntax check only); the duplicate-dispatch fix wants a two-copy test (an addon embedding MINOR 37 loaded together with this build).
+## [2.3.0-beta1] - 2026-10-14
+
+Known unverified in this build: the WoW: Forever entries below - no in-game capture yet. Multi-Shot / Aimed Shot no-reset: UNIT_SPELLCAST_START behavior, melee cadence across the cast. Rapid Fire: whether the engine rescales the in-flight swing at all, and the factor (1.40 vs 1.41). Capture plan: docs/M1_SESSION_SCRIPT.md B8. The event `reason` argument, the single-frame dispatch, the target-change STOP, the Forever target registration and the `Unit:Reschedule` helper below: no in-game pass on any client yet (`luajit -bl` syntax check only); the duplicate-dispatch fix wants a two-copy test (an addon embedding MINOR 37 loaded together with this build). Regression plan: docs/M1_SESSION_SCRIPT.md Part D.
 
 ### Added
 
